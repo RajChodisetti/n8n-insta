@@ -1,0 +1,142 @@
+{
+  "name": "wf_manual_topic_ingest",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "topic-ingest",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook_topic_ingest",
+      "name": "Webhook Topic Ingest",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "webhookId": "wf-manual-topic-ingest"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\nconst title = String(body.title ?? '').trim();\nif (!title) {\n  throw new Error('title is required');\n}\nconst slugBase = title\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-+|-+$/g, '')\n  .slice(0, 80);\nreturn [{\n  json: {\n    title,\n    slug: `${slugBase}-${Date.now()}`,\n    category: body.category ?? 'general',\n    confidence_label: body.confidence_label ?? 'unverified',\n    target_duration_seconds: Number(body.target_duration_seconds ?? 45),\n    source_payload_json: body.source_payload_json ?? {},\n    status: 'idea_approved'\n  }\n}];"
+      },
+      "id": "validate_payload",
+      "name": "Validate Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ...$json,\n    title_sql: String($json.title ?? '').replaceAll(\"'\", \"''\"),\n    slug_sql: String($json.slug ?? '').replaceAll(\"'\", \"''\"),\n    category_sql: String($json.category ?? 'general').replaceAll(\"'\", \"''\"),\n    confidence_label_sql: String($json.confidence_label ?? 'unverified').replaceAll(\"'\", \"''\"),\n    target_duration_seconds_sql: Number($json.target_duration_seconds ?? 45),\n    source_payload_json_sql: JSON.stringify($json.source_payload_json ?? {}).replaceAll(\"'\", \"''\"),\n    status_sql: String($json.status ?? 'idea_approved').replaceAll(\"'\", \"''\")\n  }\n}];"
+      },
+      "id": "prepare_insert_values",
+      "name": "Prepare Insert Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into content_items (\n  title,\n  slug,\n  category,\n  confidence_label,\n  target_duration_seconds,\n  source_payload_json,\n  status\n)\nvalues (\n  '{{$json.title_sql}}',\n  '{{$json.slug_sql}}',\n  '{{$json.category_sql}}',\n  '{{$json.confidence_label_sql}}',\n  {{$json.target_duration_seconds_sql}},\n  '{{$json.source_payload_json_sql}}'::jsonb,\n  '{{$json.status_sql}}'\n)\nreturning content_id, title, slug, status, created_at;",
+        "options": {}
+      },
+      "id": "insert_content_item",
+      "name": "Insert Content Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1040,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, content: $json } }}",
+        "options": {
+          "responseCode": 201
+        }
+      },
+      "id": "respond_created",
+      "name": "Respond Created",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.3,
+      "position": [
+        1300,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Topic Ingest": {
+      "main": [
+        [
+          {
+            "node": "Validate Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Payload": {
+      "main": [
+        [
+          {
+            "node": "Prepare Insert Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Insert Values": {
+      "main": [
+        [
+          {
+            "node": "Insert Content Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Content Item": {
+      "main": [
+        [
+          {
+            "node": "Respond Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "seed-manual-topic-ingest-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

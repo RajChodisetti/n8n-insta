@@ -1,0 +1,163 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "storyboard_json",
+    "cover_prompt",
+    "subtitle_lines_json",
+    "style_notes",
+    "visual_style_summary",
+    "render_manifest_seed_json"
+  ],
+  "properties": {
+    "storyboard_json": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scene_number",
+          "duration_seconds",
+          "narration_text",
+          "visual_prompt",
+          "asset_type",
+          "transition",
+          "mood"
+        ],
+        "properties": {
+          "scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "duration_seconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "narration_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visual_prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "asset_type": {
+            "type": "string",
+            "enum": ["image", "video"]
+          },
+          "transition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mood": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "cover_prompt": {
+      "type": "string",
+      "minLength": 1
+    },
+    "subtitle_lines_json": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["scene_number", "text"],
+        "properties": {
+          "scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "style_notes": {
+      "type": "string",
+      "minLength": 1
+    },
+    "visual_style_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "render_manifest_seed_json": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["output", "timeline", "subtitles"],
+      "properties": {
+        "output": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height", "fps", "format"],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "fps": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "format": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["scene_number", "duration_seconds", "asset_type", "transition"],
+            "properties": {
+              "scene_number": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "duration_seconds": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "asset_type": {
+                "type": "string",
+                "enum": ["image", "video"]
+              },
+              "transition": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "subtitles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "style"],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "style": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

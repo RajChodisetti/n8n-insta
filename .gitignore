@@ -2,6 +2,12 @@
 .env
 .env.local
 .env.*.local
+infra/.env
 
 # Optional secrets directory
 secrets/
+
+# Local runtime artifacts
+.DS_Store
+infra/state/
+storage/

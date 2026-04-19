@@ -7,7 +7,7 @@ if [[ -z "${INSTAGRAM_GRAPH_API_TOKEN:-}" ]]; then
   exit 1
 fi
 
-API_VERSION="${GRAPH_API_VERSION:-v20.0}"
+API_VERSION="${GRAPH_API_VERSION:-v25.0}"
 BASE_URL="https://graph.facebook.com/${API_VERSION}"
 TOKEN="${INSTAGRAM_GRAPH_API_TOKEN}"
 
