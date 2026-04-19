@@ -1,0 +1,7 @@
+# Local secrets
+.env
+.env.local
+.env.*.local
+
+# Optional secrets directory
+secrets/
