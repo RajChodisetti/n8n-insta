@@ -13,13 +13,15 @@ Use this before development starts.
 ## Accounts and access
 
 ### Instagram
-- [ ] Create or convert to professional Instagram account
+- [x] Create or convert to professional Instagram account
+  - Runbook: `14-instagram-professional-account-runbook.md`
 - [ ] Prepare account for API-driven publishing workflow
 - [ ] Confirm the account will be the only publishing target for v1
 
 ### n8n
 - [ ] Decide hosted vs self-hosted n8n
 - [ ] Configure secrets/credentials strategy
+  - Use local `.env.local` for dev and n8n credential store for runtime tokens (`INSTAGRAM_GRAPH_API_TOKEN`).
 - [ ] Enable persistent storage/logging
 
 ### Storage
@@ -113,4 +115,3 @@ V1 is complete when you can:
 - approve it
 - publish it to Instagram
 - collect a first metrics snapshot
-
