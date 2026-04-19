@@ -194,3 +194,6 @@ Include a strong focal point relevant to the story.
 
 Store prompts as templates with variables instead of hardcoding them directly into code nodes.
 
+Implemented prompt files now live under [`prompts/`](./prompts/README.md). Use those versioned files as the source of truth for workflow implementation.
+
+Storyboard prompt files now live under [`prompts/storyboard_and_prompts/`](./prompts/storyboard_and_prompts/system.md).
