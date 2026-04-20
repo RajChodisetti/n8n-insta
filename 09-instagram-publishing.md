@@ -6,6 +6,16 @@ This document defines the Instagram publishing layer for the workflow.
 
 Publish approved Reels to Instagram and track the resulting media identifiers for later insights collection.
 
+## MVP publishing target
+
+Before automating Reels, the first working publish path should be a simple Instagram post:
+
+- one image
+- one caption
+- one hashtag set
+
+Reel publishing remains part of the longer-term plan, but it is not the shortest path to a working MVP.
+
 ## Account requirement
 
 Use an Instagram **professional account** connected for API-based publishing and insights collection.
@@ -13,8 +23,9 @@ Use an Instagram **professional account** connected for API-based publishing and
 ## Publishing prerequisites
 
 Before publishing, the system should have:
-- final MP4 ready
+- one publishable image ready for the MVP path
 - caption ready
+- hashtags ready
 - content ID
 - account credentials configured
 - publish timing decision made
@@ -23,14 +34,22 @@ Before publishing, the system should have:
 
 ### Step 1 — pre-publish validation
 Check:
-- video file exists
-- file is accessible by the publishing step
+- image asset exists
+- image URL is public and fetchable by Meta
+- image format is JPEG for the MVP simple-post path
 - caption is not empty
-- content status is `qa_approved`
+- content status is `assets_ready` for MVP, or `qa_approved` once approval is added
 - no duplicate publish for same content ID
+- live publishing is explicitly enabled in env
 
 ### Step 2 — create media container / publish flow
-Use the Instagram API publishing flow supported for Reels and other professional-account media publishing.
+For the current MVP simple-post path:
+
+- discover the linked Facebook Page and Instagram professional account
+- create the image container with `POST /<IG_ID>/media`
+- poll `/<IG_CONTAINER_ID>?fields=status_code`
+- publish with `POST /<IG_ID>/media_publish`
+- check `/<IG_ID>/content_publishing_limit` before attempting the publish call
 
 ### Step 3 — save identifiers
 Persist:
@@ -73,17 +92,19 @@ For each published Reel store:
 
 ## Failure scenarios to handle
 
-- inaccessible media file
+- inaccessible image URL
+- non-JPEG asset for the MVP simple-post path
 - expired or invalid credentials
 - malformed caption data
 - duplicate publish attempt
+- publish safety switch still disabled
 - API error response
 
 ## Retry behavior
 
 If publishing fails:
 1. write failure reason
-2. keep content in `qa_approved`
+2. keep content in its current pre-publish state
 3. allow explicit republish attempt
 
 ## QA note
@@ -98,4 +119,3 @@ Once publishing succeeds, the content item becomes eligible for:
 - 72-hour metrics collection
 - 7-day metrics collection
 - performance review inclusion
-

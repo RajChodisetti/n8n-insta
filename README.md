@@ -1,10 +1,10 @@
 # Instagram AI Storytelling Workflow — Documentation Pack
 
-This repository contains the starter documentation for building an Instagram-only, n8n-orchestrated AI storytelling workflow for faceless Reel creation.
+This repository contains the starter documentation for building an Instagram-only, n8n-orchestrated AI storytelling workflow.
 
 ## Objective
 
-Build a system that can:
+Long-term, build a system that can:
 
 1. Discover or accept story ideas
 2. Research and structure them into short-form scripts
@@ -13,6 +13,17 @@ Build a system that can:
 5. Render final 9:16 Reels
 6. Publish to Instagram
 7. Pull insights and improve future content
+
+## Current MVP target
+
+Before the full Reel pipeline, the immediate target is a simpler working loop:
+
+1. accept one topic
+2. generate one caption draft
+3. generate one hashtag set
+4. attach one simple image asset
+5. publish one Instagram post
+6. persist publish metadata
 
 ## Guiding principle
 
@@ -25,7 +36,8 @@ Recommended operating model:
 ## What has been decided
 
 - Platform focus: **Instagram only**
-- Primary format: **Reels**
+- Long-term primary format: **Reels**
+- Current MVP publish target: **simple Instagram post**
 - Content style: **English, faceless, AI-narrated, visually cinematic interesting stories**
 - Brand identity: **consistent voice, pacing, subtitle style, and ending signature**
 - Orchestrator: **n8n**
@@ -50,36 +62,51 @@ Read in this order:
 10. `10-insights-and-feedback-loop.md`
 11. `11-setup-checklist.md`
 12. `12-roadmap.md`
+13. `13-provider-strategy.md`
+14. `14-instagram-professional-account-runbook.md`
+15. `15-delivery-and-testing-workflow.md`
+16. `16-engineering-backlog.md`
+17. `17-brand-identity.md`
+
+## Delivery Tracking
+
+- Active tracker: [15-delivery-and-testing-workflow.md](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
+- Engineering backlog: [16-engineering-backlog.md](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
+- Completed items archive: [delivery-testing/completed-items/README.md](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/README.md)
 
 ## Recommended build approach
 
 Do not implement everything at once.
 
 ### Phase 1
-- Topic discovery
-- Research + script
-- Storyboard generation
-- Manual asset generation
-- Manual render review
+- simple-post MVP
+- caption + hashtags
+- one image asset
+- Instagram publish validation
+- publish metadata persistence
 
 ### Phase 2
-- AI narration generation
-- Automated asset generation
-- Render worker integration
+- topic to script to storyboard flow
+- better content planning
+- approval hardening
 
 ### Phase 3
-- Instagram publishing automation
-- Metadata persistence
-- Insights collection
+- AI narration generation
+- generated assets
+- render worker integration
 
 ### Phase 4
-- Performance analysis
-- Recommendation engine
-- Semi-autonomous content planning
+- Reel publishing automation
+- insights collection
+- performance analysis
+- recommendation engine
 
 ## Core success metric
 
-The system is successful when it can produce a repeatable flow:
+Long-term success flow:
 
 `story -> script -> storyboard -> assets -> reel -> publish -> analyze -> improve`
 
+Current MVP success flow:
+
+`topic -> caption/hashtags -> simple image -> publish -> persist`

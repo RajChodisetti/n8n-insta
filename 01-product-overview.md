@@ -8,6 +8,17 @@ Working name: **Instagram AI Storytelling Engine**
 
 Create a semi-autonomous system that turns interesting real or legend-adjacent stories into short, high-retention Instagram Reels with minimal human intervention.
 
+## Near-term MVP
+
+Before building the Reel engine, ship a simpler working Instagram-post MVP:
+
+- one topic
+- one image
+- one caption
+- one hashtag set
+- one publish action
+- one saved publish record
+
 ## Target output
 
 A polished Instagram Reel package consisting of:
@@ -17,6 +28,15 @@ A polished Instagram Reel package consisting of:
 - optional cover image
 - metadata record
 - post-publish performance report
+
+## MVP output
+
+A simple Instagram post package consisting of:
+
+- one image asset
+- one caption
+- one hashtag set
+- one metadata record
 
 ## Target content style
 
@@ -85,3 +105,4 @@ Build a repeatable content engine that can:
 This is not just a Reel maker.
 This is a **story-to-performance loop**.
 
+For MVP, prove the smallest publishable loop first.

@@ -185,23 +185,24 @@ Reel is marked `qa_approved` or routed back for revision.
 ## Workflow 7 — Instagram Publish
 
 ### Goal
-Publish approved Reels to Instagram.
+Publish the MVP simple post first, then extend the same stage for Reels later.
 
 ### Inputs
-- final MP4
+- publishable image URL for MVP simple-post flow
 - caption
-- cover image if applicable
+- hashtags
 - publish timing
 
 ### Steps
-1. Validate file and metadata
-2. Create publish request
-3. Publish Reel through API flow
+1. Validate image URL, caption, account readiness, and publish safety switch
+2. Create Instagram media container
+3. Publish through the Instagram Graph API flow
 4. Save Instagram media ID
 5. Mark content as published
 
 ### Outputs
 - media ID
+- media container ID
 - publish timestamp
 - publish status
 
@@ -265,4 +266,3 @@ Interpret outcomes and improve future content.
 
 ### Success condition
 Recommendations are written back to the planning layer.
-

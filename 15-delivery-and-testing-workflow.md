@@ -1,310 +1,125 @@
 # 15 — Delivery and Testing Workflow
 
-This document defines how backlog items move from implementation to completion.
+This is the active delivery/testing tracker.
 
-## Status model
+## Updated Links
 
-Use one of these states for each backlog item:
+- Active tracker: [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
+- Engineering backlog: [16 — Engineering Backlog](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
+- Completed items archive: [delivery-testing/completed-items/README.md](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/README.md)
+- Setup checklist: [11-setup-checklist.md](/Users/rajchodisetti/n8n-insta/11-setup-checklist.md)
+
+## How Tracking Works
+
+Use these three documents together:
+
+- [16 — Engineering Backlog](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
+  Source of truth for what still needs to be built and what is in scope for the MVP.
+- [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
+  Active tracker for items that have been implemented and are waiting for testing.
+- [delivery-testing/completed-items/README.md](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/README.md)
+  Archive of items that already passed testing.
+
+Rule:
+
+1. backlog sequencing lives in the engineering backlog
+2. once an item is implemented, it moves here for testing
+3. once it passes testing, it moves into the completed-items archive
+4. every completion message should include the updated links above
+5. every testing section should include exact DB check commands and, if needed, exact insert or update commands
+
+## Status Model
 
 - `backlog`
 - `implemented_awaiting_test`
 - `complete`
 
-## Required process for every item
+## Current Items in `implemented_awaiting_test`
 
-When an item is implemented, record all of the following:
-
-- what was completed
-- where the changes live
-- how to test it
-- what outcome should be considered a pass
-
-Then use this handoff flow:
-
-1. I implement the backlog item.
-2. I document the test steps for you.
-3. You run the tests and report the result.
-4. If the test passes, I move the item to `complete`.
-5. After moving it to `complete`, I ask you to raise a PR.
-
-## Completed items
-
-### 1. Local infra scaffold
-
-Status: `complete`
-
-What was completed:
-
-- Docker Compose stack for `n8n`, `postgres`, `redis`, and `minio`
-- non-default host ports to reduce collision risk
-- persistent local volumes under `infra/state/`
-- MinIO bucket bootstrap
-
-Changed files:
-
-- [infra/docker-compose.yml](/Users/rajchodisetti/n8n-insta/infra/docker-compose.yml)
-- [infra/.env.example](/Users/rajchodisetti/n8n-insta/infra/.env.example)
-- [infra/README.md](/Users/rajchodisetti/n8n-insta/infra/README.md)
-
-How to test:
-
-1. Run `cp infra/.env.example infra/.env` if `infra/.env` does not exist yet.
-2. Run `docker compose --env-file infra/.env -f infra/docker-compose.yml up -d`.
-3. Run `docker compose --env-file infra/.env -f infra/docker-compose.yml ps`.
-4. Open `http://localhost:35678`.
-5. Open `http://localhost:42173`.
-
-What to verify:
-
-- `n8n`, `postgres`, `redis`, and `minio` are up
-- `postgres` and `redis` show `healthy`
-- n8n opens in the browser on port `35678`
-- MinIO console opens in the browser on port `42173`
-- there is no host-port collision during startup
-
-Pass condition:
-
-- all containers start successfully and both UIs are reachable
-
-Test result:
-
-- passed by local validation
-- stack started successfully
-- n8n and MinIO UI were reachable
-
-### 2. Initial PostgreSQL schema
-
-Status: `complete`
-
-What was completed:
-
-- initial tables for content lifecycle, assets, renders, publishing, insights, and workflow runs
-- automatic schema bootstrap during first Postgres startup
-
-Changed files:
-
-- [infra/postgres/init/001_init.sql](/Users/rajchodisetti/n8n-insta/infra/postgres/init/001_init.sql)
-
-How to test:
-
-1. Ensure the stack is running.
-2. Run `docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c "\\dt"`.
-3. Confirm the custom tables exist.
-
-What to verify:
-
-- `content_items`
-- `content_sources`
-- `scripts`
-- `storyboards`
-- `assets`
-- `renders`
-- `publishes`
-- `insight_snapshots`
-- `performance_reviews`
-- `workflow_runs`
-
-Pass condition:
-
-- the expected custom tables are listed by Postgres
-
-Test result:
-
-- passed by local validation
-- expected custom tables are present in Postgres
-
-### 3. Seed n8n workflow exports
-
-Status: `complete`
-
-What was completed:
-
-- a manual topic ingest workflow export
-- a research-and-script stub export for the next implementation step
-- workflow export storage under version control
-
-Changed files:
-
-- [workflows/README.md](/Users/rajchodisetti/n8n-insta/workflows/README.md)
-- [workflows/n8n/wf_manual_topic_ingest.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_manual_topic_ingest.json)
-- [workflows/n8n/wf_research_script_stub.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_research_script_stub.json)
-
-How to test:
-
-1. Open n8n at `http://localhost:35678`.
-2. Import `workflows/n8n/wf_manual_topic_ingest.json`.
-3. Import `workflows/n8n/wf_research_script_stub.json`.
-4. Confirm both workflows appear in the n8n editor.
-5. Open each workflow and inspect the nodes.
-
-What to verify:
-
-- the JSON imports without parse errors
-- `wf_manual_topic_ingest` loads with webhook, code, Postgres, and response nodes
-- `wf_research_script_stub` loads with manual trigger, Postgres, set/code nodes, and provider placeholder
-- the only missing piece should be credentials and provider integration, not broken workflow structure
-
-Pass condition:
-
-- both workflows import successfully and their node graphs look intact
-
-Test result:
-
-- passed by local validation
-- both workflows import successfully into n8n
-- the two workflows are expected to be separate and do not need to connect to each other
-
-## Current items in `implemented_awaiting_test`
-
-### 4. Research and script prompt templates
-
-Status: `complete`
-
-What was completed:
-
-- extracted the research/script prompt into versioned prompt files
-- added a stricter JSON response contract for the workflow
-- documented how the workflow should consume these templates
-
-Changed files:
-
-- [prompts/research_and_script/system.md](/Users/rajchodisetti/n8n-insta/prompts/research_and_script/system.md)
-- [prompts/research_and_script/user.md](/Users/rajchodisetti/n8n-insta/prompts/research_and_script/user.md)
-- [prompts/research_and_script/response-schema.json](/Users/rajchodisetti/n8n-insta/prompts/research_and_script/response-schema.json)
-- [prompts/README.md](/Users/rajchodisetti/n8n-insta/prompts/README.md)
-
-How to test:
-
-1. Open the three files under `prompts/research_and_script/`.
-2. Verify that the prompt variables map to the workflow inputs you expect to send.
-3. Verify that the response schema includes every field needed by the `scripts` table.
-4. In n8n, inspect `wf_research_script_stub` and confirm the prompt payload shape can be filled from these templates without ambiguity.
-
-What to verify:
-
-- the system prompt defines role, tone, and factual handling clearly
-- the user prompt includes placeholders for topic, source notes, duration, and brand voice
-- the JSON schema covers hook options, selected hook, narration, short script, caption, CTA, and on-screen text
-- there is no mismatch between prompt output names and the intended database fields
-
-Pass condition:
-
-- the prompt files are complete enough to be used directly in the next workflow implementation step without inventing missing fields
-
-Test result:
-
-- passed by local validation
-- workflow output shape was aligned with the prompt schema
-
-### 5. Persist scripts to DB from the research workflow
-
-Status: `complete`
-
-What was completed:
-
-- extended `wf_research_script_stub` beyond prompt building
-- added a mock provider response so the workflow can be tested before a real LLM is selected
-- normalized the generated script package
-- upserted script records into `scripts`
-- updated `content_items.status` to `script_complete`
-- added explicit guardrails so the workflow fails early if `content_id` or `title` is missing
-- fixed SQL-safe inserts for `wf_manual_topic_ingest` so it can create test content reliably
-- imported fresh runtime copies into n8n to replace the stale partial workflow the app was running
-
-Changed files:
-
-- [workflows/n8n/wf_research_script_stub.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_research_script_stub.json)
-- [workflows/n8n/wf_manual_topic_ingest.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_manual_topic_ingest.json)
-
-How to test:
-
-1. In n8n, use the imported workflow named `wf_research_script_stub`. Do not use the older `My workflow` copy.
-2. In n8n, use the imported workflow named `wf_manual_topic_ingest` if you need to create a fresh approved content item.
-3. Confirm `wf_research_script_stub` has 9 nodes in this order:
-   - `Manual Trigger`
-   - `Fetch Next Approved Item`
-   - `Prepare Prompt Payload`
-   - `Build LLM Request`
-   - `Mock Provider Response`
-   - `Normalize Script Package`
-   - `Prepare SQL Values`
-   - `Upsert Scripts`
-   - `Mark Script Complete`
-4. Make sure at least one row exists in `content_items` with `status = 'idea_approved'`.
-5. Run `wf_research_script_stub` from the start using `Manual Trigger`.
-5. Query Postgres:
-   - `select content_id, selected_hook, generation_model from scripts order by generated_at desc limit 5;`
-   - `select content_id, status from content_items order by updated_at desc limit 5;`
-
-What to verify:
-
-- the workflow runs past prompt building into the DB nodes
-- a row is inserted or updated in `scripts`
-- `generation_model` is `mock_provider_v1`
-- the related `content_items.status` becomes `script_complete`
-- if upstream data is missing, the workflow now fails before SQL with a clear error instead of reaching `Upsert Scripts` with `undefined`
-
-Pass condition:
-
-- one approved content item is transformed into a persisted script record and the content status is updated
-
-Test result:
-
-- passed in the fixed runtime workflow
-- script rows persist to `scripts`
-- related `content_items.status` updates to `script_complete`
-
-## Current items in `implemented_awaiting_test`
-
-### 6. Storyboard prompt templates
+### 11. `MVP-07` simple Instagram publish workflow
 
 Status: `implemented_awaiting_test`
 
 What was completed:
 
-- extracted the storyboard prompt into versioned prompt files
-- defined a response schema for storyboard scenes, subtitle lines, cover prompt, and render manifest seed
-- documented the prompt group for future workflow use
+- added `wf_instagram_simple_post_publish`
+- fetches the next draft or failed Instagram publish candidate with a ready `post_image` asset
+- validates the caption, asset URL, JPEG requirement, publish status, and live-publish enable flag
+- auto-discovers the linked Facebook Page, Page access token, and Instagram professional account ID
+- checks the current `content_publishing_limit` quota before publish
+- creates the Instagram media container, polls `status_code`, and calls `media_publish`
+- upserts `publishes`, updates `content_items` on success, and logs the run in `workflow_runs`
+- updated `wf_simple_post_image_asset` to use an optional `MVP_SIMPLE_POST_IMAGE_URL` public JPEG source for publish testing
 
 Changed files:
 
-- [prompts/storyboard_and_prompts/system.md](/Users/rajchodisetti/n8n-insta/prompts/storyboard_and_prompts/system.md)
-- [prompts/storyboard_and_prompts/user.md](/Users/rajchodisetti/n8n-insta/prompts/storyboard_and_prompts/user.md)
-- [prompts/storyboard_and_prompts/response-schema.json](/Users/rajchodisetti/n8n-insta/prompts/storyboard_and_prompts/response-schema.json)
-- [prompts/README.md](/Users/rajchodisetti/n8n-insta/prompts/README.md)
+- [workflows/n8n/wf_instagram_simple_post_publish.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_instagram_simple_post_publish.json)
+- [workflows/n8n/wf_simple_post_image_asset.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_simple_post_image_asset.json)
+- [workflows/README.md](/Users/rajchodisetti/n8n-insta/workflows/README.md)
+- [09-instagram-publishing.md](/Users/rajchodisetti/n8n-insta/09-instagram-publishing.md)
+- [04-workflows.md](/Users/rajchodisetti/n8n-insta/04-workflows.md)
+- [.env.example](/Users/rajchodisetti/n8n-insta/.env.example)
+- [11-setup-checklist.md](/Users/rajchodisetti/n8n-insta/11-setup-checklist.md)
+- [16-engineering-backlog.md](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
 
 How to test:
 
-1. Open the three files under `prompts/storyboard_and_prompts/`.
-2. Verify that the placeholders map to the expected workflow inputs:
-   - `title`
-   - `category`
-   - `target_duration_seconds`
-   - `brand_tone`
-   - `visual_style_rules`
-   - `subtitle_style_rules`
-   - `narration_script`
-3. Verify that the response schema covers:
-   - `storyboard_json`
-   - `cover_prompt`
-   - `subtitle_lines_json`
-   - `style_notes`
-   - `visual_style_summary`
-   - `render_manifest_seed_json`
-4. Confirm the schema output is compatible with the `storyboards` table in PostgreSQL.
+1. Set the publish safety switch and a public JPEG asset in the repo-root `.env`:
+   - `INSTAGRAM_PUBLISH_ENABLED=true`
+   - `MVP_SIMPLE_POST_IMAGE_URL=https://.../your-public-image.jpg`
+2. Reload `n8n` so the running container picks up the updated repo-root `.env`:
+   - `docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --force-recreate n8n`
+3. Confirm the env values are loaded into the running container:
+   - `docker exec n8n-insta sh -lc 'printf \"publish_enabled=%s\\npublic_image_url=%s\\n\" \"$INSTAGRAM_PUBLISH_ENABLED\" \"$MVP_SIMPLE_POST_IMAGE_URL\"'`
+4. Re-run `wf_simple_post_image_asset` so the candidate asset row uses the public JPEG URL.
+5. Verify the asset row before publishing:
+   - `docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c "select content_id, asset_role, provider, storage_url, mime_type, status from assets where asset_role = 'post_image' order by created_at desc limit 5;"`
+6. Verify the candidate publish row before publishing:
+   - `docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c \"select ci.content_id, ci.title, ci.status, p.publish_status, p.caption_final, p.hashtags_final from content_items ci join publishes p on p.content_id = ci.content_id order by ci.updated_at desc limit 5;\"`
+7. In n8n, open the imported workflow named `wf_instagram_simple_post_publish`.
+8. Confirm it has 7 nodes in this order:
+   - `Manual Trigger`
+   - `Fetch Next Instagram Publish Item`
+   - `Validate and Publish Instagram Post`
+   - `Prepare Publish Result SQL Values`
+   - `Upsert Publish Result`
+   - `Sync Content Publish State`
+   - `Log Publish Run`
+9. Run `wf_instagram_simple_post_publish` from `Manual Trigger`.
+10. Verify the publish row:
+   - `docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c "select content_id, publish_status, instagram_media_id, instagram_container_id, published_at, publish_error from publishes order by created_at desc limit 5;"`
+11. Verify the content status:
+   - `docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c "select content_id, title, status, published_at from content_items order by updated_at desc limit 5;"`
+12. Verify the workflow log:
+   - `docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c \"select run_id, content_id, workflow_name, run_status, error_message, started_at, ended_at from workflow_runs where workflow_name = 'wf_instagram_simple_post_publish' order by started_at desc limit 5;\"`
+13. Inspect the latest workflow details:
+   - `docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c \"select details_json->'instagram_account' as instagram_account, details_json->'content_publishing_limit' as content_publishing_limit, details_json->'container_create' as container_create, details_json->'publish_response' as publish_response from workflow_runs where workflow_name = 'wf_instagram_simple_post_publish' order by started_at desc limit 1;\"`
 
 What to verify:
 
-- the system prompt defines scene planning and factual alignment clearly
-- the user prompt gives enough context to derive scenes, subtitles, and a cover prompt
-- the schema includes all fields needed to persist a storyboard package
-- the scene objects use stable field names suitable for later asset/render steps
+- the workflow selects a draft or failed publish candidate with a ready `post_image`
+- `provider` is `public_image_url`, `storage_url` is the public JPEG URL, and `mime_type` is `image/jpeg`
+- a successful run sets `publish_status = published`
+- `instagram_container_id` and `instagram_media_id` are populated on success
+- `content_items.status` becomes `published`
+- `publish_error` is empty on success
+- `workflow_runs.run_status` is `success`
 
 Pass condition:
 
-- the prompt files are complete enough to drive the `storyboard_and_prompts` workflow without inventing additional required fields
+- one draft simple-post candidate is published to Instagram through the Graph API and the publish metadata is persisted locally
 
-After your test:
+## Completed Items (moved to archive)
 
-- tell me whether the storyboard prompt-template test passed or failed
-- if it passed, I will move this item to `complete` and ask you to raise a PR
+### 10. `MVP-06` Instagram publishing credentials and account validation
+
+Status: `complete` ✅
+
+Archive entry:
+
+- [10 — Instagram Publishing Credentials and Account Validation](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/10-instagram-publishing-credentials-and-account-validation.md)
+- Exact test steps and DB validation commands now live only in the archive record above.
+
+## Next Item After 11 Passes
+
+- `MVP-08` publish metadata persistence and duplicate protection
