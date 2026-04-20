@@ -1,0 +1,204 @@
+{
+  "name": "wf_instagram_simple_post_publish",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select\n  ci.content_id,\n  ci.title,\n  ci.status as content_status,\n  p.publish_status,\n  p.caption_final,\n  p.hashtags_final,\n  p.scheduled_for,\n  a.asset_id,\n  a.storage_url,\n  a.source_url,\n  a.mime_type,\n  a.provider,\n  a.width,\n  a.height\nfrom content_items ci\njoin publishes p on p.content_id = ci.content_id\njoin lateral (\n  select\n    asset_id,\n    storage_url,\n    source_url,\n    mime_type,\n    provider,\n    width,\n    height,\n    status,\n    created_at\n  from assets\n  where content_id = ci.content_id\n    and asset_role = 'post_image'\n  order by created_at desc\n  limit 1\n) a on true\nwhere p.platform = 'instagram'\n  and p.publish_status in ('draft', 'failed')\n  and ci.status in ('assets_ready', 'qa_approved')\n  and a.status = 'ready'\n  and (p.scheduled_for is null or p.scheduled_for <= now())\norder by coalesce(p.scheduled_for, ci.updated_at) asc, ci.updated_at asc\nlimit 1;",
+        "options": {}
+      },
+      "id": "fetch_next_instagram_publish_item",
+      "name": "Fetch Next Instagram Publish Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        500,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const workflowName = 'wf_instagram_simple_post_publish';\nconst startedMs = Date.now();\nconst checkedAt = new Date().toISOString();\nconst env = typeof $env === 'object' && $env ? $env : {};\nconst graphApiVersion = String(env.GRAPH_API_VERSION || 'v25.0').trim();\nconst rootAccessToken = String(env.INSTAGRAM_GRAPH_API_TOKEN || '').trim();\nconst publishEnabled = String(env.INSTAGRAM_PUBLISH_ENABLED || 'false').trim().toLowerCase() === 'true';\nconst preferredPageId = String(env.INSTAGRAM_TARGET_PAGE_ID || '').trim();\nconst preferredIgUserId = String(env.INSTAGRAM_IG_USER_ID || '').trim();\nconst captionFinal = String($json.caption_final ?? '').trim();\nconst hashtagsFinal = String($json.hashtags_final ?? '').trim();\nconst contentStatus = String($json.content_status ?? '').trim();\nconst publishStatus = String($json.publish_status ?? '').trim();\nconst assetUrl = String($json.storage_url ?? '').trim();\nconst assetMimeType = String($json.mime_type ?? '').trim().toLowerCase();\nconst title = String($json.title ?? '').trim();\nconst contentId = String($json.content_id ?? '').trim();\nconst errors = [];\nconst details = {\n  checked_at: checkedAt,\n  graph_api_version: graphApiVersion,\n  publish_enabled: publishEnabled,\n  content_id: contentId,\n  content_status: contentStatus,\n  current_publish_status: publishStatus,\n  asset: {\n    url: assetUrl,\n    mime_type: assetMimeType,\n    provider: String($json.provider ?? '').trim(),\n    width: Number($json.width ?? 0) || null,\n    height: Number($json.height ?? 0) || null\n  }\n};\nconst uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst looksLikePublicUrl = /^https?:\\/\\//i.test(assetUrl);\nconst looksLikeJpegUrl = /\\.jpe?g(?:[?#].*)?$/i.test(assetUrl);\nconst allowedStatuses = new Set(['assets_ready', 'qa_approved']);\nconst composedCaption = [captionFinal, hashtagsFinal].filter(Boolean).join('\\n\\n').trim();\nconst altText = title ? `${title} Instagram post image` : 'Instagram post image';\nif (!uuidPattern.test(contentId)) {\n  errors.push('Fetch Next Instagram Publish Item did not produce a valid content_id.');\n}\nif (!title) {\n  errors.push('Fetch Next Instagram Publish Item did not produce a title.');\n}\nif (!allowedStatuses.has(contentStatus)) {\n  errors.push(`Content status must be assets_ready or qa_approved before publish. Received: ${contentStatus || '<empty>'}.`);\n}\nif (!captionFinal) {\n  errors.push('caption_final is empty. Run wf_caption_and_hashtags before publishing.');\n}\nif (!assetUrl) {\n  errors.push('storage_url is empty. Run wf_simple_post_image_asset before publishing.');\n} else {\n  if (!looksLikePublicUrl) {\n    errors.push('storage_url must be a public http(s) URL so Meta can fetch the image.');\n  }\n  if (!(assetMimeType === 'image/jpeg' || assetMimeType === 'image/jpg' || looksLikeJpegUrl)) {\n    errors.push('The publish asset must be a JPEG image. Set MVP_SIMPLE_POST_IMAGE_URL to a public .jpg or .jpeg URL and rerun wf_simple_post_image_asset.');\n  }\n}\nif (!publishEnabled) {\n  errors.push('INSTAGRAM_PUBLISH_ENABLED is not true in the running n8n container env. Set it in the repo-root .env and recreate n8n before attempting a live publish.');\n}\nif (!rootAccessToken) {\n  errors.push('INSTAGRAM_GRAPH_API_TOKEN is empty in the running n8n container env.');\n}\nconst buildResult = (overrides = {}) => [{\n  json: {\n    workflow_name: workflowName,\n    content_id: contentId,\n    title,\n    caption_final: captionFinal,\n    hashtags_final: hashtagsFinal,\n    content_status_before_run: contentStatus,\n    publish_status_before_run: publishStatus,\n    run_status: overrides.run_status ?? (errors.length ? 'failed' : 'success'),\n    publish_status_after_run: overrides.publish_status_after_run ?? (errors.length ? 'failed' : 'published'),\n    error_message: overrides.error_message ?? errors.join(' | '),\n    instagram_media_id: overrides.instagram_media_id ?? '',\n    instagram_container_id: overrides.instagram_container_id ?? '',\n    duration_ms: Date.now() - startedMs,\n    details_json: {\n      ...details,\n      caption_preview: composedCaption.slice(0, 500),\n      ...overrides.details_json\n    }\n  }\n}];\nif (errors.length) {\n  details.validation_errors = [...errors];\n  return buildResult();\n}\nconst graphRequest = async ({ method = 'GET', path, token, qs, body }) => {\n  const options = {\n    method,\n    url: `https://graph.facebook.com/${graphApiVersion}/${path}`,\n    json: true,\n    returnFullResponse: true,\n    ignoreHttpStatusErrors: true,\n    headers: {\n      Authorization: `Bearer ${token}`\n    }\n  };\n  if (qs) {\n    options.qs = qs;\n  }\n  if (body) {\n    options.headers['Content-Type'] = 'application/json';\n    options.body = body;\n  }\n  try {\n    const response = await helpers.httpRequest(options);\n    const statusCode = Number(response.statusCode ?? 0);\n    const responseBody = response.body ?? {};\n    return {\n      ok: statusCode >= 200 && statusCode < 300 && !responseBody.error,\n      status: statusCode,\n      body: responseBody\n    };\n  } catch (error) {\n    return {\n      ok: false,\n      status: Number(error?.statusCode ?? 0),\n      body: error?.response?.body ?? {\n        error: {\n          message: error.message\n        }\n      }\n    };\n  }\n};\nconst sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));\ntry {\n  const pagesResponse = await graphRequest({\n    path: 'me/accounts',\n    token: rootAccessToken,\n    qs: {\n      fields: 'id,name'\n    }\n  });\n  details.page_lookup = {\n    http_status: pagesResponse.status,\n    page_count: Array.isArray(pagesResponse.body?.data) ? pagesResponse.body.data.length : 0\n  };\n  if (!pagesResponse.ok) {\n    return buildResult({\n      run_status: 'failed',\n      publish_status_after_run: 'failed',\n      error_message: `/me/accounts failed: ${pagesResponse.body?.error?.message ?? 'unknown error'}`,\n      details_json: {\n        ...details,\n        page_lookup: {\n          ...details.page_lookup,\n          body: pagesResponse.body\n        }\n      }\n    });\n  }\n  const pages = Array.isArray(pagesResponse.body?.data) ? pagesResponse.body.data : [];\n  const selectedPage = preferredPageId\n    ? pages.find((page) => String(page.id) === preferredPageId)\n    : pages[0];\n  if (!selectedPage) {\n    return buildResult({\n      run_status: 'failed',\n      publish_status_after_run: 'failed',\n      error_message: preferredPageId\n        ? `INSTAGRAM_TARGET_PAGE_ID=${preferredPageId} was not returned by /me/accounts.`\n        : 'No linked Facebook Pages were returned by /me/accounts.',\n      details_json: {\n        ...details,\n        linked_pages: pages\n      }\n    });\n  }\n  details.selected_page = {\n    id: selectedPage.id,\n    name: selectedPage.name\n  };\n  const pageDetailsResponse = await graphRequest({\n    path: String(selectedPage.id),\n    token: rootAccessToken,\n    qs: {\n      fields: 'id,name,access_token,instagram_business_account{id,username},connected_instagram_account{id,username}'\n    }\n  });\n  details.page_details_lookup = {\n    http_status: pageDetailsResponse.status\n  };\n  if (!pageDetailsResponse.ok) {\n    return buildResult({\n      run_status: 'failed',\n      publish_status_after_run: 'failed',\n      error_message: `Page metadata lookup failed: ${pageDetailsResponse.body?.error?.message ?? 'unknown error'}`,\n      details_json: {\n        ...details,\n        page_details_lookup: {\n          ...details.page_details_lookup,\n          body: pageDetailsResponse.body\n        }\n      }\n    });\n  }\n  const pageDetails = pageDetailsResponse.body ?? {};\n  const discoveredIgAccount = pageDetails.instagram_business_account ?? pageDetails.connected_instagram_account ?? null;\n  const selectedIgAccount = preferredIgUserId\n    ? discoveredIgAccount && String(discoveredIgAccount.id) === preferredIgUserId\n      ? discoveredIgAccount\n      : null\n    : discoveredIgAccount;\n  if (!selectedIgAccount) {\n    return buildResult({\n      run_status: 'failed',\n      publish_status_after_run: 'failed',\n      error_message: preferredIgUserId\n        ? `INSTAGRAM_IG_USER_ID=${preferredIgUserId} was not returned for the selected Page.`\n        : 'No Instagram professional account was returned for the selected Page.',\n      details_json: {\n        ...details,\n        page_details_lookup: {\n          ...details.page_details_lookup,\n          body: {\n            id: pageDetails.id,\n            name: pageDetails.name,\n            instagram_business_account: pageDetails.instagram_business_account ?? null,\n            connected_instagram_account: pageDetails.connected_instagram_account ?? null\n          }\n        }\n      }\n    });\n  }\n  const pageAccessToken = String(pageDetails.access_token ?? '').trim() || rootAccessToken;\n  details.instagram_account = {\n    id: selectedIgAccount.id,\n    username: selectedIgAccount.username ?? null\n  };\n  const limitResponse = await graphRequest({\n    path: `${selectedIgAccount.id}/content_publishing_limit`,\n    token: pageAccessToken\n  });\n  details.content_publishing_limit = {\n    http_status: limitResponse.status,\n    quota_usage: Number(limitResponse.body?.data?.[0]?.quota_usage ?? 0)\n  };\n  if (!limitResponse.ok) {\n    return buildResult({\n      run_status: 'failed',\n      publish_status_after_run: 'failed',\n      error_message: `content_publishing_limit failed: ${limitResponse.body?.error?.message ?? 'unknown error'}`,\n      details_json: {\n        ...details,\n        content_publishing_limit: {\n          ...details.content_publishing_limit,\n          body: limitResponse.body\n        }\n      }\n    });\n  }\n  if (details.content_publishing_limit.quota_usage >= 100) {\n    return buildResult({\n      run_status: 'failed',\n      publish_status_after_run: 'failed',\n      error_message: `The account has already reached ${details.content_publishing_limit.quota_usage} API-published posts in the current 24-hour window.`,\n      details_json: details\n    });\n  }\n  const containerResponse = await graphRequest({\n    method: 'POST',\n    path: `${selectedIgAccount.id}/media`,\n    token: pageAccessToken,\n    body: {\n      image_url: assetUrl,\n      caption: composedCaption,\n      alt_text: altText\n    }\n  });\n  details.container_create = {\n    http_status: containerResponse.status,\n    body: containerResponse.body\n  };\n  if (!containerResponse.ok || !containerResponse.body?.id) {\n    return buildResult({\n      run_status: 'failed',\n      publish_status_after_run: 'failed',\n      instagram_container_id: String(containerResponse.body?.id ?? ''),\n      error_message: `Media container creation failed: ${containerResponse.body?.error?.message ?? 'unknown error'}`,\n      details_json: details\n    });\n  }\n  const containerId = String(containerResponse.body.id);\n  const statusChecks = [];\n  let finalContainerStatus = '';\n  for (let attempt = 1; attempt <= 5; attempt += 1) {\n    const statusResponse = await graphRequest({\n      path: containerId,\n      token: pageAccessToken,\n      qs: {\n        fields: 'status_code'\n      }\n    });\n    const statusCode = String(statusResponse.body?.status_code ?? '').toUpperCase();\n    statusChecks.push({\n      attempt,\n      http_status: statusResponse.status,\n      status_code: statusCode || null,\n      body: statusResponse.body\n    });\n    if (!statusResponse.ok) {\n      return buildResult({\n        run_status: 'failed',\n        publish_status_after_run: 'failed',\n        instagram_container_id: containerId,\n        error_message: `Container status polling failed: ${statusResponse.body?.error?.message ?? 'unknown error'}`,\n        details_json: {\n          ...details,\n          container_status_checks: statusChecks\n        }\n      });\n    }\n    finalContainerStatus = statusCode;\n    if (statusCode === 'FINISHED') {\n      break;\n    }\n    if (statusCode === 'ERROR' || statusCode === 'EXPIRED') {\n      break;\n    }\n    await sleep(2000);\n  }\n  details.container_status_checks = statusChecks;\n  if (finalContainerStatus !== 'FINISHED') {\n    return buildResult({\n      run_status: 'failed',\n      publish_status_after_run: 'failed',\n      instagram_container_id: containerId,\n      error_message: `Container ${containerId} did not reach FINISHED status. Last status: ${finalContainerStatus || 'unknown'}.`,\n      details_json: details\n    });\n  }\n  const publishResponse = await graphRequest({\n    method: 'POST',\n    path: `${selectedIgAccount.id}/media_publish`,\n    token: pageAccessToken,\n    body: {\n      creation_id: containerId\n    }\n  });\n  details.publish_response = {\n    http_status: publishResponse.status,\n    body: publishResponse.body\n  };\n  if (!publishResponse.ok || !publishResponse.body?.id) {\n    return buildResult({\n      run_status: 'failed',\n      publish_status_after_run: 'failed',\n      instagram_container_id: containerId,\n      error_message: `media_publish failed: ${publishResponse.body?.error?.message ?? 'unknown error'}`,\n      details_json: details\n    });\n  }\n  return buildResult({\n    run_status: 'success',\n    publish_status_after_run: 'published',\n    instagram_container_id: containerId,\n    instagram_media_id: String(publishResponse.body.id),\n    error_message: '',\n    details_json: details\n  });\n} catch (error) {\n  return buildResult({\n    run_status: 'failed',\n    publish_status_after_run: 'failed',\n    error_message: error.message,\n    details_json: {\n      ...details,\n      uncaught_error: {\n        message: error.message,\n        stack: error.stack\n      }\n    }\n  });\n}"
+      },
+      "id": "validate_and_publish_instagram_post",
+      "name": "Validate and Publish Instagram Post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error(`Prepare Publish Result SQL Values received an invalid content_id: ${contentId || '<empty>'}.`);\n}\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    workflow_name_sql: String($json.workflow_name ?? 'wf_instagram_simple_post_publish').replaceAll(\"'\", \"''\"),\n    run_status_sql: String($json.run_status ?? 'failed').replaceAll(\"'\", \"''\"),\n    publish_status_sql: String($json.publish_status_after_run ?? 'failed').replaceAll(\"'\", \"''\"),\n    error_message_sql: String($json.error_message ?? '').replaceAll(\"'\", \"''\"),\n    caption_final_sql: String($json.caption_final ?? '').replaceAll(\"'\", \"''\"),\n    hashtags_final_sql: String($json.hashtags_final ?? '').replaceAll(\"'\", \"''\"),\n    instagram_media_id_sql: String($json.instagram_media_id ?? '').replaceAll(\"'\", \"''\"),\n    instagram_container_id_sql: String($json.instagram_container_id ?? '').replaceAll(\"'\", \"''\"),\n    details_json_sql: JSON.stringify($json.details_json ?? {}).replaceAll(\"'\", \"''\"),\n    duration_ms_sql: Number.isFinite(Number($json.duration_ms)) ? Math.max(0, Math.round(Number($json.duration_ms))) : 0\n  }\n}];\n"
+      },
+      "id": "prepare_publish_result_sql_values",
+      "name": "Prepare Publish Result SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into publishes (\n  content_id,\n  platform,\n  publish_status,\n  caption_final,\n  hashtags_final,\n  instagram_media_id,\n  instagram_container_id,\n  published_at,\n  publish_error\n)\nvalues (\n  '{{$json.content_id_sql}}'::uuid,\n  'instagram',\n  '{{$json.publish_status_sql}}',\n  '{{$json.caption_final_sql}}',\n  '{{$json.hashtags_final_sql}}',\n  nullif('{{$json.instagram_media_id_sql}}', ''),\n  nullif('{{$json.instagram_container_id_sql}}', ''),\n  case when '{{$json.run_status_sql}}' = 'success' then now() else null end,\n  nullif('{{$json.error_message_sql}}', '')\n)\non conflict (content_id) do update set\n  publish_status = excluded.publish_status,\n  caption_final = excluded.caption_final,\n  hashtags_final = excluded.hashtags_final,\n  instagram_media_id = excluded.instagram_media_id,\n  instagram_container_id = excluded.instagram_container_id,\n  published_at = case when excluded.publish_status = 'published' then excluded.published_at else publishes.published_at end,\n  publish_error = excluded.publish_error\nreturning content_id, publish_status, instagram_media_id, instagram_container_id, published_at, publish_error;",
+        "options": {}
+      },
+      "id": "upsert_publish_result",
+      "name": "Upsert Publish Result",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1340,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update content_items\nset status = case when '{{$item(0).$node[\"Prepare Publish Result SQL Values\"].json[\"run_status_sql\"]}}' = 'success' then 'published' else status end,\n    published_at = case when '{{$item(0).$node[\"Prepare Publish Result SQL Values\"].json[\"run_status_sql\"]}}' = 'success' then now() else published_at end,\n    updated_at = case when '{{$item(0).$node[\"Prepare Publish Result SQL Values\"].json[\"run_status_sql\"]}}' = 'success' then now() else updated_at end\nwhere content_id = '{{$item(0).$node[\"Prepare Publish Result SQL Values\"].json[\"content_id_sql\"]}}'::uuid\nreturning content_id, title, status, published_at, updated_at;",
+        "options": {}
+      },
+      "id": "sync_content_publish_state",
+      "name": "Sync Content Publish State",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1620,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Publish Result SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  '{{$item(0).$node[\"Prepare Publish Result SQL Values\"].json[\"workflow_name_sql\"]}}',\n  '{{$item(0).$node[\"Prepare Publish Result SQL Values\"].json[\"run_status_sql\"]}}',\n  now(),\n  {{$item(0).$node[\"Prepare Publish Result SQL Values\"].json[\"duration_ms_sql\"]}},\n  nullif('{{$item(0).$node[\"Prepare Publish Result SQL Values\"].json[\"error_message_sql\"]}}', ''),\n  '{{$item(0).$node[\"Prepare Publish Result SQL Values\"].json[\"details_json_sql\"]}}'::jsonb\n)\nreturning run_id, workflow_name, run_status, error_message, started_at, ended_at, details_json;",
+        "options": {}
+      },
+      "id": "log_publish_run",
+      "name": "Log Publish Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1900,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Next Instagram Publish Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Instagram Publish Item": {
+      "main": [
+        [
+          {
+            "node": "Validate and Publish Instagram Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate and Publish Instagram Post": {
+      "main": [
+        [
+          {
+            "node": "Prepare Publish Result SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Publish Result SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Upsert Publish Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Publish Result": {
+      "main": [
+        [
+          {
+            "node": "Sync Content Publish State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Content Publish State": {
+      "main": [
+        [
+          {
+            "node": "Log Publish Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "seed-ig-simple-publish-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

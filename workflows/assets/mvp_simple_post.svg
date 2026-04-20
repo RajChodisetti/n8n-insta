@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080" role="img" aria-labelledby="title desc">
+  <title id="title">MVP Simple Post Placeholder</title>
+  <desc id="desc">A square placeholder asset for the simple Instagram post MVP.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#101820"/>
+      <stop offset="50%" stop-color="#243b53"/>
+      <stop offset="100%" stop-color="#7a3e2b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1080" fill="url(#bg)"/>
+  <circle cx="810" cy="220" r="120" fill="#f4d35e" opacity="0.15"/>
+  <circle cx="220" cy="860" r="180" fill="#98c1d9" opacity="0.12"/>
+  <rect x="110" y="120" width="860" height="840" rx="40" fill="none" stroke="#f7f7f2" stroke-opacity="0.22" stroke-width="4"/>
+  <text x="150" y="250" fill="#f7f7f2" font-family="Georgia, 'Times New Roman', serif" font-size="56" font-weight="700" letter-spacing="4">STORY POST</text>
+  <text x="150" y="360" fill="#f7f7f2" font-family="Georgia, 'Times New Roman', serif" font-size="110" font-weight="700">Mystery</text>
+  <text x="150" y="470" fill="#f7f7f2" font-family="Georgia, 'Times New Roman', serif" font-size="110" font-weight="700">History</text>
+  <text x="150" y="580" fill="#f7f7f2" font-family="Georgia, 'Times New Roman', serif" font-size="110" font-weight="700">Strange</text>
+  <text x="150" y="720" fill="#f3f4f6" font-family="'Trebuchet MS', Helvetica, sans-serif" font-size="34" opacity="0.92">Simple MVP asset for smoke-testing Instagram post publishing.</text>
+  <text x="150" y="785" fill="#f3f4f6" font-family="'Trebuchet MS', Helvetica, sans-serif" font-size="34" opacity="0.92">Replace later with a generated or manually selected image.</text>
+  <text x="150" y="910" fill="#f4d35e" font-family="'Trebuchet MS', Helvetica, sans-serif" font-size="28" letter-spacing="6">N8N INSTA MVP</text>
+</svg>

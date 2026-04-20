@@ -15,7 +15,28 @@ Prepare the system design, providers, schemas, and environment.
 
 ---
 
-## Phase 1 — Content Planning Engine
+## Phase 1 — Working MVP
+
+### Goal
+
+Publish one simple Instagram post end to end without video rendering.
+
+### Scope
+
+- manual topic intake
+- short caption generation
+- hashtag generation
+- one image asset path
+- Instagram publish workflow
+- publish metadata persistence
+
+### Success criteria
+
+You can create and publish a basic Instagram post from the system.
+
+---
+
+## Phase 2 — Content Planning Engine
 
 ### Goal
 Build topic to script to storyboard flow.
@@ -32,7 +53,7 @@ You can create a fully specified content package without yet publishing.
 
 ---
 
-## Phase 2 — Asset and Render Engine
+## Phase 3 — Asset and Render Engine
 
 ### Goal
 Generate or collect all media assets and produce a final Reel.
@@ -50,7 +71,7 @@ You can consistently produce Reel-ready draft videos.
 
 ---
 
-## Phase 3 — Instagram Publishing
+## Phase 4 — Instagram Publishing
 
 ### Goal
 Automate the publish step.
@@ -66,7 +87,7 @@ Approved content can be published to Instagram without manual upload.
 
 ---
 
-## Phase 4 — Insight Collection and Reviews
+## Phase 5 — Insight Collection and Reviews
 
 ### Goal
 Build the learning loop.
@@ -82,7 +103,7 @@ The system can explain what worked and suggest what to create next.
 
 ---
 
-## Phase 5 — Semi-autonomous Operation
+## Phase 6 — Semi-autonomous Operation
 
 ### Goal
 Reduce human involvement while preserving quality.
@@ -110,11 +131,12 @@ You mostly approve high-quality outputs instead of manually coordinating all ste
 ## Recommended implementation order
 
 1. foundation
-2. content planning engine
-3. render engine
-4. Instagram publishing
-5. insights and reviews
-6. semi-autonomous operation
+2. working MVP
+3. content planning engine
+4. render engine
+5. Instagram publishing automation
+6. insights and reviews
+7. semi-autonomous operation
 
 ## What not to do early
 
@@ -129,4 +151,3 @@ Avoid these in the first build:
 Ship a working loop first.
 Then make the loop smarter.
 Then make it faster.
-

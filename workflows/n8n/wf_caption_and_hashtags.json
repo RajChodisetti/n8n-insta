@@ -1,0 +1,212 @@
+{
+  "name": "wf_caption_and_hashtags",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select\n  ci.content_id,\n  ci.title,\n  ci.category,\n  ci.status,\n  s.selected_hook,\n  s.narration_script\nfrom content_items ci\njoin scripts s on s.content_id = ci.content_id\nleft join publishes p on p.content_id = ci.content_id\nwhere ci.status in ('script_complete', 'storyboard_complete')\n  and coalesce(p.publish_status, 'draft') <> 'published'\norder by ci.updated_at asc\nlimit 1;",
+        "options": {}
+      },
+      "id": "fetch_next_publish_draft_item",
+      "name": "Fetch Next Publish Draft Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nconst selectedHook = String($json.selected_hook ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Publish Draft Item did not produce a valid content_id.');\n}\nif (!title) {\n  throw new Error('Fetch Next Publish Draft Item did not produce a title.');\n}\nif (!selectedHook) {\n  throw new Error('Fetch Next Publish Draft Item did not produce a selected_hook.');\n}\nreturn [{\n  json: {\n    content_id: contentId,\n    title,\n    category: String($json.category ?? 'general'),\n    status: String($json.status ?? 'script_complete'),\n    selected_hook: selectedHook,\n    narration_script: String($json.narration_script ?? ''),\n    brand_tone: 'cinematic, concise, credible',\n    llm_instruction: 'Create a compact Instagram caption and relevant hashtags for a simple image post.',\n    publish_status_after_success: 'draft'\n  }\n}];"
+      },
+      "id": "prepare_caption_prompt_payload",
+      "name": "Prepare Caption Prompt Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    content_id: $json.content_id,\n    title: $json.title,\n    category: $json.category,\n    selected_hook: $json.selected_hook,\n    prompt: {\n      instruction: $json.llm_instruction,\n      narration_script: $json.narration_script,\n      brand_tone: $json.brand_tone,\n      response_schema: {\n        caption_final: 'string',\n        hashtags_final: 'string'\n      }\n    },\n    publish_status_after_success: $json.publish_status_after_success\n  }\n}];"
+      },
+      "id": "build_caption_request",
+      "name": "Build Caption Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!$json.content_id || !$json.title || !$json.selected_hook) {\n  throw new Error('Build Caption Request did not produce the required caption context.');\n}\nconst titleWords = $json.title\n  .replace(/[^a-zA-Z0-9\\s]/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean)\n  .slice(0, 3)\n  .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());\nconst categoryMap = {\n  mystery: ['#MysteryTok', '#UnsolvedHistory'],\n  history: ['#HistoryFacts', '#HiddenHistory'],\n  general: ['#StoryPost', '#InterestingStories']\n};\nconst mapped = categoryMap[String($json.category).toLowerCase()] ?? categoryMap.general;\nconst titleTags = titleWords.length ? [`#${titleWords.join('')}`] : [];\nconst defaultTags = ['#InstagramStories', '#Storytelling', '#CuriousMinds'];\nconst hashtags = [...new Set([...titleTags, ...mapped, ...defaultTags])].slice(0, 5).join(' ');\nconst caption = `${$json.selected_hook}\\n\\n${$json.title} in one short post: the detail that keeps this story alive.\\n\\nWould you have believed it at first glance?`;\nreturn [{\n  json: {\n    content_id: $json.content_id,\n    publish_status_after_success: $json.publish_status_after_success,\n    caption_response: {\n      caption_final: caption,\n      hashtags_final: hashtags\n    }\n  }\n}];"
+      },
+      "id": "mock_caption_response",
+      "name": "Mock Caption Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json.caption_response ?? {};\nif (!$json.content_id) {\n  throw new Error('Mock Caption Response did not provide content_id.');\n}\nif (!response.caption_final || !response.hashtags_final) {\n  throw new Error('Mock Caption Response did not produce caption_final and hashtags_final.');\n}\nreturn [{\n  json: {\n    content_id: $json.content_id,\n    publish_status_after_success: $json.publish_status_after_success,\n    caption_final: response.caption_final,\n    hashtags_final: response.hashtags_final\n  }\n}];"
+      },
+      "id": "normalize_caption_package",
+      "name": "Normalize Caption Package",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error(`Prepare Publish Draft SQL Values received an invalid content_id: ${contentId || '<empty>'}.`);\n}\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    caption_final_sql: String($json.caption_final ?? '').replaceAll(\"'\", \"''\"),\n    hashtags_final_sql: String($json.hashtags_final ?? '').replaceAll(\"'\", \"''\"),\n    publish_status_sql: String($json.publish_status_after_success ?? 'draft').replaceAll(\"'\", \"''\")\n  }\n}];"
+      },
+      "id": "prepare_publish_draft_sql_values",
+      "name": "Prepare Publish Draft SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into publishes (\n  content_id,\n  platform,\n  publish_status,\n  caption_final,\n  hashtags_final\n)\nvalues (\n  '{{$json.content_id_sql}}'::uuid,\n  'instagram',\n  '{{$json.publish_status_sql}}',\n  '{{$json.caption_final_sql}}',\n  '{{$json.hashtags_final_sql}}'\n)\non conflict (content_id) do update set\n  publish_status = excluded.publish_status,\n  caption_final = excluded.caption_final,\n  hashtags_final = excluded.hashtags_final\nreturning content_id, publish_status, caption_final, hashtags_final;",
+        "options": {}
+      },
+      "id": "upsert_publish_draft",
+      "name": "Upsert Publish Draft",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1900,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Next Publish Draft Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Publish Draft Item": {
+      "main": [
+        [
+          {
+            "node": "Prepare Caption Prompt Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Caption Prompt Payload": {
+      "main": [
+        [
+          {
+            "node": "Build Caption Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Caption Request": {
+      "main": [
+        [
+          {
+            "node": "Mock Caption Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Caption Response": {
+      "main": [
+        [
+          {
+            "node": "Normalize Caption Package",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Caption Package": {
+      "main": [
+        [
+          {
+            "node": "Prepare Publish Draft SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Publish Draft SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Upsert Publish Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "seed-caption-and-hashtags-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

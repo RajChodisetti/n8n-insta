@@ -4,11 +4,19 @@ This runbook operationalizes the first unchecked setup backlog item:
 
 - **Create or convert to professional Instagram account**
 
+**Status: `complete`** ✅
+
 Use this before wiring API publishing in n8n.
+
+Related readiness workflow:
+
+- [workflows/n8n/wf_instagram_publish_readiness.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_instagram_publish_readiness.json)
 
 ## Outcome
 
 You have one Instagram account configured as a **Professional account** (Creator or Business), ready for Meta API-based publishing in v1.
+
+**Completed:** Business account created, public, with Graph API token wiring in local dev.
 
 ## Preconditions
 
@@ -62,6 +70,9 @@ You have one Instagram account configured as a **Professional account** (Creator
    - Create/connect a Facebook Page when you start the publish-automation item.
    - Capture required metadata and ownership details for API onboarding.
    - Store Graph API tokens in local env / secret storage, never in committed files.
+   - If you update the repo-root `.env`, recreate the `n8n` service so the running container picks up the latest token.
+   - Run `bash scripts/check_instagram_permissions.sh` before testing in n8n. It validates the token in `.env`, compares it with the token loaded in the `n8n` container, and checks Meta permissions/page linkage.
+   - If the readiness check returns OAuth error `190`, the current token is expired and must be refreshed before publish testing.
 
 ## Evidence checklist (attach to project docs)
 

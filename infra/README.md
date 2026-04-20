@@ -34,13 +34,12 @@ Open:
 ## Notes
 
 - The compose file also loads the repo root `.env` so n8n can access project secrets without duplicating them.
+- Keep `INSTAGRAM_GRAPH_API_TOKEN` only in the repo-root `.env`. Do not add it to `infra/.env`, or a blank local value can override the real token inside the container.
 - Persistent runtime state is stored under `infra/state/`.
 - Seed workflow exports live under [`workflows/n8n`](../workflows/n8n).
 - The initial schema is applied from [`postgres/init/001_init.sql`](./postgres/init/001_init.sql).
 
-## Test This Backlog Item
-
-This local infra setup is currently in `implemented_awaiting_test`.
+## Smoke Check
 
 Run:
 
@@ -56,4 +55,7 @@ Verify:
 - MinIO console is reachable at `http://localhost:42173`
 - Postgres custom tables from `001_init.sql` exist
 
-After you test it, report pass or fail. If it passes, this item should be moved to `complete` and then you should raise a PR.
+Status:
+
+- This infra backlog item is already `complete`.
+- Completion record: [01 — Local Infra Scaffold](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/01-local-infra-scaffold.md)

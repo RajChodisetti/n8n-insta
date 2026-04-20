@@ -19,12 +19,19 @@ Rule:
 
 Current implemented items waiting for your test:
 
-- storyboard prompt templates
+- `MVP-07` simple Instagram publish workflow
+
+Tracking links:
+
+- Active tracker: [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
+- Engineering backlog: [16 — Engineering Backlog](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
+- Completed items archive: [delivery-testing/completed-items/README.md](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/README.md)
 
 ## Product decisions
 
 - [x] Platform chosen: Instagram only
 - [x] Content type chosen: faceless English story Reels
+  - MVP note: the first publishable loop is a simple Instagram post, not a Reel
 - [x] Orchestrator chosen: n8n
 - [x] Rendering separated from n8n
 - [x] Feedback loop included in scope
@@ -34,14 +41,16 @@ Current implemented items waiting for your test:
 ### Instagram
 - [x] Create or convert to professional Instagram account
   - Runbook: `14-instagram-professional-account-runbook.md`
-- [ ] Prepare account for API-driven publishing workflow
-- [ ] Confirm the account will be the only publishing target for v1
+- [x] Prepare account for API-driven publishing workflow
+  - Completed via `wf_instagram_publish_readiness` and the readiness checks documented in `14-instagram-professional-account-runbook.md`
+- [x] Confirm the account will be the only publishing target for v1
+  - Target: `@mana_andhari_kathalu` (Business account)
 
 ### n8n
 - [x] Decide hosted vs self-hosted n8n
   - Current dev choice: self-hosted via Docker Compose
 - [ ] Configure secrets/credentials strategy
-  - Use local `.env.local` for dev and n8n credential store for runtime tokens (`INSTAGRAM_GRAPH_API_TOKEN`).
+  - Use the repo-root `.env` for local dev and the n8n credential store for runtime credentials that should not stay in env.
 - [x] Enable persistent storage/logging
   - Completed locally through Docker volumes in `infra/state/`
 
@@ -61,10 +70,14 @@ Current implemented items waiting for your test:
 
 ## AI providers
 
-- [ ] Select LLM provider for research, scripts, prompts, and analysis
-- [ ] Select voice provider for narration
-- [ ] Select image/video providers for scene generation
-- [ ] Decide whether stock media will be part of v1
+- [x] Select LLM provider for research, scripts, prompts, and analysis
+  - Selected: **OpenAI** (free models for MVP, upgrade to premium later)
+- [x] Select voice provider for narration
+  - Selected: **OpenAI TTS** (consistent with LLM provider, flexible for future changes)
+- [x] Select image/video providers for scene generation
+  - Selected: **DALL-E 3** (via OpenAI API, consistent provider stack)
+- [x] Finalize brand tone, voice, visual style, and content guidelines
+  - Document: [17-brand-identity.md](/Users/rajchodisetti/n8n-insta/17-brand-identity.md)
 
 ## Rendering
 
@@ -75,10 +88,13 @@ Current implemented items waiting for your test:
 
 ## Content design
 
-- [ ] Finalize brand tone
-- [ ] Finalize narrator style
+- [x] Finalize brand tone
+  - Document: [17-brand-identity.md](/Users/rajchodisetti/n8n-insta/17-brand-identity.md)
+- [x] Finalize narrator style
+  - Document: [17-brand-identity.md](/Users/rajchodisetti/n8n-insta/17-brand-identity.md)
 - [ ] Finalize subtitle design rules
-- [ ] Finalize cover image style
+- [x] Finalize cover image style
+  - Document: [17-brand-identity.md](/Users/rajchodisetti/n8n-insta/17-brand-identity.md)
 - [ ] Finalize ending signature line family
 
 ## Workflow implementation
@@ -97,12 +113,16 @@ Current implemented items waiting for your test:
   - Completed in `wf_research_script_stub`
 
 ### Storyboards
-- [ ] create storyboard prompt template
-  - Implemented and awaiting your test in `prompts/storyboard_and_prompts/`
-- [ ] create `storyboard_and_prompts` workflow
-- [ ] store scene JSON and subtitle plan
+- [x] create storyboard prompt template
+  - Completed in `prompts/storyboard_and_prompts/`
+- [x] create `storyboard_and_prompts` workflow
+  - Completed in `workflows/n8n/wf_storyboard_and_prompts.json`
+- [x] store scene JSON and subtitle plan
+  - Persisted in `storyboards.storyboard_json` and `storyboards.subtitle_lines_json`
 
 ### Assets
+- [x] create simple post image asset path
+  - Completed in `wf_simple_post_image_asset`
 - [ ] integrate scene visual generation
 - [ ] integrate narration generation
 - [ ] persist asset references
@@ -113,6 +133,8 @@ Current implemented items waiting for your test:
 - [ ] validate final files
 
 ### Publishing
+- [x] generate caption and hashtag draft
+  - Completed in `wf_caption_and_hashtags`
 - [ ] implement Instagram publish flow
 - [ ] store publish metadata
 - [ ] implement retry-safe publishing rules
@@ -136,7 +158,15 @@ Current implemented items waiting for your test:
 
 ## Prototype success definition
 
-V1 is complete when you can:
+Working MVP is complete when you can:
+- submit a story topic
+- generate a caption draft
+- generate a hashtag set
+- attach one image asset
+- publish one Instagram post
+- persist publish metadata
+
+Longer-term V1 is complete when you can:
 - submit a story topic
 - generate a script
 - generate a storyboard

@@ -6,6 +6,7 @@ Structure:
 
 - `research_and_script/`
 - `storyboard_and_prompts/`
+- `caption_and_hashtags/`
 
 Each prompt group should contain:
 

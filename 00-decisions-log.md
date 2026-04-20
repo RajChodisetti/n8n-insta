@@ -6,7 +6,8 @@ This file captures the current decisions already made for the project.
 
 ### Platform
 - We are building for **Instagram only** for now.
-- Primary format is **Instagram Reels**.
+- Long-term primary format is **Instagram Reels**.
+- MVP publish target is a **simple Instagram post** so the first working loop avoids video/render complexity.
 
 ### Content type
 - Content will be **English-language**.
@@ -44,8 +45,12 @@ This file captures the current decisions already made for the project.
 - Build modular workflows, not one giant workflow
 - Build in phases
 - Focus first on getting one complete loop working
+- For MVP, prioritize `topic -> caption/hashtags -> single image -> publish` before `storyboard -> assets -> render -> Reel`
 
 ## Current target loop
 
 `story -> script -> storyboard -> assets -> render -> approve -> publish -> analyze -> improve`
 
+## Current MVP loop
+
+`topic -> caption/hashtags -> simple image -> publish -> persist`

@@ -1,0 +1,108 @@
+{
+  "name": "wf_instagram_publish_readiness",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const env = typeof $env === 'object' && $env ? $env : {};\nconst graphApiVersion = String(env.GRAPH_API_VERSION || 'v25.0').trim();\nconst accessToken = String(env.INSTAGRAM_GRAPH_API_TOKEN || '').trim();\nconst checkedAt = new Date().toISOString();\nconst requiredScopes = ['instagram_basic', 'instagram_content_publish', 'pages_show_list'];\nconst recommendedScopes = ['pages_read_engagement', 'instagram_manage_insights'];\nif (!accessToken) {\n  return [{\n    json: {\n      workflow_name: 'wf_instagram_publish_readiness',\n      run_status: 'failed',\n      error_message: 'INSTAGRAM_GRAPH_API_TOKEN is empty in the running n8n container env. Restart n8n after updating .env.',\n      details_json: {\n        checked_at: checkedAt,\n        graph_api_version: graphApiVersion,\n        missing_token: true,\n        required_scopes: requiredScopes,\n        recommended_scopes: recommendedScopes\n      }\n    }\n  }];\n}\nconst fetchJson = async (path) => {\n  try {\n    const response = await helpers.httpRequest({\n      method: 'GET',\n      url: `https://graph.facebook.com/${graphApiVersion}/${path}`,\n      qs: { access_token: accessToken },\n      json: true,\n      returnFullResponse: true,\n      ignoreHttpStatusErrors: true\n    });\n    const statusCode = Number(response.statusCode ?? 0);\n    const body = response.body ?? {};\n    return {\n      ok: statusCode >= 200 && statusCode < 300 && !body.error,\n      status: statusCode,\n      body\n    };\n  } catch (error) {\n    return {\n      ok: false,\n      status: Number(error?.statusCode ?? 0),\n      body: error?.response?.body ?? {\n        error: {\n          message: error.message\n        }\n      }\n    };\n  }\n};\nconst me = await fetchJson('me?fields=id,name');\nconst permissions = await fetchJson('me/permissions');\nconst pages = await fetchJson('me/accounts?fields=id,name');\nconst grantedScopes = permissions.ok\n  ? (permissions.body.data ?? [])\n      .filter((item) => item.status === 'granted')\n      .map((item) => item.permission)\n  : [];\nconst nonGrantedScopes = permissions.ok\n  ? (permissions.body.data ?? [])\n      .filter((item) => item.status !== 'granted')\n      .map((item) => ({ permission: item.permission, status: item.status }))\n  : [];\nconst missingRequiredScopes = requiredScopes.filter((scope) => !grantedScopes.includes(scope));\nconst missingRecommendedScopes = recommendedScopes.filter((scope) => !grantedScopes.includes(scope));\nconst linkedPages = pages.ok\n  ? (pages.body.data ?? []).map((page) => ({ id: page.id, name: page.name }))\n  : [];\nconst errors = [];\nif (!me.ok) {\n  errors.push(`/me failed: ${me.body.error?.message ?? 'unknown error'}`);\n}\nif (!permissions.ok) {\n  errors.push(`/me/permissions failed: ${permissions.body.error?.message ?? 'unknown error'}`);\n}\nif (!pages.ok) {\n  errors.push(`/me/accounts failed: ${pages.body.error?.message ?? 'unknown error'}`);\n}\nif (missingRequiredScopes.length) {\n  errors.push(`Missing required scopes: ${missingRequiredScopes.join(', ')}`);\n}\nif (!linkedPages.length) {\n  errors.push('No linked Facebook Pages were returned by /me/accounts.');\n}\nreturn [{\n  json: {\n    workflow_name: 'wf_instagram_publish_readiness',\n    run_status: errors.length ? 'failed' : 'success',\n    error_message: errors.join(' | '),\n    details_json: {\n      checked_at: checkedAt,\n      graph_api_version: graphApiVersion,\n      token_present: true,\n      me_status: me.status,\n      permissions_status: permissions.status,\n      pages_status: pages.status,\n      me: me.body,\n      granted_scopes: grantedScopes,\n      non_granted_scopes: nonGrantedScopes,\n      missing_required_scopes: missingRequiredScopes,\n      missing_recommended_scopes: missingRecommendedScopes,\n      linked_pages: linkedPages,\n      linked_pages_count: linkedPages.length\n    }\n  }\n}];"
+      },
+      "id": "validate_instagram_publish_readiness",
+      "name": "Validate Instagram Publish Readiness",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ...$json,\n    workflow_name_sql: String($json.workflow_name ?? 'wf_instagram_publish_readiness').replaceAll(\"'\", \"''\"),\n    run_status_sql: String($json.run_status ?? 'failed').replaceAll(\"'\", \"''\"),\n    error_message_sql: String($json.error_message ?? '').replaceAll(\"'\", \"''\"),\n    details_json_sql: JSON.stringify($json.details_json ?? {}).replaceAll(\"'\", \"''\")\n  }\n}];"
+      },
+      "id": "prepare_readiness_log_sql_values",
+      "name": "Prepare Readiness Log SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  workflow_name,\n  run_status,\n  ended_at,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$json.workflow_name_sql}}',\n  '{{$json.run_status_sql}}',\n  now(),\n  nullif('{{$json.error_message_sql}}', ''),\n  '{{$json.details_json_sql}}'::jsonb\n)\nreturning run_id, workflow_name, run_status, error_message, started_at, ended_at, details_json;",
+        "options": {}
+      },
+      "id": "log_readiness_run",
+      "name": "Log Readiness Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1040,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Instagram Publish Readiness",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Instagram Publish Readiness": {
+      "main": [
+        [
+          {
+            "node": "Prepare Readiness Log SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Readiness Log SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Log Readiness Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "seed-instagram-publish-readiness-v2",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}
