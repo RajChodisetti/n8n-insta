@@ -36,6 +36,16 @@ Rule:
    - exact DB checks or observable outputs
    - clear pass conditions
    - cleanup steps if the test creates synthetic data
+7. after an item passes testing, the feature PR target should be `release/2.0`
+8. `main` should only receive promoted changes from `release/2.0`
+
+## Branching Rule
+
+For all work after Phase 1:
+
+- cut feature branches from `release/2.0`
+- merge tested feature branches into `release/2.0`
+- merge `release/2.0` into `main` only when the branch contains a meaningful validated upgrade
 
 ## Status Model
 

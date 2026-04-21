@@ -75,6 +75,26 @@ Read in this order:
 - Engineering backlog: [16-engineering-backlog.md](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
 - Completed items archive: [delivery-testing/completed-items/README.md](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/README.md)
 
+## Git Branching Strategy
+
+Current integration branch:
+
+- `release/2.0`
+
+Branch flow:
+
+1. cut every feature branch from `release/2.0`
+2. implement the feature on that feature branch
+3. test the feature and document the result in [15-delivery-and-testing-workflow.md](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
+4. merge tested feature branches into `release/2.0`
+5. merge `release/2.0` into `main` only when the release branch contains a meaningful, validated upgrade
+
+Rule:
+
+- do not start new feature work directly from `main`
+- do not raise routine feature PRs against `main`
+- use `main` as the long-lived stable line for completed releases
+
 ## Recommended build approach
 
 Do not implement everything at once.

@@ -15,7 +15,18 @@ Rule:
 1. when I finish an item, I will add a full entry in [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md) with what was delivered, why you are testing it, prerequisites, exact test steps, DB checks or observable outputs, pass conditions, and cleanup if needed
 2. you run the test steps locally
 3. after you confirm the result, I move the item to `complete`
-4. once it is `complete`, I ask you to raise a PR
+4. once it is `complete`, I ask you to raise a PR into `release/2.0`
+5. `release/2.0` is the active integration branch for ongoing work
+6. `main` only receives merges from `release/2.0` when the release branch contains a meaningful validated upgrade
+
+## Git branch workflow
+
+Use this branch strategy for all ongoing work after Phase 1:
+
+1. create each feature branch from `release/2.0`
+2. implement and test on that feature branch
+3. merge tested feature branches into `release/2.0`
+4. merge `release/2.0` into `main` only for meaningful release milestones
 
 Current implemented items waiting for your test:
 

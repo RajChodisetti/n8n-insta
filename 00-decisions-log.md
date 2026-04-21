@@ -46,6 +46,8 @@ This file captures the current decisions already made for the project.
 - Build in phases
 - Focus first on getting one complete loop working
 - For MVP, prioritize `topic -> caption/hashtags -> single image -> publish` before `storyboard -> assets -> render -> Reel`
+- After Phase 1, use `release/2.0` as the integration branch for ongoing work
+- Cut feature branches from `release/2.0`, merge tested feature work back into `release/2.0`, and merge `release/2.0` into `main` only for meaningful upgrades
 
 ## Current target loop
 
