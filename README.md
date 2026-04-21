@@ -67,6 +67,7 @@ Read in this order:
 15. `15-delivery-and-testing-workflow.md`
 16. `16-engineering-backlog.md`
 17. `17-brand-identity.md`
+18. `18-mvp-smoke-test-and-publish-runbook.md`
 
 ## Delivery Tracking
 
@@ -110,3 +111,7 @@ Long-term success flow:
 Current MVP success flow:
 
 `topic -> caption/hashtags -> simple image -> publish -> persist`
+
+Current local milestone:
+
+`working MVP complete`
