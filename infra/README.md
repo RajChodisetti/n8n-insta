@@ -35,6 +35,7 @@ Open:
 
 - The compose file also loads the repo root `.env` so n8n can access project secrets without duplicating them.
 - Keep `INSTAGRAM_GRAPH_API_TOKEN` only in the repo-root `.env`. Do not add it to `infra/.env`, or a blank local value can override the real token inside the container.
+- `infra/.env.example` now defaults `N8N_RUNNERS_ENABLED=false` for local development because the current Phase 2 OpenAI code-node workflows are more reliable inline on `n8n 1.92.2` than through the task-runner path.
 - Persistent runtime state is stored under `infra/state/`.
 - Seed workflow exports live under [`workflows/n8n`](../workflows/n8n).
 - The initial schema is applied from [`postgres/init/001_init.sql`](./postgres/init/001_init.sql).

@@ -68,6 +68,7 @@ Read in this order:
 16. `16-engineering-backlog.md`
 17. `17-brand-identity.md`
 18. `18-mvp-smoke-test-and-publish-runbook.md`
+19. `19-phase2-manual-review-and-live-publish-runbook.md`
 
 ## Delivery Tracking
 
@@ -108,6 +109,7 @@ Do not implement everything at once.
 
 ### Phase 2
 - topic to script to storyboard flow
+  Current active items: `P2-04` smarter image generation and `P2-05` basic content approval flow
 - better content planning
 - approval hardening
 

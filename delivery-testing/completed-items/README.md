@@ -26,3 +26,7 @@ Completed items:
 11. [Simple Instagram Publish Workflow](./11-simple-instagram-publish-workflow.md)
 12. [Publish Metadata Persistence and Duplicate Protection](./12-publish-metadata-persistence-and-duplicate-protection.md)
 13. [Smoke Test and Publish Runbook](./13-smoke-test-and-publish-runbook.md)
+14. [Phase 2 Topic to Script to Storyboard Draft Generation](./14-phase2-topic-to-script-to-storyboard-draft-generation.md)
+15. [Phase 2 Stronger Caption Iteration](./15-phase2-stronger-caption-iteration.md)
+16. [Phase 2 Better Hashtag Ranking](./16-phase2-better-hashtag-ranking.md)
+17. [Phase 2 Smarter Image Generation and Approval Flow](./17-phase2-image-generation-and-approval-flow.md)

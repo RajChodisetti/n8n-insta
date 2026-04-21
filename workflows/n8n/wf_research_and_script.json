@@ -1,0 +1,244 @@
+{
+  "name": "wf_research_and_script",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with candidate as materialized (\n  select\n    content_id,\n    title,\n    category,\n    confidence_label,\n    target_duration_seconds,\n    source_payload_json\n  from content_items\n  where status = 'idea_approved'\n  order by created_at asc\n  limit 1\n), claim as (\n  update content_items ci\n  set status = 'scripting',\n      updated_at = now()\n  where ci.content_id = (select content_id from candidate)\n    and ci.status = 'idea_approved'\n  returning ci.content_id\n)\nselect\n  c.content_id,\n  c.title,\n  c.category,\n  c.confidence_label,\n  c.target_duration_seconds,\n  c.source_payload_json\nfrom candidate c\njoin claim cl on cl.content_id = c.content_id;",
+        "options": {}
+      },
+      "id": "fetch_next_item",
+      "name": "Fetch Next Approved Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Approved Item did not atomically claim a valid content_id. Run from the start and ensure an idea_approved row exists.');\n}\nif (!title) {\n  throw new Error('Fetch Next Approved Item did not produce a title. Re-run from Manual Trigger and inspect the fetch node output.');\n}\nconst targetDurationSeconds = Number($json.target_duration_seconds ?? 45);\nif (!Number.isFinite(targetDurationSeconds) || targetDurationSeconds <= 0) {\n  throw new Error('target_duration_seconds must be a positive number.');\n}\nreturn [{\n  json: {\n    content_id: contentId,\n    title,\n    category: String($json.category ?? 'general').trim() || 'general',\n    confidence_label: String($json.confidence_label ?? 'unverified').trim() || 'unverified',\n    target_duration_seconds: targetDurationSeconds,\n    source_payload_json: $json.source_payload_json ?? {},\n    status_after_success: 'script_complete',\n    brand_tone: 'cinematic, concise, credible',\n    narrator_style: 'calm, serious, engaging',\n    ending_signature_family: 'thought-provoking close'\n  }\n}];"
+      },
+      "id": "prepare_prompt_payload",
+      "name": "Prepare Prompt Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sourcePayload = $json.source_payload_json ?? {};\nconst flattenText = (value, keyPath = '') => {\n  if (value == null) return [];\n  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {\n    const text = String(value).trim();\n    return text ? [keyPath + text] : [];\n  }\n  if (Array.isArray(value)) {\n    return value.flatMap((entry, index) => flattenText(entry, keyPath ? keyPath + (index + 1) + '. ' : ''));\n  }\n  if (typeof value === 'object') {\n    return Object.entries(value).flatMap(([key, entry]) => flattenText(entry, key + ': '));\n  }\n  return [];\n};\nconst sourceNotesLines = [];\nif (Array.isArray(sourcePayload.notes)) {\n  sourceNotesLines.push(...sourcePayload.notes.map((entry) => String(entry ?? '').trim()).filter(Boolean));\n}\nfor (const key of ['summary', 'description', 'context', 'source_text']) {\n  const text = String(sourcePayload[key] ?? '').trim();\n  if (text) sourceNotesLines.push(text);\n}\nif (sourceNotesLines.length === 0) {\n  sourceNotesLines.push(...flattenText(sourcePayload));\n}\nconst sourceNotes = sourceNotesLines.length ? sourceNotesLines.join('\\n') : 'No source notes were provided. Keep the script cautious and explicit about uncertainty.';\nconst confidenceContext = 'Current stored confidence label: ' + $json.confidence_label + '. Preserve or lower certainty unless the source notes clearly support a stronger confidence label.';\nconst systemPrompt = [\n  'You are the script writer for a faceless English-language Instagram Reel channel focused on cinematic true-story, mystery, history, and unexplained-storytelling content.',\n  '',\n  'Your job is to turn the provided topic and source notes into a short-form Reel script package that is:',\n  '',\n  '- concise',\n  '- spoken, not essay-like',\n  '- emotionally engaging',\n  '- visually suggestive',\n  '- fact-aware',\n  '',\n  'Hard rules:',\n  '',\n  '- treat source notes as the factual boundary',\n  '- do not invent factual claims that are not supported by the source notes',\n  '- if a claim is uncertain or disputed, reflect that in the confidence_label and wording',\n  '- optimize the first line for audience retention',\n  '- write in plain spoken English',\n  '- avoid clickbait phrasing that sounds spammy or cheap',\n  '- avoid stage directions',\n  '- avoid hashtags inside the narration script',\n  '',\n  'Runtime target:',\n  '',\n  '- aim for a Reel voiceover that fits within ' + $json.target_duration_seconds + ' seconds',\n  '',\n  'Brand voice:',\n  '',\n  '- tone: ' + $json.brand_tone,\n  '- narrator style: ' + $json.narrator_style,\n  '- ending signature family: ' + $json.ending_signature_family,\n  '',\n  'Return only valid JSON matching the provided response schema.'\n].join('\\n');\nconst userPrompt = [\n  'Create a research-and-script package for this Reel.',\n  '',\n  'Topic:',\n  $json.title,\n  '',\n  'Category:',\n  $json.category,\n  '',\n  'Confidence context:',\n  confidenceContext,\n  '',\n  'Source notes:',\n  sourceNotes,\n  '',\n  'Required output goals:',\n  '',\n  '- produce 3 distinct hook options',\n  '- choose the strongest hook as selected_hook',\n  '- write one primary narration script',\n  '- write one shorter backup script',\n  '- write one Instagram caption draft',\n  '- write one soft CTA line',\n  '- write on-screen text lines that align with the narration',\n  '',\n  'Output requirements:',\n  '',\n  '- keep the narration concise enough for the target runtime',\n  '- make the first 2 sentences strong',\n  '- preserve factual caution when certainty is low',\n  '- keep the ending memorable',\n  '- keep the caption compact and on-brand',\n  '',\n  'Return only JSON.'\n].join('\\n');\nreturn [{\n  json: {\n    content_id: $json.content_id,\n    title: $json.title,\n    confidence_label: $json.confidence_label,\n    status_after_success: $json.status_after_success,\n    openai_request: {\n      model: String($env.OPENAI_RESEARCH_MODEL || $env.OPENAI_TEXT_MODEL || 'gpt-4o-mini').trim(),\n      messages: [\n        { role: 'system', content: systemPrompt },\n        { role: 'user', content: userPrompt }\n      ],\n      response_schema: {\n        type: 'object',\n        additionalProperties: false,\n        required: [\n          'confidence_label',\n          'hook_option_1',\n          'hook_option_2',\n          'hook_option_3',\n          'selected_hook',\n          'narration_script',\n          'short_script',\n          'caption_draft',\n          'cta_line',\n          'onscreen_text_json'\n        ],\n        properties: {\n          confidence_label: { type: 'string', enum: ['confirmed', 'likely', 'disputed', 'legend', 'unverified'] },\n          hook_option_1: { type: 'string', minLength: 1 },\n          hook_option_2: { type: 'string', minLength: 1 },\n          hook_option_3: { type: 'string', minLength: 1 },\n          selected_hook: { type: 'string', minLength: 1 },\n          narration_script: { type: 'string', minLength: 1 },\n          short_script: { type: 'string', minLength: 1 },\n          caption_draft: { type: 'string', minLength: 1 },\n          cta_line: { type: 'string', minLength: 1 },\n          onscreen_text_json: {\n            type: 'array',\n            minItems: 1,\n            items: {\n              type: 'object',\n              additionalProperties: false,\n              required: ['scene_number', 'text'],\n              properties: {\n                scene_number: { type: 'integer', minimum: 1 },\n                text: { type: 'string', minLength: 1 }\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n}];"
+      },
+      "id": "build_llm_request",
+      "name": "Build LLM Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!$json.content_id || !$json.title || !$json.openai_request) {\n  throw new Error('Build LLM Request did not provide the expected OpenAI request payload.');\n}\nconst apiKey = String($env.OPENAI_API_KEY || $env.LLL_API_KEY || '').trim();\nif (!apiKey) {\n  throw new Error('Set OPENAI_API_KEY in the repo-root .env before running wf_research_and_script. For backward compatibility, LLL_API_KEY is also accepted.');\n}\nconst request = $json.openai_request;\nif (!request.model) {\n  throw new Error('No OpenAI model was configured for the research workflow.');\n}\nconst response = await helpers.httpRequest({\n  method: 'POST',\n  url: 'https://api.openai.com/v1/chat/completions',\n  json: true,\n  returnFullResponse: true,\n  ignoreHttpStatusErrors: true,\n  headers: {\n    Authorization: 'Bearer ' + apiKey,\n    'Content-Type': 'application/json'\n  },\n  body: {\n    model: request.model,\n    messages: request.messages,\n    response_format: {\n      type: 'json_schema',\n      json_schema: {\n        name: 'research_script_package',\n        schema: request.response_schema,\n        strict: true\n      }\n    }\n  }\n});\nconst statusCode = Number(response.statusCode ?? 0);\nconst body = response.body ?? {};\nif (!(statusCode >= 200 && statusCode < 300) || body.error) {\n  throw new Error('OpenAI research call failed (' + (statusCode || 'no status') + '): ' + (body?.error?.message ?? 'unknown error'));\n}\nconst content = body?.choices?.[0]?.message?.content;\nif (!content) {\n  throw new Error('OpenAI research call returned no message content.');\n}\nlet parsed;\ntry {\n  parsed = JSON.parse(content);\n} catch (error) {\n  throw new Error('OpenAI research response was not valid JSON: ' + error.message);\n}\nreturn [{\n  json: {\n    content_id: $json.content_id,\n    title: $json.title,\n    status_after_success: $json.status_after_success ?? 'script_complete',\n    generation_model: String(body.model ?? request.model),\n    llm_response: parsed,\n    provider_metadata: {\n      response_id: body.id ?? null,\n      usage: body.usage ?? null,\n      finish_reason: body?.choices?.[0]?.finish_reason ?? null\n    }\n  }\n}];"
+      },
+      "id": "provider_placeholder",
+      "name": "Call OpenAI Research Model",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json.llm_response ?? {};\nif (!$json.content_id) {\n  throw new Error('Call OpenAI Research Model did not provide content_id to Normalize Script Package.');\n}\nconst requiredTextFields = [\n  'confidence_label',\n  'hook_option_1',\n  'hook_option_2',\n  'hook_option_3',\n  'selected_hook',\n  'narration_script',\n  'short_script',\n  'caption_draft',\n  'cta_line'\n];\nfor (const field of requiredTextFields) {\n  if (!String(response[field] ?? '').trim()) {\n    throw new Error('Call OpenAI Research Model returned an empty ' + field + '.');\n  }\n}\nif (!Array.isArray(response.onscreen_text_json) || response.onscreen_text_json.length === 0) {\n  throw new Error('Call OpenAI Research Model did not produce onscreen_text_json.');\n}\nconst onscreenTextJson = response.onscreen_text_json.map((entry, index) => ({\n  scene_number: Number(entry?.scene_number ?? index + 1),\n  text: String(entry?.text ?? '').trim()\n}));\nif (onscreenTextJson.some((entry) => !Number.isInteger(entry.scene_number) || entry.scene_number < 1 || !entry.text)) {\n  throw new Error('onscreen_text_json must contain positive scene_number values and non-empty text.');\n}\nreturn [{\n  json: {\n    content_id: $json.content_id,\n    title: $json.title,\n    status_after_success: $json.status_after_success,\n    confidence_label: String(response.confidence_label).trim(),\n    hook_option_1: String(response.hook_option_1).trim(),\n    hook_option_2: String(response.hook_option_2).trim(),\n    hook_option_3: String(response.hook_option_3).trim(),\n    selected_hook: String(response.selected_hook).trim(),\n    narration_script: String(response.narration_script).trim(),\n    short_script: String(response.short_script).trim(),\n    caption_draft: String(response.caption_draft).trim(),\n    cta_line: String(response.cta_line).trim(),\n    onscreen_text_json: onscreenTextJson,\n    generation_model: String($json.generation_model ?? '').trim(),\n    raw_response_json: {\n      provider: 'openai',\n      generation_model: String($json.generation_model ?? '').trim(),\n      provider_metadata: $json.provider_metadata ?? {},\n      parsed_response: response\n    }\n  }\n}];"
+      },
+      "id": "normalize_script_package",
+      "name": "Normalize Script Package",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Prepare SQL Values received an invalid content_id: ' + (contentId || '<empty>') + '. Re-run from Manual Trigger and verify earlier nodes are not pinned or stale.');\n}\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    confidence_label_sql: String($json.confidence_label ?? 'unverified').replaceAll(\"'\", \"''\"),\n    hook_option_1_sql: String($json.hook_option_1 ?? '').replaceAll(\"'\", \"''\"),\n    hook_option_2_sql: String($json.hook_option_2 ?? '').replaceAll(\"'\", \"''\"),\n    hook_option_3_sql: String($json.hook_option_3 ?? '').replaceAll(\"'\", \"''\"),\n    selected_hook_sql: String($json.selected_hook ?? '').replaceAll(\"'\", \"''\"),\n    narration_script_sql: String($json.narration_script ?? '').replaceAll(\"'\", \"''\"),\n    short_script_sql: String($json.short_script ?? '').replaceAll(\"'\", \"''\"),\n    caption_draft_sql: String($json.caption_draft ?? '').replaceAll(\"'\", \"''\"),\n    cta_line_sql: String($json.cta_line ?? '').replaceAll(\"'\", \"''\"),\n    onscreen_text_json_sql: JSON.stringify($json.onscreen_text_json ?? []).replaceAll(\"'\", \"''\"),\n    generation_model_sql: String($json.generation_model ?? '').replaceAll(\"'\", \"''\"),\n    raw_response_json_sql: JSON.stringify($json.raw_response_json ?? {}).replaceAll(\"'\", \"''\")\n  }\n}];"
+      },
+      "id": "prepare_sql_values",
+      "name": "Prepare SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into scripts (\n  content_id,\n  hook_option_1,\n  hook_option_2,\n  hook_option_3,\n  selected_hook,\n  narration_script,\n  short_script,\n  caption_draft,\n  cta_line,\n  onscreen_text_json,\n  generation_model,\n  raw_response_json,\n  approved_by_human\n)\nvalues (\n  '{{$json.content_id_sql}}'::uuid,\n  '{{$json.hook_option_1_sql}}',\n  '{{$json.hook_option_2_sql}}',\n  '{{$json.hook_option_3_sql}}',\n  '{{$json.selected_hook_sql}}',\n  '{{$json.narration_script_sql}}',\n  '{{$json.short_script_sql}}',\n  '{{$json.caption_draft_sql}}',\n  '{{$json.cta_line_sql}}',\n  '{{$json.onscreen_text_json_sql}}'::jsonb,\n  '{{$json.generation_model_sql}}',\n  '{{$json.raw_response_json_sql}}'::jsonb,\n  false\n)\non conflict (content_id) do update set\n  hook_option_1 = excluded.hook_option_1,\n  hook_option_2 = excluded.hook_option_2,\n  hook_option_3 = excluded.hook_option_3,\n  selected_hook = excluded.selected_hook,\n  narration_script = excluded.narration_script,\n  short_script = excluded.short_script,\n  caption_draft = excluded.caption_draft,\n  cta_line = excluded.cta_line,\n  onscreen_text_json = excluded.onscreen_text_json,\n  generation_model = excluded.generation_model,\n  raw_response_json = excluded.raw_response_json,\n  generated_at = now()\nreturning content_id, selected_hook, generation_model, generated_at;",
+        "options": {}
+      },
+      "id": "upsert_scripts",
+      "name": "Upsert Scripts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1900,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update content_items\nset status = 'script_complete',\n    confidence_label = '{{$item(0).$node[\"Prepare SQL Values\"].json[\"confidence_label_sql\"]}}',\n    updated_at = now()\nwhere content_id = '{{$item(0).$node[\"Prepare SQL Values\"].json[\"content_id_sql\"]}}'::uuid\nreturning content_id, status, confidence_label, updated_at;",
+        "options": {}
+      },
+      "id": "mark_script_complete",
+      "name": "Mark Script Complete",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2140,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Next Approved Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Approved Item": {
+      "main": [
+        [
+          {
+            "node": "Prepare Prompt Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Prompt Payload": {
+      "main": [
+        [
+          {
+            "node": "Build LLM Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build LLM Request": {
+      "main": [
+        [
+          {
+            "node": "Call OpenAI Research Model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Script Package": {
+      "main": [
+        [
+          {
+            "node": "Prepare SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Upsert Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Scripts": {
+      "main": [
+        [
+          {
+            "node": "Mark Script Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call OpenAI Research Model": {
+      "main": [
+        [
+          {
+            "node": "Normalize Script Package",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "phase2-research-and-script-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

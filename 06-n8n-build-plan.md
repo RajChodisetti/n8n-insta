@@ -178,8 +178,8 @@ Keep these in env vars or config DB:
 ### Naming
 Use clear names:
 - `wf_story_discovery`
-- `wf_research_script`
-- `wf_storyboard_prompts`
+- `wf_research_and_script`
+- `wf_storyboard_and_prompts`
 - `wf_asset_generation`
 - `wf_render_reel`
 - `wf_instagram_publish`
@@ -212,4 +212,3 @@ Use error branches and persist errors to database instead of silently failing.
 - Instagram publish
 - metrics collection
 - automated recommendations
-

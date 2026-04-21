@@ -1,0 +1,220 @@
+{
+  "name": "wf_content_approval",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select\n  ci.content_id,\n  ci.title,\n  ci.category,\n  ci.status,\n  s.selected_hook,\n  s.approved_by_human,\n  p.publish_status,\n  p.caption_final,\n  p.hashtags_final,\n  a.asset_id,\n  a.provider,\n  a.source_url,\n  a.storage_url,\n  a.mime_type,\n  a.status as asset_status,\n  a.metadata_json\nfrom content_items ci\njoin scripts s on s.content_id = ci.content_id\njoin publishes p on p.content_id = ci.content_id\njoin lateral (\n  select\n    asset_id,\n    provider,\n    source_url,\n    storage_url,\n    mime_type,\n    status,\n    metadata_json,\n    created_at\n  from assets\n  where content_id = ci.content_id\n    and asset_role = 'post_image'\n  order by created_at desc\n  limit 1\n) a on true\nwhere ci.status = 'approval_pending'\n  and p.platform = 'instagram'\n  and p.publish_status in ('draft', 'failed')\n  and a.status = 'ready'\norder by ci.updated_at asc\nlimit 1;",
+        "options": {}
+      },
+      "id": "fetch_next_approval_candidate",
+      "name": "Fetch Next Approval Candidate",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        500,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nconst assetId = String($json.asset_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Approval Candidate did not produce a valid content_id.');\n}\nif (!uuidPattern.test(assetId)) {\n  throw new Error('Fetch Next Approval Candidate did not produce a valid asset_id.');\n}\nif (!String($json.caption_final ?? '').trim()) {\n  throw new Error('Fetch Next Approval Candidate did not produce caption_final.');\n}\nif (!String($json.storage_url ?? '').trim()) {\n  throw new Error('Fetch Next Approval Candidate did not produce storage_url.');\n}\nconst metadata = $json.metadata_json ?? {};\nconst assetPreviewUrl = String(metadata.generated_url ?? '').trim() || String($json.source_url ?? '').trim() || String($json.storage_url ?? '').trim();\nreturn [{\n  json: {\n    ...$json,\n    workflow_name: 'wf_content_approval',\n    run_started_at: new Date().toISOString(),\n    review_summary: {\n      title: String($json.title ?? '').trim(),\n      category: String($json.category ?? '').trim(),\n      selected_hook: String($json.selected_hook ?? '').trim(),\n      caption_final: String($json.caption_final ?? '').trim(),\n      hashtags_final: String($json.hashtags_final ?? '').trim(),\n      asset_preview_url: assetPreviewUrl,\n      asset_delivery_url: String($json.storage_url ?? '').trim(),\n      asset_provider: String($json.provider ?? '').trim(),\n      asset_status: String($json.asset_status ?? '').trim()\n    }\n  }\n}];"
+      },
+      "id": "prepare_review_package",
+      "name": "Prepare Review Package",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ...$json,\n    approval_decision: 'approve',\n    review_note: 'Approved after manual review in wf_content_approval.'\n  }\n}];"
+      },
+      "id": "manual_approval_decision",
+      "name": "Manual Approval Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1060,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const decision = String($json.approval_decision ?? '').trim().toLowerCase();\nif (!['approve', 'reject'].includes(decision)) {\n  throw new Error('Manual Approval Decision must set approval_decision to approve or reject.');\n}\nconst note = String($json.review_note ?? '').trim();\nif (!note) {\n  throw new Error('Manual Approval Decision must include a non-empty review_note.');\n}\nreturn [{\n  json: {\n    ...$json,\n    approval_decision: decision,\n    review_note: note,\n    next_content_status: decision === 'approve' ? 'qa_approved' : 'approval_rejected',\n    next_asset_status: decision === 'approve' ? 'ready' : 'rejected',\n    approved_by_human: decision === 'approve'\n  }\n}];"
+      },
+      "id": "normalize_approval_decision",
+      "name": "Normalize Approval Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nconst assetId = String($json.asset_id ?? '').trim();\nif (!uuidPattern.test(contentId) || !uuidPattern.test(assetId)) {\n  throw new Error('Normalize Approval Decision produced an invalid content_id or asset_id.');\n}\nconst startedAt = new Date(String($json.run_started_at ?? new Date().toISOString()));\nconst durationMs = Math.max(0, Date.now() - startedAt.getTime());\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    asset_id_sql: assetId,\n    workflow_name_sql: String($json.workflow_name ?? 'wf_content_approval').replaceAll(\"'\", \"''\"),\n    approval_decision_sql: String($json.approval_decision ?? '').replaceAll(\"'\", \"''\"),\n    review_note_sql: String($json.review_note ?? '').replaceAll(\"'\", \"''\"),\n    next_content_status_sql: String($json.next_content_status ?? '').replaceAll(\"'\", \"''\"),\n    next_asset_status_sql: String($json.next_asset_status ?? '').replaceAll(\"'\", \"''\"),\n    review_summary_json_sql: JSON.stringify($json.review_summary ?? {}).replaceAll(\"'\", \"''\"),\n    duration_ms_sql: Number.isFinite(durationMs) ? durationMs : 0\n  }\n}];"
+      },
+      "id": "prepare_approval_sql_values",
+      "name": "Prepare Approval SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1620,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update content_items\nset status = '{{$json.next_content_status_sql}}',\n    approved_at = case when '{{$json.approval_decision_sql}}' = 'approve' then now() else null end,\n    updated_at = now()\nwhere content_id = '{{$json.content_id_sql}}'::uuid;\n\nupdate scripts\nset approved_by_human = case when '{{$json.approval_decision_sql}}' = 'approve' then true else false end\nwhere content_id = '{{$json.content_id_sql}}'::uuid;\n\nupdate assets\nset status = '{{$json.next_asset_status_sql}}'\nwhere asset_id = '{{$json.asset_id_sql}}'::uuid;\n\nselect ci.content_id, ci.status, ci.approved_at, s.approved_by_human, a.status as asset_status\nfrom content_items ci\njoin scripts s on s.content_id = ci.content_id\njoin assets a on a.asset_id = '{{$json.asset_id_sql}}'::uuid\nwhere ci.content_id = '{{$json.content_id_sql}}'::uuid;",
+        "options": {}
+      },
+      "id": "persist_approval_decision",
+      "name": "Persist Approval Decision",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1900,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Approval SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  '{{$item(0).$node[\"Prepare Approval SQL Values\"].json[\"workflow_name_sql\"]}}',\n  'success',\n  '{{$item(0).$node[\"Prepare Review Package\"].json[\"run_started_at\"]}}'::timestamptz,\n  now(),\n  {{$item(0).$node[\"Prepare Approval SQL Values\"].json[\"duration_ms_sql\"]}},\n  null,\n  jsonb_build_object(\n    'approval_decision', '{{$item(0).$node[\"Prepare Approval SQL Values\"].json[\"approval_decision_sql\"]}}',\n    'review_note', '{{$item(0).$node[\"Prepare Approval SQL Values\"].json[\"review_note_sql\"]}}',\n    'review_summary', '{{$item(0).$node[\"Prepare Approval SQL Values\"].json[\"review_summary_json_sql\"]}}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, ended_at;",
+        "options": {}
+      },
+      "id": "log_approval_run",
+      "name": "Log Approval Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2180,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Next Approval Candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Approval Candidate": {
+      "main": [
+        [
+          {
+            "node": "Prepare Review Package",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Review Package": {
+      "main": [
+        [
+          {
+            "node": "Manual Approval Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Approval Decision": {
+      "main": [
+        [
+          {
+            "node": "Normalize Approval Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Approval Decision": {
+      "main": [
+        [
+          {
+            "node": "Prepare Approval SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Approval SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Persist Approval Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Persist Approval Decision": {
+      "main": [
+        [
+          {
+            "node": "Log Approval Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "phase2-content-approval-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}
