@@ -34,6 +34,7 @@ This document tracks your AI and media provider selections for v1 and future upg
 - local development secrets live in the repo-root `.env`
 - runtime credentials can move into the n8n credential store as the workflows harden
 - Environment variable: `OPENAI_API_KEY`
+- Current local compatibility note: the new Phase 2 OpenAI code-node workflows also accept legacy `LLL_API_KEY`, and local `n8n 1.92.2` testing is currently more reliable with `N8N_RUNNERS_ENABLED=false`
 
 ---
 
@@ -58,12 +59,16 @@ This document tracks your AI and media provider selections for v1 and future upg
 
 **Status:** `selected`
 
-**Selection:** DALL-E 3 via OpenAI API
+**Selection:** OpenAI image generation with GPT Image models, rehosted to a public delivery host for publish delivery
 
 **Why:**
 - consistent provider stack with text and TTS
-- sufficient for later scene-image generation experiments
-- not required for the current simple-post MVP because the MVP uses a static image asset path first
+- GPT image models can return JPEG output directly, which fits the Instagram publish path better than temporary OpenAI-hosted URLs
+- generated assets can be rehosted to a stable public URL before Instagram publish, instead of relying on short-lived OpenAI URLs
+
+**Current Phase 2 note:**
+- `wf_simple_post_image_asset` now generates the image with OpenAI, uploads the JPEG to ImageKit when `IMAGE_HOST_PROVIDER=imagekit`, and uses that public ImageKit URL as the live Instagram delivery asset
+- the object-storage path still exists as a fallback, but it requires `REELS_STORAGE_PUBLIC_BASE_URL` to point at a Meta-reachable public host
 
 ---
 
@@ -80,9 +85,9 @@ This document tracks your AI and media provider selections for v1 and future upg
 
 ## Next Steps
 
-1. [ ] Set up `OPENAI_API_KEY` in the repo-root `.env`
-2. [ ] Choose the exact OpenAI text model for the first live provider pass
-3. [ ] Configure OpenAI credentials in n8n when replacing mock-generation steps
+1. [x] Set up `OPENAI_API_KEY` or legacy `LLL_API_KEY` in the repo-root `.env`
+2. [x] Choose the first local Phase 2 text model default: `gpt-4o-mini`
+3. [x] Replace the Phase 2 research/storyboard scaffolds with live OpenAI calls in n8n workflow code nodes
 4. [ ] Configure narrator voice in the later narration workflow
 5. [ ] Plan upgrade timing based on usage, cost, and quality requirements
 
@@ -96,4 +101,5 @@ Track your spending across providers:
 |----------|---------|---------------|---------------|--------|
 | OpenAI | LLM | MVP dev budget | — | Selected |
 | OpenAI | TTS | Deferred until Reel pipeline | — | Selected |
-| OpenAI | Images (DALL-E 3) | Deferred until generated assets are needed | — | Selected |
+| OpenAI | Images (GPT Image) | MVP dev budget | — | Selected |
+| ImageKit | Public image hosting | Free tier during local live-post testing | — | Temporary |

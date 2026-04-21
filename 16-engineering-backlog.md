@@ -189,10 +189,90 @@ These are intentionally moved out of the critical path.
 
 ### Phase 2 — Better content packaging
 
-- stronger caption iteration
-- better hashtag ranking
-- smarter image generation
-- basic content approval flow
+### P2-01 Topic to script to storyboard draft generation
+
+Status: `complete` ✅
+
+Goal:
+
+- turn one approved topic into a persisted script package and a persisted storyboard package using OpenAI structured outputs
+
+Deliverables:
+
+- [workflows/n8n/wf_research_and_script.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_research_and_script.json)
+- [workflows/n8n/wf_storyboard_and_prompts.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_storyboard_and_prompts.json)
+- atomic queue-claim behavior for `idea_approved -> scripting -> script_complete -> storyboarding -> storyboard_complete`
+- [scripts/test_phase2_topic_to_storyboard_smoke.sh](/Users/rajchodisetti/n8n-insta/scripts/test_phase2_topic_to_storyboard_smoke.sh)
+
+### P2-02 Stronger caption iteration
+
+Status: `complete` ✅
+
+Goal:
+
+- replace the MVP mock caption generator with a real OpenAI-backed iterative caption workflow
+- generate multiple caption directions, refine the strongest one, and persist a stronger draft package for publish review
+
+Deliverables:
+
+- [prompts/caption_and_hashtags/system.md](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/system.md)
+- [prompts/caption_and_hashtags/user.md](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/user.md)
+- [prompts/caption_and_hashtags/response-schema.json](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/response-schema.json)
+- [workflows/n8n/wf_caption_and_hashtags.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_caption_and_hashtags.json)
+- [scripts/test_phase2_caption_iteration_smoke.sh](/Users/rajchodisetti/n8n-insta/scripts/test_phase2_caption_iteration_smoke.sh)
+- workflow-run logging for caption iteration details in `workflow_runs.details_json`
+
+### P2-03 Better hashtag ranking
+
+Status: `complete` ✅
+
+Goal:
+
+- improve the publish-draft hashtag quality by generating multiple compact hashtag candidates and ranking the strongest set
+- persist the selected set together with ranking metadata so the result is auditable during review
+
+Deliverables:
+
+- [prompts/caption_and_hashtags/system.md](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/system.md)
+- [prompts/caption_and_hashtags/user.md](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/user.md)
+- [prompts/caption_and_hashtags/response-schema.json](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/response-schema.json)
+- [workflows/n8n/wf_caption_and_hashtags.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_caption_and_hashtags.json)
+- [scripts/test_phase2_hashtag_ranking_smoke.sh](/Users/rajchodisetti/n8n-insta/scripts/test_phase2_hashtag_ranking_smoke.sh)
+- workflow-run logging for hashtag ranking details in `workflow_runs.details_json`
+
+### P2-04 Smarter image generation
+
+Status: `complete` ✅
+
+Goal:
+
+- replace the static post-image placeholder with an OpenAI-backed generated-image workflow that produces a story-specific Instagram post image
+- rehost the generated JPEG into a stable public delivery host, then persist that delivery URL and prompt metadata for later manual review and publish validation
+
+Deliverables:
+
+- [workflows/n8n/wf_simple_post_image_asset.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_simple_post_image_asset.json)
+- [workflows/scripts/generate_and_rehost_post_image.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/generate_and_rehost_post_image.mjs)
+- [scripts/prepare_phase2_live_post_candidate.sh](/Users/rajchodisetti/n8n-insta/scripts/prepare_phase2_live_post_candidate.sh)
+- OpenAI image-generation metadata plus rehost details persisted in `assets.metadata_json`
+- `storyboard_complete -> generating_assets -> approval_pending` queue behavior
+- workflow-run logging for generated image details in `workflow_runs.details_json`
+
+### P2-05 Basic content approval flow
+
+Status: `complete` ✅
+
+Goal:
+
+- introduce one manual approval checkpoint before live Instagram publish for the generated post package
+- allow approve and reject decisions with persisted status changes and review notes
+
+Deliverables:
+
+- [workflows/n8n/wf_content_approval.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_content_approval.json)
+- combined manual live-test preparation helper [scripts/prepare_phase2_live_post_candidate.sh](/Users/rajchodisetti/n8n-insta/scripts/prepare_phase2_live_post_candidate.sh)
+- `approval_pending -> qa_approved` and `approval_pending -> approval_rejected` state transitions
+- review decisions logged in `workflow_runs.details_json`
 
 ### Phase 3 — Reel/video pipeline
 
@@ -217,5 +297,4 @@ Working MVP backlog:
 
 Current recommended next build item:
 
-- working MVP is complete
-- choose the first Phase 2 improvement
+- `Phase 3 — Reel/video pipeline`

@@ -41,7 +41,7 @@ SLUG="tmp-live-publish-$(date +%Y%m%d-%H%M%S)"
 docker exec n8n-insta-postgres psql -v ON_ERROR_STOP=1 -U n8n_insta -d n8n_insta -c "insert into content_items (title, slug, status, brand_profile) values ('Temporary Live Publish Smoke Test', '${SLUG}', 'assets_ready', 'default'); insert into publishes (content_id, platform, publish_status, caption_final, hashtags_final, publish_error) select content_id, 'instagram', 'draft', 'Temporary live publish smoke test caption', '#mvp #smoketest', null from content_items where slug = '${SLUG}'; insert into assets (content_id, asset_role, provider, source_url, storage_url, mime_type, width, height, status) select content_id, 'post_image', 'public_image_url', '${IMAGE_URL}', '${IMAGE_URL}', 'image/jpeg', 1080, 1080, 'ready' from content_items where slug = '${SLUG}';"
 printf 'Seeded live publish candidate slug=%s\n' "$SLUG"
 ```
-6. If you prefer the upstream asset workflow path, run `wf_simple_post_image_asset`.
+6. If you prefer the newer upstream generated-image plus approval path, use [19 — Phase 2 Manual Review and Live Publish Runbook](/Users/rajchodisetti/n8n-insta/19-phase2-manual-review-and-live-publish-runbook.md) instead of this MVP shortcut.
 7. Verify the candidate asset row:
    - `docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c "select content_id, asset_role, provider, storage_url, mime_type, status from assets where asset_role = 'post_image' order by created_at desc limit 5;"`
 8. Verify the candidate publish row:
@@ -151,5 +151,5 @@ Remove the synthetic smoke-test rows when finished:
   - `published_at is null`
   - empty `instagram_media_id`
   - matching ready `post_image` asset
-- If validation fails on a supposed live candidate, rerun `wf_simple_post_image_asset` after setting `MVP_SIMPLE_POST_IMAGE_URL` to a public `.jpg` or `.jpeg` URL.
+- If validation fails on a supposed Phase 2 live candidate because the asset URL is local-only, switch the generated-image flow to `IMAGE_HOST_PROVIDER=imagekit`, recreate `n8n`, rerun `wf_simple_post_image_asset`, and then retry publish. The full generated-image path is documented in [19 — Phase 2 Manual Review and Live Publish Runbook](/Users/rajchodisetti/n8n-insta/19-phase2-manual-review-and-live-publish-runbook.md).
 - If `/me/accounts` fails with `Error validating access token: Session has expired`, update `INSTAGRAM_GRAPH_API_TOKEN` in the repo-root `.env`, then recreate `n8n` with `docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --force-recreate n8n` before retrying the workflow.

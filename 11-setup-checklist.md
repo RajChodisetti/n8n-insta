@@ -15,11 +15,23 @@ Rule:
 1. when I finish an item, I will add a full entry in [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md) with what was delivered, why you are testing it, prerequisites, exact test steps, DB checks or observable outputs, pass conditions, and cleanup if needed
 2. you run the test steps locally
 3. after you confirm the result, I move the item to `complete`
-4. once it is `complete`, I ask you to raise a PR
+4. once it is `complete`, I ask you to raise a PR into `release/2.0`
+5. `release/2.0` is the active integration branch for ongoing work
+6. `main` only receives merges from `release/2.0` when the release branch contains a meaningful validated upgrade
+
+## Git branch workflow
+
+Use this branch strategy for all ongoing work after Phase 1:
+
+1. create each feature branch from `release/2.0`
+2. implement and test on that feature branch
+3. merge tested feature branches into `release/2.0`
+4. merge `release/2.0` into `main` only for meaningful release milestones
 
 Current implemented items waiting for your test:
 
-- none
+- `P2-04` smarter image generation
+- `P2-05` basic content approval flow
 
 Tracking links:
 
@@ -53,10 +65,11 @@ Tracking links:
   - Use the repo-root `.env` for local dev and the n8n credential store for runtime credentials that should not stay in env.
 - [x] Enable persistent storage/logging
   - Completed locally through Docker volumes in `infra/state/`
+  - Current local Phase 2 note: OpenAI-backed research/storyboard workflow testing is more reliable with `N8N_RUNNERS_ENABLED=false`
 
 ### Storage
 - [x] Choose asset storage provider
-  - Current dev choice: MinIO for local object storage
+  - Current dev choice: MinIO for local object storage, with ImageKit as the current public delivery host for generated Instagram post images
 - [x] Define folder structure for assets and final outputs
   - Current local runtime paths use `infra/state/` and bucket bootstrap via MinIO
 - [ ] Confirm file retention approach
@@ -108,21 +121,21 @@ Tracking links:
 - [x] create script prompt templates
   - Completed in `prompts/research_and_script/`
 - [x] create `research_and_script` workflow
-  - Initial workflow scaffold created and import-tested
+  - OpenAI-backed workflow implemented in `workflows/n8n/wf_research_and_script.json`
 - [x] persist scripts to DB
-  - Completed in `wf_research_script_stub`
+  - Completed in `wf_research_and_script`
 
 ### Storyboards
 - [x] create storyboard prompt template
   - Completed in `prompts/storyboard_and_prompts/`
 - [x] create `storyboard_and_prompts` workflow
-  - Completed in `workflows/n8n/wf_storyboard_and_prompts.json`
+  - OpenAI-backed workflow implemented in `workflows/n8n/wf_storyboard_and_prompts.json`
 - [x] store scene JSON and subtitle plan
   - Persisted in `storyboards.storyboard_json` and `storyboards.subtitle_lines_json`
 
 ### Assets
 - [x] create simple post image asset path
-  - Completed in `wf_simple_post_image_asset`
+  - Phase 2 now upgrades `wf_simple_post_image_asset` into an OpenAI-backed generated-image workflow with manual review before live publish
 - [ ] integrate scene visual generation
 - [ ] integrate narration generation
 - [ ] persist asset references
@@ -134,7 +147,7 @@ Tracking links:
 
 ### Publishing
 - [x] generate caption and hashtag draft
-  - Completed in `wf_caption_and_hashtags`
+  - Stronger caption iteration is complete; hashtag ranking is now the active Phase 2 upgrade inside `wf_caption_and_hashtags`
 - [x] implement Instagram publish flow
   - Completed in `wf_instagram_simple_post_publish`
 - [x] store publish metadata
@@ -160,6 +173,7 @@ Tracking links:
 - [x] add workflow logging
   - `wf_instagram_simple_post_publish` writes to `workflow_runs`
 - [ ] add manual approval path
+  - Phase 2 implementation now exists in `wf_content_approval` and is waiting for the combined manual live test
 - [x] add duplicate publish prevention
   - Existing publish identifiers block duplicate claims
 

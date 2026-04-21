@@ -15,7 +15,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "select\n  ci.content_id,\n  ci.title,\n  ci.category,\n  ci.status,\n  s.selected_hook,\n  s.narration_script\nfrom content_items ci\njoin scripts s on s.content_id = ci.content_id\nleft join publishes p on p.content_id = ci.content_id\nwhere ci.status in ('script_complete', 'storyboard_complete')\n  and coalesce(p.publish_status, 'draft') <> 'published'\norder by ci.updated_at asc\nlimit 1;",
+        "query": "select\n  ci.content_id,\n  ci.title,\n  ci.category,\n  ci.status,\n  s.selected_hook,\n  s.narration_script,\n  s.caption_draft,\n  s.cta_line,\n  coalesce(sb.cover_prompt, '') as cover_prompt,\n  coalesce(p.publish_status, 'draft') as existing_publish_status\nfrom content_items ci\njoin scripts s on s.content_id = ci.content_id\nleft join storyboards sb on sb.content_id = ci.content_id\nleft join publishes p on p.content_id = ci.content_id\nwhere ci.status in ('script_complete', 'storyboard_complete', 'assets_ready', 'qa_approved')\n  and coalesce(p.publish_status, 'draft') in ('draft', 'failed')\n  and coalesce(nullif(btrim(p.instagram_media_id), ''), '') = ''\norder by ci.updated_at asc\nlimit 1;",
         "options": {}
       },
       "id": "fetch_next_publish_draft_item",
@@ -35,7 +35,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nconst selectedHook = String($json.selected_hook ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Publish Draft Item did not produce a valid content_id.');\n}\nif (!title) {\n  throw new Error('Fetch Next Publish Draft Item did not produce a title.');\n}\nif (!selectedHook) {\n  throw new Error('Fetch Next Publish Draft Item did not produce a selected_hook.');\n}\nreturn [{\n  json: {\n    content_id: contentId,\n    title,\n    category: String($json.category ?? 'general'),\n    status: String($json.status ?? 'script_complete'),\n    selected_hook: selectedHook,\n    narration_script: String($json.narration_script ?? ''),\n    brand_tone: 'cinematic, concise, credible',\n    llm_instruction: 'Create a compact Instagram caption and relevant hashtags for a simple image post.',\n    publish_status_after_success: 'draft'\n  }\n}];"
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nconst selectedHook = String($json.selected_hook ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Publish Draft Item did not produce a valid content_id.');\n}\nif (!title) {\n  throw new Error('Fetch Next Publish Draft Item did not produce a title.');\n}\nif (!selectedHook) {\n  throw new Error('Fetch Next Publish Draft Item did not produce a selected_hook.');\n}\nconst narrationScript = String($json.narration_script ?? '').trim();\nif (!narrationScript) {\n  throw new Error('Fetch Next Publish Draft Item did not produce a narration_script.');\n}\nreturn [{\n  json: {\n    content_id: contentId,\n    title,\n    category: String($json.category ?? 'general').trim() || 'general',\n    content_status: String($json.status ?? 'script_complete').trim() || 'script_complete',\n    selected_hook: selectedHook,\n    narration_script: narrationScript,\n    caption_draft: String($json.caption_draft ?? '').trim(),\n    cta_line: String($json.cta_line ?? '').trim(),\n    cover_prompt: String($json.cover_prompt ?? '').trim(),\n    existing_publish_status: String($json.existing_publish_status ?? 'draft').trim() || 'draft',\n    brand_tone: 'cinematic, concise, credible',\n    publish_status_after_success: 'draft',\n    workflow_name: 'wf_caption_and_hashtags',\n    run_started_at: new Date().toISOString()\n  }\n}];"
       },
       "id": "prepare_caption_prompt_payload",
       "name": "Prepare Caption Prompt Payload",
@@ -48,10 +48,10 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{\n  json: {\n    content_id: $json.content_id,\n    title: $json.title,\n    category: $json.category,\n    selected_hook: $json.selected_hook,\n    prompt: {\n      instruction: $json.llm_instruction,\n      narration_script: $json.narration_script,\n      brand_tone: $json.brand_tone,\n      response_schema: {\n        caption_final: 'string',\n        hashtags_final: 'string'\n      }\n    },\n    publish_status_after_success: $json.publish_status_after_success\n  }\n}];"
+        "jsCode": "const systemPrompt = [\n  'You are the caption strategist for a faceless English-language Instagram storytelling account.',\n  '',\n  'Your job is to draft multiple short Instagram caption directions and recommend the strongest one for refinement.',\n  '',\n  'Hard rules:',\n  '- write for Instagram, not for blogs',\n  '- keep the copy concise, vivid, and readable',\n  '- the first line must create curiosity without sounding cheap or spammy',\n  '- stay grounded in the provided topic, hook, and narration',\n  '- avoid hashtags inside caption options',\n  '- avoid emoji-heavy writing',\n  '',\n  'Return only valid JSON matching the provided response schema.'\n].join('\\n');\nconst userPrompt = [\n  'Create a first-pass caption strategy package for this Instagram post.',\n  '',\n  'Title:',\n  $json.title,\n  '',\n  'Category:',\n  $json.category,\n  '',\n  'Current content status:',\n  $json.content_status,\n  '',\n  'Selected hook:',\n  $json.selected_hook,\n  '',\n  'Narration script:',\n  $json.narration_script,\n  '',\n  'Existing caption draft:',\n  $json.caption_draft || 'None',\n  '',\n  'CTA line:',\n  $json.cta_line || 'None',\n  '',\n  'Cover prompt context:',\n  $json.cover_prompt || 'None',\n  '',\n  'Brand tone:',\n  $json.brand_tone,\n  '',\n  'Requirements:',\n  '- produce 3 clearly distinct caption options',\n  '- keep each option short-post friendly',\n  '- briefly explain which option is strongest and why',\n  '- return one recommended caption for refinement',\n  '',\n  'Return only JSON.'\n].join('\\n');\nreturn [{\n  json: {\n    ...$json,\n    openai_request_caption_first_pass: {\n      model: String($env.OPENAI_CAPTION_MODEL || $env.OPENAI_TEXT_MODEL || 'gpt-4o-mini').trim(),\n      messages: [\n        { role: 'system', content: systemPrompt },\n        { role: 'user', content: userPrompt }\n      ],\n      response_schema: {\n        type: 'object',\n        additionalProperties: false,\n        required: [\n          'caption_option_1',\n          'caption_option_2',\n          'caption_option_3',\n          'selection_rationale',\n          'caption_final'\n        ],\n        properties: {\n          caption_option_1: { type: 'string', minLength: 1 },\n          caption_option_2: { type: 'string', minLength: 1 },\n          caption_option_3: { type: 'string', minLength: 1 },\n          selection_rationale: { type: 'string', minLength: 1 },\n          caption_final: { type: 'string', minLength: 1 }\n        }\n      }\n    }\n  }\n}];"
       },
-      "id": "build_caption_request",
-      "name": "Build Caption Request",
+      "id": "build_caption_first_pass_request",
+      "name": "Build Caption First Pass Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -61,10 +61,10 @@
     },
     {
       "parameters": {
-        "jsCode": "if (!$json.content_id || !$json.title || !$json.selected_hook) {\n  throw new Error('Build Caption Request did not produce the required caption context.');\n}\nconst titleWords = $json.title\n  .replace(/[^a-zA-Z0-9\\s]/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean)\n  .slice(0, 3)\n  .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());\nconst categoryMap = {\n  mystery: ['#MysteryTok', '#UnsolvedHistory'],\n  history: ['#HistoryFacts', '#HiddenHistory'],\n  general: ['#StoryPost', '#InterestingStories']\n};\nconst mapped = categoryMap[String($json.category).toLowerCase()] ?? categoryMap.general;\nconst titleTags = titleWords.length ? [`#${titleWords.join('')}`] : [];\nconst defaultTags = ['#InstagramStories', '#Storytelling', '#CuriousMinds'];\nconst hashtags = [...new Set([...titleTags, ...mapped, ...defaultTags])].slice(0, 5).join(' ');\nconst caption = `${$json.selected_hook}\\n\\n${$json.title} in one short post: the detail that keeps this story alive.\\n\\nWould you have believed it at first glance?`;\nreturn [{\n  json: {\n    content_id: $json.content_id,\n    publish_status_after_success: $json.publish_status_after_success,\n    caption_response: {\n      caption_final: caption,\n      hashtags_final: hashtags\n    }\n  }\n}];"
+        "jsCode": "if (!$json.content_id || !$json.openai_request_caption_first_pass) {\n  throw new Error('Build Caption First Pass Request did not provide the expected OpenAI request payload.');\n}\nconst apiKey = String($env.OPENAI_API_KEY || $env.LLL_API_KEY || '').trim();\nif (!apiKey) {\n  throw new Error('Set OPENAI_API_KEY in the repo-root .env before running wf_caption_and_hashtags. For backward compatibility, LLL_API_KEY is also accepted.');\n}\nconst request = $json.openai_request_caption_first_pass;\nif (!request.model) {\n  throw new Error('No OpenAI model was configured for the caption workflow first pass.');\n}\nconst response = await helpers.httpRequest({\n  method: 'POST',\n  url: 'https://api.openai.com/v1/chat/completions',\n  json: true,\n  returnFullResponse: true,\n  ignoreHttpStatusErrors: true,\n  headers: {\n    Authorization: 'Bearer ' + apiKey,\n    'Content-Type': 'application/json'\n  },\n  body: {\n    model: request.model,\n    messages: request.messages,\n    response_format: {\n      type: 'json_schema',\n      json_schema: {\n        name: 'caption_first_pass',\n        schema: request.response_schema,\n        strict: true\n      }\n    }\n  }\n});\nconst statusCode = Number(response.statusCode ?? 0);\nconst body = response.body ?? {};\nif (!(statusCode >= 200 && statusCode < 300) || body.error) {\n  throw new Error('OpenAI caption first pass failed (' + (statusCode || 'no status') + '): ' + (body?.error?.message ?? 'unknown error'));\n}\nconst content = body?.choices?.[0]?.message?.content;\nif (!content) {\n  throw new Error('OpenAI caption first pass returned no message content.');\n}\nlet parsed;\ntry {\n  parsed = JSON.parse(content);\n} catch (error) {\n  throw new Error('OpenAI caption first pass response was not valid JSON: ' + error.message);\n}\nreturn [{\n  json: {\n    ...$json,\n    caption_first_pass_model: String(body.model ?? request.model),\n    caption_first_pass_response: parsed,\n    caption_first_pass_provider_metadata: {\n      response_id: body.id ?? null,\n      usage: body.usage ?? null,\n      finish_reason: body?.choices?.[0]?.finish_reason ?? null\n    }\n  }\n}];"
       },
-      "id": "mock_caption_response",
-      "name": "Mock Caption Response",
+      "id": "call_openai_caption_first_pass",
+      "name": "Call OpenAI Caption First Pass",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -74,10 +74,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $json.caption_response ?? {};\nif (!$json.content_id) {\n  throw new Error('Mock Caption Response did not provide content_id.');\n}\nif (!response.caption_final || !response.hashtags_final) {\n  throw new Error('Mock Caption Response did not produce caption_final and hashtags_final.');\n}\nreturn [{\n  json: {\n    content_id: $json.content_id,\n    publish_status_after_success: $json.publish_status_after_success,\n    caption_final: response.caption_final,\n    hashtags_final: response.hashtags_final\n  }\n}];"
+        "jsCode": "const response = $json.caption_first_pass_response ?? {};\nconst requiredFields = [\n  'caption_option_1',\n  'caption_option_2',\n  'caption_option_3',\n  'selection_rationale',\n  'caption_final'\n];\nfor (const field of requiredFields) {\n  if (!String(response[field] ?? '').trim()) {\n    throw new Error('Call OpenAI Caption First Pass returned an empty ' + field + '.');\n  }\n}\nreturn [{\n  json: {\n    ...$json,\n    caption_option_1: String(response.caption_option_1).trim(),\n    caption_option_2: String(response.caption_option_2).trim(),\n    caption_option_3: String(response.caption_option_3).trim(),\n    caption_selection_rationale: String(response.selection_rationale).trim(),\n    first_pass_caption_recommendation: String(response.caption_final).trim()\n  }\n}];"
       },
-      "id": "normalize_caption_package",
-      "name": "Normalize Caption Package",
+      "id": "normalize_caption_first_pass",
+      "name": "Normalize Caption First Pass",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -87,14 +87,92 @@
     },
     {
       "parameters": {
-        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error(`Prepare Publish Draft SQL Values received an invalid content_id: ${contentId || '<empty>'}.`);\n}\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    caption_final_sql: String($json.caption_final ?? '').replaceAll(\"'\", \"''\"),\n    hashtags_final_sql: String($json.hashtags_final ?? '').replaceAll(\"'\", \"''\"),\n    publish_status_sql: String($json.publish_status_after_success ?? 'draft').replaceAll(\"'\", \"''\")\n  }\n}];"
+        "jsCode": "const systemPrompt = [\n  'You are the final caption editor for a faceless English-language Instagram storytelling account.',\n  '',\n  'You are revising an internally reviewed first pass. Preserve the strongest angle, tighten the language, and return one final caption.',\n  '',\n  'Hard rules:',\n  '- keep the caption concise and strong in the first line',\n  '- make the final version sound intentional, not over-written',\n  '- keep the CTA soft and optional',\n  '- do not include hashtags in the caption',\n  '',\n  'Return only valid JSON matching the provided response schema.'\n].join('\\n');\nconst userPrompt = [\n  'Refine the strongest caption direction into the final caption.',\n  '',\n  'Title:',\n  $json.title,\n  '',\n  'Category:',\n  $json.category,\n  '',\n  'Selected hook:',\n  $json.selected_hook,\n  '',\n  'Narration script:',\n  $json.narration_script,\n  '',\n  'Caption option 1:',\n  $json.caption_option_1,\n  '',\n  'Caption option 2:',\n  $json.caption_option_2,\n  '',\n  'Caption option 3:',\n  $json.caption_option_3,\n  '',\n  'Selection rationale from first pass:',\n  $json.caption_selection_rationale,\n  '',\n  'First-pass recommended caption:',\n  $json.first_pass_caption_recommendation,\n  '',\n  'Requirements:',\n  '- return one final caption',\n  '- return a short revision summary describing what improved',\n  '- keep the final caption concise and Instagram-native',\n  '',\n  'Return only JSON.'\n].join('\\n');\nreturn [{\n  json: {\n    ...$json,\n    openai_request_caption_final_pass: {\n      model: String($env.OPENAI_CAPTION_MODEL || $env.OPENAI_TEXT_MODEL || 'gpt-4o-mini').trim(),\n      messages: [\n        { role: 'system', content: systemPrompt },\n        { role: 'user', content: userPrompt }\n      ],\n      response_schema: {\n        type: 'object',\n        additionalProperties: false,\n        required: [\n          'revision_summary',\n          'caption_final'\n        ],\n        properties: {\n          revision_summary: { type: 'string', minLength: 1 },\n          caption_final: { type: 'string', minLength: 1 }\n        }\n      }\n    }\n  }\n}];"
+      },
+      "id": "build_caption_final_pass_request",
+      "name": "Build Caption Final Pass Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!$json.content_id || !$json.openai_request_caption_final_pass) {\n  throw new Error('Build Caption Final Pass Request did not provide the expected OpenAI request payload.');\n}\nconst apiKey = String($env.OPENAI_API_KEY || $env.LLL_API_KEY || '').trim();\nif (!apiKey) {\n  throw new Error('Set OPENAI_API_KEY in the repo-root .env before running wf_caption_and_hashtags. For backward compatibility, LLL_API_KEY is also accepted.');\n}\nconst request = $json.openai_request_caption_final_pass;\nif (!request.model) {\n  throw new Error('No OpenAI model was configured for the caption workflow final pass.');\n}\nconst response = await helpers.httpRequest({\n  method: 'POST',\n  url: 'https://api.openai.com/v1/chat/completions',\n  json: true,\n  returnFullResponse: true,\n  ignoreHttpStatusErrors: true,\n  headers: {\n    Authorization: 'Bearer ' + apiKey,\n    'Content-Type': 'application/json'\n  },\n  body: {\n    model: request.model,\n    messages: request.messages,\n    response_format: {\n      type: 'json_schema',\n      json_schema: {\n        name: 'caption_final_pass',\n        schema: request.response_schema,\n        strict: true\n      }\n    }\n  }\n});\nconst statusCode = Number(response.statusCode ?? 0);\nconst body = response.body ?? {};\nif (!(statusCode >= 200 && statusCode < 300) || body.error) {\n  throw new Error('OpenAI caption final pass failed (' + (statusCode || 'no status') + '): ' + (body?.error?.message ?? 'unknown error'));\n}\nconst content = body?.choices?.[0]?.message?.content;\nif (!content) {\n  throw new Error('OpenAI caption final pass returned no message content.');\n}\nlet parsed;\ntry {\n  parsed = JSON.parse(content);\n} catch (error) {\n  throw new Error('OpenAI caption final pass response was not valid JSON: ' + error.message);\n}\nreturn [{\n  json: {\n    ...$json,\n    caption_final_pass_model: String(body.model ?? request.model),\n    caption_final_pass_response: parsed,\n    caption_final_pass_provider_metadata: {\n      response_id: body.id ?? null,\n      usage: body.usage ?? null,\n      finish_reason: body?.choices?.[0]?.finish_reason ?? null\n    }\n  }\n}];"
+      },
+      "id": "call_openai_caption_final_pass",
+      "name": "Call OpenAI Caption Final Pass",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1900,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json.caption_final_pass_response ?? {};\nif (!String(response.revision_summary ?? '').trim()) {\n  throw new Error('Call OpenAI Caption Final Pass returned an empty revision_summary.');\n}\nif (!String(response.caption_final ?? '').trim()) {\n  throw new Error('Call OpenAI Caption Final Pass returned an empty caption_final.');\n}\nreturn [{\n  json: {\n    ...$json,\n    caption_final: String(response.caption_final).trim(),\n    revision_summary: String(response.revision_summary).trim()\n  }\n}];"
+      },
+      "id": "normalize_caption_final_pass",
+      "name": "Normalize Caption Final Pass",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2140,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const systemPrompt = [\n  'You are the hashtag strategist for a faceless English-language Instagram storytelling account.',\n  '',\n  'Your job is to generate several compact hashtag set candidates for one post, rank them, and choose the strongest final set.',\n  '',\n  'Hard rules:',\n  '- use only relevant hashtags tied to the story topic, category, and hook',\n  '- avoid spammy generic tags unless they are still clearly relevant',\n  '- avoid repeated roots and near-duplicate tags in the same set',\n  '- keep each set compact and practical for Instagram',\n  '- prefer a balanced mix of topic tags, category tags, and audience-intent tags',\n  '',\n  'Return only valid JSON matching the provided response schema.'\n].join('\\n');\nconst userPrompt = [\n  'Create and rank hashtag candidates for this Instagram post.',\n  '',\n  'Title:',\n  $json.title,\n  '',\n  'Category:',\n  $json.category,\n  '',\n  'Selected hook:',\n  $json.selected_hook,\n  '',\n  'Narration script:',\n  $json.narration_script,\n  '',\n  'Final caption:',\n  $json.caption_final,\n  '',\n  'Cover prompt context:',\n  $json.cover_prompt || 'None',\n  '',\n  'Requirements:',\n  '- produce 3 distinct compact hashtag sets',\n  '- briefly explain which set is strongest and why',\n  '- return one final selected hashtag string',\n  '- keep the final set compact and space-separated',\n  '',\n  'Return only JSON.'\n].join('\\n');\nreturn [{\n  json: {\n    ...$json,\n    openai_request_hashtag_ranking: {\n      model: String($env.OPENAI_HASHTAG_MODEL || $env.OPENAI_CAPTION_MODEL || $env.OPENAI_TEXT_MODEL || 'gpt-4o-mini').trim(),\n      messages: [\n        { role: 'system', content: systemPrompt },\n        { role: 'user', content: userPrompt }\n      ],\n      response_schema: {\n        type: 'object',\n        additionalProperties: false,\n        required: [\n          'hashtag_set_1',\n          'hashtag_set_2',\n          'hashtag_set_3',\n          'hashtag_selection_rationale',\n          'hashtags_final'\n        ],\n        properties: {\n          hashtag_set_1: { type: 'string', minLength: 1 },\n          hashtag_set_2: { type: 'string', minLength: 1 },\n          hashtag_set_3: { type: 'string', minLength: 1 },\n          hashtag_selection_rationale: { type: 'string', minLength: 1 },\n          hashtags_final: { type: 'string', minLength: 1 }\n        }\n      }\n    }\n  }\n}];"
+      },
+      "id": "build_hashtag_ranking_request",
+      "name": "Build Hashtag Ranking Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2380,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "if (!$json.content_id || !$json.openai_request_hashtag_ranking) {\n  throw new Error('Build Hashtag Ranking Request did not provide the expected OpenAI request payload.');\n}\nconst apiKey = String($env.OPENAI_API_KEY || $env.LLL_API_KEY || '').trim();\nif (!apiKey) {\n  throw new Error('Set OPENAI_API_KEY in the repo-root .env before running wf_caption_and_hashtags. For backward compatibility, LLL_API_KEY is also accepted.');\n}\nconst request = $json.openai_request_hashtag_ranking;\nif (!request.model) {\n  throw new Error('No OpenAI model was configured for the hashtag ranking pass.');\n}\nconst response = await helpers.httpRequest({\n  method: 'POST',\n  url: 'https://api.openai.com/v1/chat/completions',\n  json: true,\n  returnFullResponse: true,\n  ignoreHttpStatusErrors: true,\n  headers: {\n    Authorization: 'Bearer ' + apiKey,\n    'Content-Type': 'application/json'\n  },\n  body: {\n    model: request.model,\n    messages: request.messages,\n    response_format: {\n      type: 'json_schema',\n      json_schema: {\n        name: 'hashtag_ranking_pass',\n        schema: request.response_schema,\n        strict: true\n      }\n    }\n  }\n});\nconst statusCode = Number(response.statusCode ?? 0);\nconst body = response.body ?? {};\nif (!(statusCode >= 200 && statusCode < 300) || body.error) {\n  throw new Error('OpenAI hashtag ranking pass failed (' + (statusCode || 'no status') + '): ' + (body?.error?.message ?? 'unknown error'));\n}\nconst content = body?.choices?.[0]?.message?.content;\nif (!content) {\n  throw new Error('OpenAI hashtag ranking pass returned no message content.');\n}\nlet parsed;\ntry {\n  parsed = JSON.parse(content);\n} catch (error) {\n  throw new Error('OpenAI hashtag ranking pass response was not valid JSON: ' + error.message);\n}\nreturn [{\n  json: {\n    ...$json,\n    hashtag_ranking_model: String(body.model ?? request.model),\n    hashtag_ranking_response: parsed,\n    hashtag_ranking_provider_metadata: {\n      response_id: body.id ?? null,\n      usage: body.usage ?? null,\n      finish_reason: body?.choices?.[0]?.finish_reason ?? null\n    }\n  }\n}];"
+      },
+      "id": "call_openai_hashtag_ranking",
+      "name": "Call OpenAI Hashtag Ranking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2620,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json.hashtag_ranking_response ?? {};\nconst requiredFields = [\n  'hashtag_set_1',\n  'hashtag_set_2',\n  'hashtag_set_3',\n  'hashtag_selection_rationale',\n  'hashtags_final'\n];\nfor (const field of requiredFields) {\n  if (!String(response[field] ?? '').trim()) {\n    throw new Error('Call OpenAI Hashtag Ranking returned an empty ' + field + '.');\n  }\n}\nconst hashtagRankingJson = {\n  provider: 'openai',\n  model: String($json.hashtag_ranking_model ?? '').trim(),\n  provider_metadata: $json.hashtag_ranking_provider_metadata ?? {},\n  output: {\n    hashtag_set_1: String(response.hashtag_set_1).trim(),\n    hashtag_set_2: String(response.hashtag_set_2).trim(),\n    hashtag_set_3: String(response.hashtag_set_3).trim(),\n    hashtag_selection_rationale: String(response.hashtag_selection_rationale).trim(),\n    hashtags_final: String(response.hashtags_final).trim()\n  }\n};\nconst captionIterationJson = {\n  provider: 'openai',\n  first_pass: {\n    model: String($json.caption_first_pass_model ?? '').trim(),\n    provider_metadata: $json.caption_first_pass_provider_metadata ?? {},\n    output: {\n      caption_option_1: $json.caption_option_1,\n      caption_option_2: $json.caption_option_2,\n      caption_option_3: $json.caption_option_3,\n      selection_rationale: $json.caption_selection_rationale,\n      caption_final: $json.first_pass_caption_recommendation\n    }\n  },\n  final_pass: {\n    model: String($json.caption_final_pass_model ?? '').trim(),\n    provider_metadata: $json.caption_final_pass_provider_metadata ?? {},\n    output: {\n      revision_summary: $json.revision_summary,\n      caption_final: $json.caption_final\n    }\n  }\n};\nreturn [{\n  json: {\n    content_id: $json.content_id,\n    workflow_name: $json.workflow_name,\n    run_started_at: $json.run_started_at,\n    publish_status_after_success: $json.publish_status_after_success,\n    caption_final: $json.caption_final,\n    hashtags_final: String(response.hashtags_final).trim(),\n    revision_summary: $json.revision_summary,\n    hashtag_selection_rationale: String(response.hashtag_selection_rationale).trim(),\n    generation_model: String($json.hashtag_ranking_model || $json.caption_final_pass_model || $json.caption_first_pass_model || '').trim(),\n    caption_iteration_json: captionIterationJson,\n    hashtag_ranking_json: hashtagRankingJson\n  }\n}];"
+      },
+      "id": "normalize_ranked_publish_package",
+      "name": "Normalize Ranked Publish Package",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Prepare Publish Draft SQL Values received an invalid content_id: ' + (contentId || '<empty>') + '.');\n}\nconst startedAt = new Date(String($json.run_started_at ?? new Date().toISOString()));\nconst durationMs = Math.max(0, Date.now() - startedAt.getTime());\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    caption_final_sql: String($json.caption_final ?? '').replaceAll(\"'\", \"''\"),\n    hashtags_final_sql: String($json.hashtags_final ?? '').replaceAll(\"'\", \"''\"),\n    publish_status_sql: String($json.publish_status_after_success ?? 'draft').replaceAll(\"'\", \"''\"),\n    workflow_name_sql: String($json.workflow_name ?? 'wf_caption_and_hashtags').replaceAll(\"'\", \"''\"),\n    generation_model_sql: String($json.generation_model ?? '').replaceAll(\"'\", \"''\"),\n    revision_summary_sql: String($json.revision_summary ?? '').replaceAll(\"'\", \"''\"),\n    hashtag_selection_rationale_sql: String($json.hashtag_selection_rationale ?? '').replaceAll(\"'\", \"''\"),\n    caption_iteration_json_sql: JSON.stringify($json.caption_iteration_json ?? {}).replaceAll(\"'\", \"''\"),\n    hashtag_ranking_json_sql: JSON.stringify($json.hashtag_ranking_json ?? {}).replaceAll(\"'\", \"''\"),\n    duration_ms_sql: Number.isFinite(durationMs) ? durationMs : 0\n  }\n}];"
       },
       "id": "prepare_publish_draft_sql_values",
       "name": "Prepare Publish Draft SQL Values",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1660,
+        3100,
         320
       ]
     },
@@ -109,7 +187,28 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1900,
+        3340,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Publish Draft SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  '{{$item(0).$node[\"Prepare Publish Draft SQL Values\"].json[\"workflow_name_sql\"]}}',\n  'success',\n  '{{$item(0).$node[\"Prepare Caption Prompt Payload\"].json[\"run_started_at\"]}}'::timestamptz,\n  now(),\n  {{$item(0).$node[\"Prepare Publish Draft SQL Values\"].json[\"duration_ms_sql\"]}},\n  null,\n  jsonb_build_object(\n    'generation_model', nullif('{{$item(0).$node[\"Prepare Publish Draft SQL Values\"].json[\"generation_model_sql\"]}}', ''),\n    'revision_summary', nullif('{{$item(0).$node[\"Prepare Publish Draft SQL Values\"].json[\"revision_summary_sql\"]}}', ''),\n    'hashtag_selection_rationale', nullif('{{$item(0).$node[\"Prepare Publish Draft SQL Values\"].json[\"hashtag_selection_rationale_sql\"]}}', ''),\n    'caption_iteration', '{{$item(0).$node[\"Prepare Publish Draft SQL Values\"].json[\"caption_iteration_json_sql\"]}}'::jsonb,\n    'hashtag_ranking', '{{$item(0).$node[\"Prepare Publish Draft SQL Values\"].json[\"hashtag_ranking_json_sql\"]}}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, ended_at;",
+        "options": {}
+      },
+      "id": "log_caption_workflow_run",
+      "name": "Log Caption Workflow Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        3580,
         320
       ],
       "credentials": {
@@ -147,36 +246,102 @@
       "main": [
         [
           {
-            "node": "Build Caption Request",
+            "node": "Build Caption First Pass Request",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Build Caption Request": {
+    "Build Caption First Pass Request": {
       "main": [
         [
           {
-            "node": "Mock Caption Response",
+            "node": "Call OpenAI Caption First Pass",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Mock Caption Response": {
+    "Call OpenAI Caption First Pass": {
       "main": [
         [
           {
-            "node": "Normalize Caption Package",
+            "node": "Normalize Caption First Pass",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Normalize Caption Package": {
+    "Normalize Caption First Pass": {
+      "main": [
+        [
+          {
+            "node": "Build Caption Final Pass Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Caption Final Pass Request": {
+      "main": [
+        [
+          {
+            "node": "Call OpenAI Caption Final Pass",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call OpenAI Caption Final Pass": {
+      "main": [
+        [
+          {
+            "node": "Normalize Caption Final Pass",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Caption Final Pass": {
+      "main": [
+        [
+          {
+            "node": "Build Hashtag Ranking Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Hashtag Ranking Request": {
+      "main": [
+        [
+          {
+            "node": "Call OpenAI Hashtag Ranking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call OpenAI Hashtag Ranking": {
+      "main": [
+        [
+          {
+            "node": "Normalize Ranked Publish Package",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Ranked Publish Package": {
       "main": [
         [
           {
@@ -197,13 +362,24 @@
           }
         ]
       ]
+    },
+    "Upsert Publish Draft": {
+      "main": [
+        [
+          {
+            "node": "Log Caption Workflow Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "seed-caption-and-hashtags-v1",
+  "versionId": "phase2-hashtag-ranking-v1",
   "meta": {
     "templateCredsSetupCompleted": false
   },

@@ -36,6 +36,16 @@ Rule:
    - exact DB checks or observable outputs
    - clear pass conditions
    - cleanup steps if the test creates synthetic data
+7. after an item passes testing, the feature PR target should be `release/2.0`
+8. `main` should only receive promoted changes from `release/2.0`
+
+## Branching Rule
+
+For all work after Phase 1:
+
+- cut feature branches from `release/2.0`
+- merge tested feature branches into `release/2.0`
+- merge `release/2.0` into `main` only when the branch contains a meaningful validated upgrade
 
 ## Status Model
 
@@ -82,9 +92,33 @@ Notes:
 
 ## Current Items in `implemented_awaiting_test`
 
-No items are currently in `implemented_awaiting_test`.
+- none
 
 ## Completed Items (moved to archive)
+
+### 17. `P2-04` smarter image generation + `P2-05` basic content approval flow
+
+Archive entry:
+
+- [17 — Phase 2 Smarter Image Generation and Approval Flow](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/17-phase2-image-generation-and-approval-flow.md)
+
+### 16. `P2-03` better hashtag ranking
+
+Archive entry:
+
+- [16 — Phase 2 Better Hashtag Ranking](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/16-phase2-better-hashtag-ranking.md)
+
+### 15. `P2-02` stronger caption iteration
+
+Archive entry:
+
+- [15 — Phase 2 Stronger Caption Iteration](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/15-phase2-stronger-caption-iteration.md)
+
+### 14. `P2-01` topic to script to storyboard draft generation
+
+Archive entry:
+
+- [14 — Phase 2 Topic to Script to Storyboard Draft Generation](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/14-phase2-topic-to-script-to-storyboard-draft-generation.md)
 
 ### 10. `MVP-06` Instagram publishing credentials and account validation
 
@@ -116,4 +150,4 @@ Archive entry:
 
 ## Next Item After MVP Completion
 
-- choose the first Phase 2 improvement from [16 — Engineering Backlog](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
+- next major backlog area is `Phase 3 — Reel/video pipeline` in [16 — Engineering Backlog](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
