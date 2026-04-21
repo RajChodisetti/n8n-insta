@@ -32,7 +32,19 @@ Before publishing, the system should have:
 
 ## Recommended workflow behavior
 
-### Step 1 — pre-publish validation
+### Step 1 — atomic claim + pre-publish validation
+Before calling Meta, the workflow should atomically claim the next eligible row by moving:
+
+- `publishes.publish_status` from `draft` or `failed` to `publishing`
+
+Only rows with:
+
+- `published_at is null`
+- empty `instagram_media_id`
+- ready `post_image` asset
+
+should be claimable.
+
 Check:
 - image asset exists
 - image URL is public and fetchable by Meta
@@ -57,6 +69,7 @@ Persist:
 - Instagram media ID
 - publish timestamp
 - caption used
+- workflow run details and validation/API payloads in `workflow_runs.details_json`
 
 ### Step 4 — mark final state
 Set:
@@ -74,13 +87,13 @@ Use a dedicated publish queue if posting volume increases.
 ## Safe publishing rules
 
 - never publish non-approved content automatically in v1
-- avoid duplicate content publishing
+- avoid duplicate content publishing by skipping rows that already have `instagram_media_id` or `published_at`
 - log every publish attempt
 - retain raw API responses for debugging
 
 ## Metadata to persist
 
-For each published Reel store:
+For each published Instagram item store:
 - `content_id`
 - `instagram_media_id`
 - `instagram_container_id` if used
@@ -104,8 +117,10 @@ For each published Reel store:
 
 If publishing fails:
 1. write failure reason
-2. keep content in its current pre-publish state
-3. allow explicit republish attempt
+2. keep `content_items.status` in its current pre-publish state
+3. return `publishes.publish_status` to `failed`
+4. preserve any previously stored `instagram_container_id` or `instagram_media_id`
+5. allow an explicit republish attempt only while `published_at` is still null
 
 ## QA note
 

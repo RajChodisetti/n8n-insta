@@ -194,20 +194,21 @@ Publish the MVP simple post first, then extend the same stage for Reels later.
 - publish timing
 
 ### Steps
-1. Validate image URL, caption, account readiness, and publish safety switch
-2. Create Instagram media container
-3. Publish through the Instagram Graph API flow
-4. Save Instagram media ID
-5. Mark content as published
+1. Atomically claim the next eligible Instagram publish row and set `publishes.publish_status = publishing`
+2. Validate the public JPEG asset, caption, duplicate guard, account readiness, and publish safety switch
+3. Create the Instagram media container and publish through the Graph API flow
+4. Save Instagram media ID, container ID, and workflow run details
+5. Mark content as published on success or return the publish row to `failed` without clearing stored identifiers
 
 ### Outputs
 - media ID
 - media container ID
 - publish timestamp
 - publish status
+- workflow run details in `workflow_runs`
 
 ### Success condition
-Record is marked `published`.
+Record is marked `published` and publish metadata is persisted.
 
 ---
 

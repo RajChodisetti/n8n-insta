@@ -12,14 +12,14 @@ Use these statuses for every implementation item:
 
 Rule:
 
-1. when I finish an item, I will document what was completed and how to test it
+1. when I finish an item, I will add a full entry in [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md) with what was delivered, why you are testing it, prerequisites, exact test steps, DB checks or observable outputs, pass conditions, and cleanup if needed
 2. you run the test steps locally
 3. after you confirm the result, I move the item to `complete`
 4. once it is `complete`, I ask you to raise a PR
 
 Current implemented items waiting for your test:
 
-- `MVP-07` simple Instagram publish workflow
+- none
 
 Tracking links:
 
@@ -135,9 +135,12 @@ Tracking links:
 ### Publishing
 - [x] generate caption and hashtag draft
   - Completed in `wf_caption_and_hashtags`
-- [ ] implement Instagram publish flow
-- [ ] store publish metadata
-- [ ] implement retry-safe publishing rules
+- [x] implement Instagram publish flow
+  - Completed in `wf_instagram_simple_post_publish`
+- [x] store publish metadata
+  - Persisted in `publishes` and `workflow_runs`
+- [x] implement retry-safe publishing rules
+  - Implemented through atomic claiming, duplicate guards, and failure-state writeback
 
 ### Insights
 - [ ] create metrics collection workflow
@@ -150,11 +153,15 @@ Tracking links:
 
 ## QA and operations
 
-- [ ] define failure states
-- [ ] define retry strategy
-- [ ] add workflow logging
+- [x] define failure states
+  - Documented in `09-instagram-publishing.md` and `18-mvp-smoke-test-and-publish-runbook.md`
+- [x] define retry strategy
+  - Documented and validated for the Instagram MVP publish path
+- [x] add workflow logging
+  - `wf_instagram_simple_post_publish` writes to `workflow_runs`
 - [ ] add manual approval path
-- [ ] add duplicate publish prevention
+- [x] add duplicate publish prevention
+  - Existing publish identifiers block duplicate claims
 
 ## Prototype success definition
 
@@ -165,6 +172,9 @@ Working MVP is complete when you can:
 - attach one image asset
 - publish one Instagram post
 - persist publish metadata
+
+Current local result:
+- [x] Working MVP achieved on `2026-04-20` UTC / `2026-04-19` `America/Phoenix`
 
 Longer-term V1 is complete when you can:
 - submit a story topic

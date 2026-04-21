@@ -142,7 +142,7 @@ Implemented artifacts:
 
 ### MVP-07 Simple Instagram publish workflow
 
-Status: `implemented_awaiting_test`
+Status: `complete` ✅
 
 Goal:
 
@@ -157,7 +157,7 @@ Deliverables:
 
 ### MVP-08 Publish metadata persistence and duplicate protection
 
-Status: `backlog`
+Status: `complete` ✅
 
 Goal:
 
@@ -171,7 +171,7 @@ Deliverables:
 
 ### MVP-09 Smoke test and publish runbook
 
-Status: `backlog`
+Status: `complete` ✅
 
 Goal:
 
@@ -212,9 +212,10 @@ These are intentionally moved out of the critical path.
 
 Working MVP backlog:
 
-- complete: `6`
-- remaining: `3`
+- complete: `9`
+- remaining: `0`
 
 Current recommended next build item:
 
-- `MVP-07` Simple Instagram publish workflow
+- working MVP is complete
+- choose the first Phase 2 improvement
