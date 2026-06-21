@@ -1,0 +1,69 @@
+{
+  "music_sfx_plan_version": "1.0",
+  "source_stage": "music_sfx_plan",
+  "content_language": "English",
+  "selected_style_pack": "founder_explainer",
+  "target_duration_seconds": 40,
+  "license_policy": {
+    "unknown_license_blocks_publish": true,
+    "publish_allowed_required": true,
+    "allowed_license_statuses": [
+      "documented",
+      "licensed"
+    ],
+    "policy_notes": "Unknown license assets must block publish."
+  },
+  "music_plan": {
+    "selection_mode": "candidate_review",
+    "brief": "Use a subtle founder explainer bed.",
+    "mood": "warm and reflective",
+    "instrumentation": [
+      "soft piano"
+    ],
+    "tempo": "medium_slow",
+    "intensity": "low",
+    "vocals_policy": "Instrumental only.",
+    "ducking_strategy": "Keep music under narration.",
+    "avoid": [
+      "vocals"
+    ]
+  },
+  "sfx_plan": {
+    "default_policy": "No SFX by default.",
+    "needed": false,
+    "avoid": [
+      "unlicensed sounds"
+    ]
+  },
+  "scene_audio_plan": [
+    {
+      "scene_number": 1,
+      "music_intent": "Use a soft background bed.",
+      "sfx_intent": "No SFX.",
+      "ducking_notes": "Keep narration clear.",
+      "intensity": "low"
+    }
+  ],
+  "asset_license_review": [
+    {
+      "asset_id": "unknown-stock-bed",
+      "asset_type": "music",
+      "selection_status": "candidate",
+      "license_status": "unknown",
+      "publish_allowed": false,
+      "license_scope": "Unknown license scope.",
+      "blocks_publish": true,
+      "notes": "The source and license are not documented."
+    }
+  ],
+  "publish_safety": {
+    "blocks_publish": true,
+    "blocking_reasons": [
+      "unknown-stock-bed has unknown license status"
+    ],
+    "review_notes": "This plan must not publish until the music license is resolved."
+  },
+  "qa_focus": [
+    "Unknown license should fail validation."
+  ]
+}

@@ -13,11 +13,11 @@ Status: `complete` ✅
 ## Changed Files
 
 - [workflows/n8n/wf_instagram_simple_post_publish.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_instagram_simple_post_publish.json)
-- [09-instagram-publishing.md](/Users/rajchodisetti/n8n-insta/09-instagram-publishing.md)
-- [18-mvp-smoke-test-and-publish-runbook.md](/Users/rajchodisetti/n8n-insta/18-mvp-smoke-test-and-publish-runbook.md)
-- [11-setup-checklist.md](/Users/rajchodisetti/n8n-insta/11-setup-checklist.md)
-- [15-delivery-and-testing-workflow.md](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
-- [16-engineering-backlog.md](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
+- [docs/integrations/instagram-publishing.md](/Users/rajchodisetti/n8n-insta/docs/integrations/instagram-publishing.md)
+- [docs/runbooks/mvp-smoke-test-and-publish.md](/Users/rajchodisetti/n8n-insta/docs/runbooks/mvp-smoke-test-and-publish.md)
+- [docs/delivery/setup-checklist.md](/Users/rajchodisetti/n8n-insta/docs/delivery/setup-checklist.md)
+- [docs/delivery/delivery-and-testing-workflow.md](/Users/rajchodisetti/n8n-insta/docs/delivery/delivery-and-testing-workflow.md)
+- [docs/delivery/engineering-backlog.md](/Users/rajchodisetti/n8n-insta/docs/delivery/engineering-backlog.md)
 
 ## How It Was Tested
 
@@ -42,7 +42,7 @@ Status: `complete` ✅
 Test method note:
 
 - the duplicate and retry safeguards were exercised with the workflow’s exact SQL and code-node logic because the local `n8n 1.92.2` manual execution path was unreliable in this container
-- the active test handoff for this item was [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md), and the helper path was `bash scripts/test_mvp08_smoke.sh`
+- the active test handoff for this item was [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/docs/delivery/delivery-and-testing-workflow.md), and the helper path was `bash scripts/test_mvp08_smoke.sh`
 
 ## Test Result
 

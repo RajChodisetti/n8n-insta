@@ -1,12 +1,12 @@
 # Architecture Summary
 
-Last reviewed: 2026-06-21 at git commit `0d0515b`.
+Last reviewed: 2026-06-21 at git commit `d1e1bd0`.
 
 ## System purpose
 
 The repo builds an Instagram-only AI storytelling workflow. The long-term flow is:
 
-`idea -> research/script -> storyboard -> assets -> narration -> render -> publish -> metrics -> improve`
+`idea -> research/script -> storyboard -> assets -> narration -> render -> QA/approval -> publish -> metrics -> improve`
 
 The current implementation is a local n8n-centered automation stack with Postgres state, object/GCS asset hosting, a local FFmpeg render worker, shell smoke tests, and a Studio UI.
 
@@ -26,14 +26,17 @@ The current implementation is a local n8n-centered automation stack with Postgre
 ## Data and control flow
 
 1. A topic row enters `content_items`, usually with `status = idea_approved`.
-2. Text stages build prompt requests from `prompts/` using `build_prompt_request.mjs`.
-3. `invoke_structured_text_adapter.mjs` calls the selected text provider and returns structured JSON.
-4. Workflow stages persist outputs into `scripts`, `storyboards`, `directors`, `publishes`, or `workflow_runs`.
-5. Asset stages generate images/video/audio through adapter scripts and rehost public outputs into object storage or GCS, then write `assets`.
-6. Render manifest construction writes a canonical render payload into `renders.render_manifest_json`.
-7. Render dispatch calls or queues the render worker. The worker downloads scene assets/narration/music, runs FFmpeg, uploads the MP4, and posts a callback.
-8. Publish workflows create Instagram media containers, poll status, publish, and persist IDs.
-9. Metrics workflows write `insight_snapshots` and log details to `workflow_runs`.
+2. Studio-created topics carry a client/account context snapshot in `content_account_contexts` and `source_payload_json.client_account_context`.
+3. Text stages build prompt requests from `prompts/` using `build_prompt_request.mjs`.
+4. `invoke_structured_text_adapter.mjs` calls the selected text provider and returns structured JSON.
+5. Workflow stages persist outputs into `scripts`, `storyboards`, `directors`, `publishes`, or `workflow_runs`.
+6. Asset stages generate images/video/audio through adapter scripts and rehost public outputs into object storage or GCS, then write `assets`.
+7. Render manifest construction writes a canonical render payload into `renders.render_manifest_json`.
+8. Render dispatch calls or queues the render worker. The worker downloads scene assets/narration/music, runs FFmpeg, uploads the MP4, and posts a callback.
+9. Publish workflows require selected-render approval, account-context match when present, create Instagram media containers, poll status, publish, and persist IDs.
+10. Metrics workflows write `insight_snapshots` and log details to `workflow_runs`.
+
+Sessions 12, 15, 16, 17, and 18 add contract-only final QA, model/provider route, renderer-neutral render manifest v2, Remotion edit-plan, and avatar/presenter selector layers. Current workflows do not consume those planning contracts unless explicitly noted in the workflow inventory.
 
 ## Important boundaries
 
@@ -66,6 +69,10 @@ Current code-level provider support observed:
 - Render: `local_ffmpeg`
 - Asset host: `object_storage`, `google_cloud_storage`
 
+No Remotion runtime app or package dependency is installed as part of Session 17; the Remotion edit plan is a data contract with `local_ffmpeg` as the fallback.
+
+No avatar provider runtime or package dependency is installed as part of Session 18; the avatar/presenter selector is a consent-gated decision contract that keeps avatar output as an asset route.
+
 Some older docs still describe a narrower OpenAI-first matrix. When provider details matter, inspect the adapter code and `.env.example`, not only the older runbook prose.
 
 ## State/storage boundaries
@@ -73,12 +80,15 @@ Some older docs still describe a narrower OpenAI-first matrix. When provider det
 Schema files define these main tables:
 
 - `content_items`
+- `client_account_contexts`
+- `content_account_contexts`
 - `content_sources`
 - `scripts`
 - `storyboards`
 - `assets`
 - `renders`
 - `publishes`
+- `publish_approvals`
 - `insight_snapshots`
 - `performance_reviews`
 - `workflow_runs`
@@ -86,9 +96,11 @@ Schema files define these main tables:
 
 Generated binary assets are stored by URL and metadata; the repo should not accumulate generated media outputs except intentional curated assets.
 
+Client/account context is policy metadata, not a CRM. It may guide brand, style, voice, music, avatar, and publish account alignment, but global safety, consent, license, factuality, and platform rules remain higher priority.
+
 ## Frontend/backend boundaries
 
-There is no separate product web app. `studio-ui/` is local operations tooling. It reads/writes prompts, selected `.env` keys, DB rows, hosted objects, and n8n workflow executions.
+There is no separate product web app. `studio-ui/` is local operations tooling. It reads/writes prompts, selected `.env` keys, DB rows, client/account context snapshots, hosted objects, and n8n workflow executions.
 
 ## Testing strategy
 
@@ -98,6 +110,5 @@ No package-level lint, typecheck, unit-test, or CI config was found.
 
 ## Known uncertainties
 
-- The working tree is dirty and includes newer v2/v3 workflow and provider files not all reflected in committed docs.
-- `24-adapter-architecture-and-provider-switching.md` appears partly stale about supported image/TTS providers compared with current adapter code.
-- Some tracked files look like secrets or runtime artifacts (`sa-key.json`, `.env.bak.*`, `logs/token-refresh.log`, `__pycache__`), but this context pass did not modify tracking.
+- `docs/architecture/adapter-architecture-and-provider-switching.md` appears partly stale about supported image/TTS providers compared with current adapter code.
+- Local-only files such as `.env.bak.*`, `sa-key.json`, `logs/`, and `__pycache__/` may exist in working copies and should not be committed.

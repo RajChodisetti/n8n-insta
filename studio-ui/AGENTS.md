@@ -10,18 +10,18 @@ Read this for Studio UI routes, local frontend changes, prompt editor behavior, 
 
 ## Important files and subfolders
 
-- `server.mjs`: local HTTP server, DB access, prompt/env editing, workflow launcher, hosted-object cleanup, cost aggregation.
+- `server.mjs`: local HTTP server, DB access, prompt/env editing, client/account context snapshots, selected-render approval, workflow launcher, hosted-object cleanup, cost aggregation.
 - `public/index.html`: UI markup.
 - `public/app.js`: browser behavior.
 - `public/styles.css`: UI styling.
 
 ## Inputs
 
-Studio UI consumes Postgres env vars, repo-root `.env`, prompt files, workflow exports, adapter helpers, hosted assets, and user form submissions.
+Studio UI consumes Postgres env vars, repo-root `.env`, prompt files, workflow exports, adapter helpers, hosted assets, client/account context payloads, and user form submissions.
 
 ## Outputs
 
-It can write `content_items`, prompt files, repo-root `.env`, hosted character-reference objects, workflow jobs, and cleanup requests.
+It can write `content_items`, `client_account_contexts`, `content_account_contexts`, `publish_approvals`, prompt files, repo-root `.env`, hosted character-reference objects, workflow jobs, and cleanup requests.
 
 ## Depends on
 
@@ -39,12 +39,16 @@ Local operators who want to use the pipeline without editing raw workflow JSON o
 - Add workflow launcher entries when a workflow export becomes an intended user-facing route.
 - Update prompt file group metadata when active prompt files change.
 - Adjust UI rendering in `public/` while keeping server write behavior explicit.
+- Keep selected-render approval explicit; approval writes must require a reviewer and Instagram account ID.
+- Keep account context policy separate from global rules; Studio can attach snapshots, but it should not turn into a full CRM.
 
 ## Do not do
 
 - Do not expose secret values in UI, logs, or docs.
 - Do not make Studio UI the source of business logic if an existing workflow/helper owns that logic.
 - Do not confuse prompt-builder runtime rewrites with abstract-idea `creative_defaults` or legacy prompt profiles.
+- Do not auto-approve selected renders or bypass `publish_approvals`.
+- Do not let client/account context override global safety, consent, license, factuality, or platform rules.
 
 ## Validation
 

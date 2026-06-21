@@ -15,6 +15,8 @@ Read this for Docker Compose, service ports, schema, render worker, asset-hostin
 - `.env.example`: local infra env example.
 - `postgres/init/001_init.sql`: core schema.
 - `postgres/init/002_add_directors.sql`: director contract schema.
+- `postgres/init/003_add_publish_approvals.sql`: selected-render/asset publish approval gate schema.
+- `postgres/init/004_add_client_account_contexts.sql`: reusable and per-content client/account context snapshot schema.
 - `render-worker/app.py`: Flask render worker and FFmpeg implementation.
 - `render-worker/Dockerfile`, `render-worker/requirements.txt`: render worker image.
 - `com.n8n-insta.token-refresh.plist`: macOS launchd token refresh configuration.

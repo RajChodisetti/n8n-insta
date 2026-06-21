@@ -2,12 +2,54 @@
 
 import { createRequire } from 'node:module';
 import { invokeStructuredTextStage } from './invoke_structured_text_adapter.mjs';
+import { mapStoryPackageV2ToLegacyResponse } from './story_package_v2_compat.mjs';
 
 const require = createRequire(import.meta.url);
 const { Client } = require('/usr/local/lib/node_modules/n8n/node_modules/pg');
+const CLIENT_ACCOUNT_CONTEXT_SCHEMA_SQL = `
+create table if not exists client_account_contexts (
+  account_context_id uuid primary key default gen_random_uuid(),
+  account_context_key text not null unique,
+  client_name text not null default 'Default Client',
+  brand_profile text not null default 'default',
+  platform text not null default 'instagram',
+  platform_account_id text,
+  platform_account_username text,
+  context_json jsonb not null default '{}'::jsonb,
+  context_status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists idx_client_account_contexts_platform
+  on client_account_contexts (platform, platform_account_id);
+create table if not exists content_account_contexts (
+  content_id uuid primary key references content_items(content_id) on delete cascade,
+  account_context_id uuid references client_account_contexts(account_context_id) on delete set null,
+  account_context_key text not null,
+  context_snapshot_json jsonb not null default '{}'::jsonb,
+  snapshot_version text not null default '1.0',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists idx_content_account_contexts_key
+  on content_account_contexts (account_context_key);
+`;
 
 function fail(message) {
   throw new Error(message);
+}
+
+function resolveStoryPackageStage() {
+  const configured = String(
+    process.env.STORY_PACKAGE_GENERATION_STAGE
+    || process.env.STORY_PACKAGE_STAGE
+    || 'story_package_generation',
+  ).trim();
+  const normalized = configured === 'v2' ? 'story_package_generation_v2' : configured;
+  if (normalized === 'story_package_generation' || normalized === 'story_package_generation_v2') {
+    return normalized;
+  }
+  fail(`Unsupported STORY_PACKAGE_GENERATION_STAGE '${configured}'. Use story_package_generation, story_package_generation_v2, or v2.`);
 }
 
 function ensureString(name, value) {
@@ -16,6 +58,20 @@ function ensureString(name, value) {
     fail(`${name} is required.`);
   }
   return normalized;
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    const normalized = String(value ?? '').trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return '';
+}
+
+function plainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
 function flattenText(value, keyPath = '') {
@@ -269,12 +325,21 @@ async function main() {
   });
   await client.connect();
   try {
+    await client.query(CLIENT_ACCOUNT_CONTEXT_SCHEMA_SQL);
     const claim = await client.query(`
       with candidate as materialized (
-        select content_id, title, category, confidence_label, target_duration_seconds, source_payload_json
-        from content_items
-        where status = 'idea_approved'
-        order by created_at asc
+        select
+          ci.content_id,
+          ci.title,
+          ci.category,
+          ci.confidence_label,
+          ci.target_duration_seconds,
+          ci.source_payload_json,
+          coalesce(cac.context_snapshot_json, ci.source_payload_json->'client_account_context', '{}'::jsonb) as client_account_context
+        from content_items ci
+        left join content_account_contexts cac on cac.content_id = ci.content_id
+        where ci.status = 'idea_approved'
+        order by ci.created_at asc
         limit 1
       ), claim as (
         update content_items ci
@@ -298,10 +363,16 @@ async function main() {
     const confidenceLabel = String(item.confidence_label || 'unverified').trim() || 'unverified';
     const targetDurationSeconds = Number(item.target_duration_seconds || 45);
     const sourcePayload = item.source_payload_json && typeof item.source_payload_json === 'object' ? item.source_payload_json : {};
+    const clientAccountContext = plainObject(item.client_account_context);
+    const brandPolicy = plainObject(clientAccountContext.brand_policy);
+    const stylePolicy = plainObject(clientAccountContext.style_policy);
+    const voicePolicy = plainObject(clientAccountContext.voice_policy);
+    const musicPolicy = plainObject(clientAccountContext.music_policy);
     const sourceNotes = collectSourceNotes(sourcePayload);
     const characterReferenceContext = buildCharacterReferencePromptContext(sourcePayload);
 
-    const result = await invokeStructuredTextStage('story_package_generation', {
+    const storyPackageStage = resolveStoryPackageStage();
+    const result = await invokeStructuredTextStage(storyPackageStage, {
       content_id: contentId,
       title,
       target_duration_seconds: targetDurationSeconds,
@@ -312,15 +383,27 @@ async function main() {
         confidence_context: `Current stored confidence label: ${confidenceLabel}. Preserve or lower certainty unless the source notes clearly support a stronger confidence label.`,
         source_notes: sourceNotes,
         target_duration_seconds: String(targetDurationSeconds),
-        brand_tone: String(process.env.STORY_PACKAGE_BRAND_TONE || process.env.STUDIO_BRAND_TONE || 'cinematic, emotionally vivid, credible').trim(),
-        narrator_style: String(process.env.STORY_PACKAGE_NARRATOR_STYLE || process.env.RESEARCH_NARRATOR_STYLE || 'cinematic voiceover, human, emotional, natural pauses').trim(),
+        client_account_context: clientAccountContext,
+        client_account_context_json: Object.keys(clientAccountContext).length > 0 ? JSON.stringify(clientAccountContext, null, 2) : '{}',
+        brand_tone: firstNonEmpty(process.env.STORY_PACKAGE_BRAND_TONE, brandPolicy.brand_tone, process.env.STUDIO_BRAND_TONE, 'cinematic, emotionally vivid, credible'),
+        narrator_style: firstNonEmpty(process.env.STORY_PACKAGE_NARRATOR_STYLE, voicePolicy.narrator_style, process.env.RESEARCH_NARRATOR_STYLE, 'cinematic voiceover, human, emotional, natural pauses'),
         ending_signature_family: String(process.env.RESEARCH_ENDING_SIGNATURE_FAMILY || 'memorable reflective close').trim(),
-        visual_style_rules: String(process.env.STORY_PACKAGE_VISUAL_STYLE_RULES || process.env.STORYBOARD_VISUAL_STYLE_RULES || 'documentary-realistic, cinematic, strong focal point, no visible text').trim(),
+        visual_style_rules: firstNonEmpty(process.env.STORY_PACKAGE_VISUAL_STYLE_RULES, stylePolicy.visual_style_notes, process.env.STORYBOARD_VISUAL_STYLE_RULES, 'documentary-realistic, cinematic, strong focal point, no visible text'),
+        background_music_direction: firstNonEmpty(musicPolicy.music_mood),
         character_reference_context: characterReferenceContext,
       },
     });
 
-    const response = result.story_package_response ?? {};
+    const rawResponse = storyPackageStage === 'story_package_generation_v2'
+      ? result.story_package_v2_response
+      : result.story_package_response;
+    const response = storyPackageStage === 'story_package_generation_v2'
+      ? mapStoryPackageV2ToLegacyResponse(rawResponse, {
+        title,
+        targetDurationSeconds,
+        confidenceLabel,
+      })
+      : (rawResponse ?? {});
     const requiredTextFields = ['confidence_label', 'hook_option_1', 'hook_option_2', 'hook_option_3', 'selected_hook', 'narration_script', 'short_script', 'caption_draft', 'cta_line', 'music_direction'];
     for (const field of requiredTextFields) {
       if (!String(response[field] ?? '').trim()) {
@@ -366,6 +449,8 @@ async function main() {
       creative_direction_json: response.creative_direction_json ?? {},
       scene_guidance_json: sceneGuidanceJson,
       parsed_response: { ...response, scene_guidance_json: sceneGuidanceJson },
+      story_package_stage: storyPackageStage,
+      story_package_v2_response: storyPackageStage === 'story_package_generation_v2' ? rawResponse : undefined,
       v2_story_package: true,
     };
     const storyPackageCost = result.cost ?? {};
@@ -451,6 +536,8 @@ async function main() {
       selected_hook: String(response.selected_hook || '').trim(),
       music_direction: String(response.music_direction || '').trim(),
       cost: storyPackageCost,
+      story_package_stage: storyPackageStage,
+      account_context_key: String(clientAccountContext.account_context_key || '').trim(),
     })]);
     await client.query('commit');
 
@@ -461,6 +548,7 @@ async function main() {
       status_after_success: 'storyboard_complete',
       generation_provider: scriptRawResponse.provider,
       generation_model: scriptRawResponse.generation_model,
+      story_package_stage: storyPackageStage,
       scene_count: storyboardJson.length,
     })}\n`);
   } catch (error) {

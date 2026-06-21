@@ -1,0 +1,121 @@
+{
+  "qa_result_version": "1.0",
+  "source_stage": "final_qa_validator",
+  "scenario_id": "founder_explainer_failed_caption_export",
+  "package_type": "instagram_reel",
+  "evaluated_at": "2026-06-21T00:00:00.000Z",
+  "selected_style_pack": "founder_explainer",
+  "publish_decision": "blocked",
+  "summary": {
+    "blocks_publish": true,
+    "approved_for_publish": false,
+    "overall_risk": "high",
+    "human_review_required": true,
+    "notes": "Publish is blocked because the caption package is incomplete and the rendered export is not publicly fetchable."
+  },
+  "input_artifacts": [
+    {
+      "artifact": "caption_package",
+      "status": "fail",
+      "blocks_publish": true,
+      "evidence": "caption_final is empty.",
+      "upstream_fix_stage": "caption_and_hashtags"
+    },
+    {
+      "artifact": "render_output",
+      "status": "fail",
+      "blocks_publish": true,
+      "evidence": "output_video_url points to a local-only host and cannot be fetched by the publish platform.",
+      "upstream_fix_stage": "render_worker"
+    },
+    {
+      "artifact": "music_sfx_plan",
+      "status": "pass",
+      "blocks_publish": false,
+      "evidence": "Music/SFX plan has publish-safe license metadata.",
+      "upstream_fix_stage": "none"
+    }
+  ],
+  "checklist": [
+    {
+      "check_id": "qa-caption-ready",
+      "category": "caption",
+      "status": "fail",
+      "blocks_publish": true,
+      "upstream_fix_stage": "caption_and_hashtags",
+      "evidence": "caption_final is missing, matching the current publish workflow failure mode.",
+      "recommended_fix": "Run or repair caption_and_hashtags so caption_final is populated before publish."
+    },
+    {
+      "check_id": "qa-export-ready",
+      "category": "export",
+      "status": "fail",
+      "blocks_publish": true,
+      "upstream_fix_stage": "render_worker",
+      "evidence": "output_video_url is local-only instead of a public HTTPS MP4 URL.",
+      "recommended_fix": "Rehost the rendered MP4 to a public URL or repair render output hosting, then rerun QA."
+    },
+    {
+      "check_id": "qa-license-clearance",
+      "category": "license",
+      "status": "pass",
+      "blocks_publish": false,
+      "upstream_fix_stage": "none",
+      "evidence": "No license blocker is present.",
+      "recommended_fix": "No fix required."
+    }
+  ],
+  "blocking_issues": [
+    {
+      "issue_id": "qa-caption-empty",
+      "category": "caption",
+      "severity": "blocking",
+      "blocks_publish": true,
+      "related_artifact": "caption_package.caption_final",
+      "upstream_fix_stage": "caption_and_hashtags",
+      "evidence": "caption_final is empty, so the publish workflow would fail before creating a media container.",
+      "recommended_fix": "Regenerate the publish caption package and confirm caption_final is non-empty."
+    },
+    {
+      "issue_id": "qa-export-local-url",
+      "category": "export",
+      "severity": "blocking",
+      "blocks_publish": true,
+      "related_artifact": "render_output.output_video_url",
+      "upstream_fix_stage": "render_worker",
+      "evidence": "The Reel export URL is local-only and not a public HTTPS MP4 URL.",
+      "recommended_fix": "Repair render output hosting or rehost the MP4, then rerun final QA."
+    }
+  ],
+  "non_blocking_issues": [],
+  "stage_fix_references": [
+    {
+      "issue_id": "qa-caption-empty",
+      "upstream_fix_stage": "caption_and_hashtags",
+      "fix_summary": "Generate a non-empty final caption aligned with the Reel.",
+      "validation_after_fix": [
+        "bash scripts/test_phase2_caption_iteration_smoke.sh",
+        "node scripts/validate_final_qa_fixture.mjs fixtures/ai-video/founder_explainer/expected_final_qa_result_pass.json"
+      ]
+    },
+    {
+      "issue_id": "qa-export-local-url",
+      "upstream_fix_stage": "render_worker",
+      "fix_summary": "Produce or rehost a public HTTPS MP4 render output.",
+      "validation_after_fix": [
+        "bash scripts/test_phase3_render_manifest_smoke.sh",
+        "node scripts/validate_final_qa_fixture.mjs fixtures/ai-video/founder_explainer/expected_final_qa_result_pass.json"
+      ]
+    }
+  ],
+  "publish_requirements": {
+    "selected_video_approved": true,
+    "caption_ready": false,
+    "export_public_url_ready": false,
+    "license_clearance_ready": true,
+    "avatar_consent_ready": true,
+    "platform_context_ready": true,
+    "blocks_publish": true
+  },
+  "final_recommendation": "Do not publish. Fix the caption package and public MP4 export before approval."
+}

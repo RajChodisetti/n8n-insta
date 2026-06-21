@@ -1,0 +1,179 @@
+{
+  "avatar_decision_version": "1.0",
+  "source_stage": "avatar_presenter_selector",
+  "scenario_id": "avatar_sales_outreach_synthetic_presenter",
+  "created_at": "2026-06-21T00:00:00.000Z",
+  "package_type": "instagram_reel",
+  "selected_style_pack": "avatar_sales_outreach",
+  "decision_summary": {
+    "decision_status": "use_synthetic_avatar",
+    "avatar_route_enabled": true,
+    "provider_calls_allowed": false,
+    "publish_route_allowed": false,
+    "requires_human_review": true,
+    "requires_final_qa": true,
+    "rationale": "A synthetic presenter is allowed for this fixture because the profile has explicit internal consent metadata, disclosure text, usage limits, and provider identity placeholders for future runtime only."
+  },
+  "inputs": {
+    "client_account_context_key": "avatar_sales_outreach_fixture",
+    "avatar_policy_snapshot": {
+      "avatar_allowed": true,
+      "requires_consent": true,
+      "default_avatar_mode": "synthetic",
+      "consent_record_uri": "internal://consent/avatar-sales-outreach-fixture-001",
+      "disallowed_uses": [
+        "implying the avatar is a real employee",
+        "using the presenter for unapproved client testimonials"
+      ]
+    },
+    "director_avatar_request": {
+      "avatar_requested": true,
+      "request_type": "synthetic_presenter",
+      "disclosure_required": true,
+      "notes": "Use a transparent synthetic presenter only for the opening and closing frame."
+    },
+    "character_reference_attached": false,
+    "presenter_inventory_source": "fixture_presenter_inventory",
+    "constraints": [
+      "No provider calls in contract fixture.",
+      "Avatar video output remains an asset route.",
+      "Final QA must re-check disclosure and consent before publish approval."
+    ]
+  },
+  "presenter_profile": {
+    "presenter_profile_version": "1.0",
+    "source_stage": "avatar_presenter_selector",
+    "presenter_profile_id": "presenter_avatar_sales_fixture_001",
+    "display_name": "Transparent Synthetic Sales Presenter",
+    "profile_type": "synthetic_persona",
+    "description": "Synthetic presenter profile for fixture-only sales outreach examples. It must never be framed as a real employee, prospect, or customer.",
+    "consent": {
+      "consent_status": "granted",
+      "consent_record_uri": "internal://consent/avatar-sales-outreach-fixture-001",
+      "allowed_use_cases": [
+        "instagram_reel",
+        "synthetic presenter disclosure examples",
+        "low-pressure sales follow-up education"
+      ],
+      "disallowed_use_cases": [
+        "customer testimonial",
+        "real employee endorsement",
+        "prospect-specific likeness"
+      ],
+      "usage_restrictions": [
+        "Must disclose synthetic presenter use.",
+        "Must remain fixture/synthetic and non-identifying.",
+        "Must pass final QA before publish approval."
+      ],
+      "expires_at": null,
+      "verified_at": "2026-06-21T00:00:00.000Z",
+      "verification_notes": "Fixture consent metadata for a synthetic presenter profile; no real person likeness is used."
+    },
+    "likeness_policy": {
+      "uses_real_person_likeness": false,
+      "uses_voice_clone": false,
+      "implied_endorsement_allowed": false,
+      "requires_disclosure": true,
+      "restricted_subjects": [
+        "real customers",
+        "real employees",
+        "prospects",
+        "celebrities"
+      ]
+    },
+    "provider_identity": {
+      "provider_name": "planning_placeholder",
+      "provider_avatar_id": "fixture-avatar-sales-presenter-v1",
+      "provider_voice_id": "fixture-voice-sales-presenter-v1",
+      "provider_config_status": "planning_placeholder",
+      "provider_account_required_now": false
+    },
+    "disclosure_policy": {
+      "disclosure_required": true,
+      "disclosure_text": "Synthetic presenter used for demonstration.",
+      "placement": [
+        "caption",
+        "onscreen_overlay",
+        "approval_note"
+      ]
+    },
+    "asset_route_policy": {
+      "output_route": "asset_generation",
+      "publish_route": false,
+      "final_qa_required": true
+    },
+    "notes": "Provider IDs are fixture placeholders for contract validation only."
+  },
+  "consent_evaluation": {
+    "consent_gate": "pass",
+    "consent_status": "granted",
+    "consent_record_uri": "internal://consent/avatar-sales-outreach-fixture-001",
+    "allowed_use_cases_checked": [
+      "instagram_reel",
+      "synthetic presenter disclosure examples"
+    ],
+    "disallowed_use_cases_checked": [
+      "customer testimonial",
+      "real employee endorsement"
+    ],
+    "usage_restrictions_checked": [
+      "Must disclose synthetic presenter use.",
+      "Must pass final QA before publish approval."
+    ],
+    "provider_identity_checked": true,
+    "blocks_avatar_route": false,
+    "evidence": "Consent metadata, usage restrictions, disclosure text, and provider placeholder IDs are present."
+  },
+  "selected_route": {
+    "route_type": "synthetic_avatar_asset",
+    "asset_role": "avatar_video_asset",
+    "output_route": "asset_generation",
+    "publish_route": false,
+    "provider_name": "planning_placeholder",
+    "provider_avatar_id": "fixture-avatar-sales-presenter-v1",
+    "provider_voice_id": "fixture-voice-sales-presenter-v1",
+    "disclosure_required": true,
+    "disclosure_text": "Synthetic presenter used for demonstration.",
+    "handoff_notes": [
+      "Future runtime may generate an avatar video asset only after provider setup is approved.",
+      "Avatar asset output must still enter render, final QA, and selected-render approval before publish."
+    ]
+  },
+  "fallback_plan": {
+    "active": true,
+    "fallback_route_type": "non_avatar_visuals",
+    "reason": "If any consent, disclosure, provider identity, or QA gate fails, use non-avatar product context cards and abstract presenter-free visuals.",
+    "visual_direction": "Use abstract product cards, calendar handoff visuals, and renderer-owned disclosure text without a presenter likeness."
+  },
+  "quality_gates": [
+    {
+      "gate_id": "avatar-consent-present",
+      "status": "pass",
+      "blocks_avatar_route": true,
+      "blocks_publish": true,
+      "evidence": "Consent record URI and usage restrictions are present."
+    },
+    {
+      "gate_id": "avatar-provider-identity-present",
+      "status": "pass",
+      "blocks_avatar_route": true,
+      "blocks_publish": false,
+      "evidence": "Provider avatar and voice IDs are present as fixture placeholders."
+    },
+    {
+      "gate_id": "avatar-final-qa-required",
+      "status": "pass",
+      "blocks_avatar_route": false,
+      "blocks_publish": true,
+      "evidence": "Final QA must re-check disclosure and consent before approval."
+    }
+  ],
+  "implementation_notes": {
+    "provider_calls_added": false,
+    "dependencies_added": false,
+    "runtime_behavior_changed": false,
+    "publish_behavior_changed": false,
+    "studio_ui_changes_required": false,
+    "notes": "Session 18 fixture is planning-only and does not add avatar runtime behavior."
+  }
+}

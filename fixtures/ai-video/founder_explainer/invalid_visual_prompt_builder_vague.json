@@ -1,0 +1,39 @@
+{
+  "visual_prompt_version": "1.0",
+  "source_stage": "visual_prompt_builder",
+  "selected_style_pack": "founder_explainer",
+  "global_continuity": {
+    "style_summary": "Cinematic style.",
+    "continuity_requirements": ["Keep it consistent."],
+    "character_continuity": "Generic founder.",
+    "environment_continuity": "Same workspace."
+  },
+  "text_policy": {
+    "generated_asset_policy": "No text.",
+    "renderer_text_policy": "Renderer handles text.",
+    "forbidden_text_elements": ["text"]
+  },
+  "prompts": [
+    {
+      "scene_number": 1,
+      "asset_type": "image",
+      "duration_seconds": 4,
+      "aspect_ratio": "9:16",
+      "subject": "Founder",
+      "environment": "Office",
+      "composition": "Nice shot",
+      "camera": "Camera",
+      "motion": "Still",
+      "lighting": "Moody",
+      "style": "Cinematic",
+      "continuity_requirements": ["Consistent"],
+      "text_policy": "No text.",
+      "visual_prompt": "A cinematic atmosphere with a shadowy figure.",
+      "negative_prompt": "bad",
+      "fallback_prompt": "Moody office.",
+      "safety_notes": ["Safe"],
+      "qa_checks": ["Looks good"]
+    }
+  ],
+  "qa_focus": ["Check quality"]
+}

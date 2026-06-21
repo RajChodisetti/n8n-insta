@@ -1,0 +1,129 @@
+{
+  "contract_version": "1.0",
+  "selected_style_pack": "made_up_style_pack",
+  "style_pack_rationale": "This intentionally invalid fixture uses a style pack ID that is not in the registry.",
+  "secondary_influence": {
+    "style_pack_id": "product_demo_walkthrough",
+    "compatibility_note": "Use only workflow clarity."
+  },
+  "rejected_styles": ["fast_reel_hook"],
+  "voice_role": "documentary_narrator",
+  "tts_delivery": "Grounded and practical.",
+  "global_visual_style": "Documentary founder workspace with no readable UI text.",
+  "visual_strategy": "Show support patterns becoming roadmap focus without final prompts.",
+  "global_pacing": "Hook, problem, turn, lesson.",
+  "energy_curve": "Medium to calm.",
+  "mood_curve": "Focused, overwhelmed, clarifying, resolved.",
+  "global_music_direction": "Warm minimal instrumental bed.",
+  "global_rules": {
+    "tone": "credible and practical",
+    "avoid": ["readable customer data"]
+  },
+  "visual_contract": {
+    "style_summary": "Text-free documentary workspace.",
+    "continuity_rules": ["Keep one workspace visual world."],
+    "text_policy": "No readable generated text.",
+    "face_image_guidance": "Scene 1 title is renderer metadata only.",
+    "visual_prompt_boundary": "No final production prompts here."
+  },
+  "voice_contract": {
+    "voice_role": "documentary_narrator",
+    "delivery_summary": "Measured founder reflection.",
+    "scene_delivery_policy": "Match each beat without rewriting lines.",
+    "clean_script_boundary": "Keep provider tags out of clean script."
+  },
+  "music_sfx_contract": {
+    "music_direction": "Warm minimal instrumental bed.",
+    "sfx_direction": "Sparse desk textures.",
+    "license_note": "Confirm usage rights before publish."
+  },
+  "caption_contract": {
+    "caption_angle": "Practical founder lesson.",
+    "cta_guidance": "Invite saving before roadmap review.",
+    "hashtag_guidance": "Use product and founder tags later.",
+    "copy_constraints": ["Do not invent metrics."]
+  },
+  "edit_contract": {
+    "pacing_summary": "Four clean beats.",
+    "transition_language": "Simple cuts.",
+    "scene_count": 4,
+    "subtitles_enabled": false,
+    "render_handoff_notes": ["Keep subtitle burn-in disabled."]
+  },
+  "avatar_contract": {
+    "avatar_required": false,
+    "avatar_policy": "No avatar needed.",
+    "consent_boundary": "No real likeness without consent.",
+    "disclosure_required": false
+  },
+  "routing_hints": {
+    "asset_sequence": ["image", "video", "video", "video"],
+    "image_video_policy": "Scene 1 image, later scenes video.",
+    "provider_selection_policy": "Leave final provider, model, host, and render selection to downstream adapters.",
+    "handoff_notes": ["Preserve text-free visuals."]
+  },
+  "risk_flags": [
+    {
+      "risk_id": "risk_private_customer_data",
+      "severity": "review",
+      "description": "Support tickets can imply private data.",
+      "mitigation": "Use abstract unreadable cards.",
+      "blocks_publish": false
+    }
+  ],
+  "qa_focus": ["No readable customer data."],
+  "scenes": [
+    {
+      "scene_number": 1,
+      "scene_objective": "Hook.",
+      "mood": "focused",
+      "energy": "medium",
+      "tts_instructions": "(curious) Open with intrigue.",
+      "visual_strategy": "Founder desk, text-free.",
+      "transition_hint": "Cut.",
+      "music_sfx_cue": "Soft pulse.",
+      "caption_intent": "Set up lesson.",
+      "qa_focus": ["No text."],
+      "avoid": ["Readable text"]
+    },
+    {
+      "scene_number": 2,
+      "scene_objective": "Problem.",
+      "mood": "overwhelmed",
+      "energy": "medium-low",
+      "tts_instructions": "(worried) Reflective.",
+      "visual_strategy": "Abstract ticket volume.",
+      "transition_hint": "Match cut.",
+      "music_sfx_cue": "Soft ticking.",
+      "caption_intent": "Show repeated pain.",
+      "qa_focus": ["No customer data."],
+      "avoid": ["Customer names"]
+    },
+    {
+      "scene_number": 3,
+      "scene_objective": "Turn.",
+      "mood": "clarifying",
+      "energy": "medium",
+      "tts_instructions": "(determined) Emphasize pattern.",
+      "visual_strategy": "Group abstract notes.",
+      "transition_hint": "Push in.",
+      "music_sfx_cue": "Pulse lifts.",
+      "caption_intent": "Connect to roadmap.",
+      "qa_focus": ["No fake metrics."],
+      "avoid": ["Fake charts"]
+    },
+    {
+      "scene_number": 4,
+      "scene_objective": "Lesson.",
+      "mood": "resolved",
+      "energy": "medium-low",
+      "tts_instructions": "(calm) Close clearly.",
+      "visual_strategy": "Abstract roadmap board.",
+      "transition_hint": "Soft cut.",
+      "music_sfx_cue": "Gentle resolution.",
+      "caption_intent": "Invite saving.",
+      "qa_focus": ["No readable roadmap."],
+      "avoid": ["Guaranteed outcomes"]
+    }
+  ]
+}

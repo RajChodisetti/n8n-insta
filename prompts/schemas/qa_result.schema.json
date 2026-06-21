@@ -1,0 +1,447 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "qa_result_version",
+    "source_stage",
+    "scenario_id",
+    "package_type",
+    "evaluated_at",
+    "selected_style_pack",
+    "publish_decision",
+    "summary",
+    "input_artifacts",
+    "checklist",
+    "blocking_issues",
+    "non_blocking_issues",
+    "stage_fix_references",
+    "publish_requirements",
+    "final_recommendation"
+  ],
+  "properties": {
+    "qa_result_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "source_stage": {
+      "type": "string",
+      "enum": ["final_qa_validator"]
+    },
+    "scenario_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "package_type": {
+      "type": "string",
+      "enum": ["instagram_reel", "instagram_image_post", "unknown"]
+    },
+    "evaluated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "selected_style_pack": {
+      "type": "string",
+      "minLength": 1
+    },
+    "publish_decision": {
+      "type": "string",
+      "enum": ["approved", "blocked", "needs_review"]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blocks_publish", "approved_for_publish", "overall_risk", "human_review_required", "notes"],
+      "properties": {
+        "blocks_publish": {
+          "type": "boolean"
+        },
+        "approved_for_publish": {
+          "type": "boolean"
+        },
+        "overall_risk": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "human_review_required": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "input_artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact", "status", "blocks_publish", "evidence", "upstream_fix_stage"],
+        "properties": {
+          "artifact": {
+            "type": "string",
+            "enum": [
+              "story_package",
+              "director_contract",
+              "storyboard_plan",
+              "visual_prompt_plan",
+              "visual_assets",
+              "voice_performance",
+              "narration_assets",
+              "music_sfx_plan",
+              "render_output",
+              "caption_package",
+              "avatar_consent_context",
+              "publish_context"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pass", "fail", "missing", "needs_review", "not_applicable"]
+          },
+          "blocks_publish": {
+            "type": "boolean"
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "upstream_fix_stage": {
+            "type": "string",
+            "enum": [
+              "story_package_generation_v2",
+              "director_contract",
+              "storyboard_and_shot_plan",
+              "visual_prompt_builder",
+              "voice_performance_script",
+              "music_sfx_plan",
+              "asset_generation",
+              "narration_generation",
+              "render_manifest_construction",
+              "render_worker",
+              "caption_and_hashtags",
+              "approval_queue",
+              "avatar_presenter_selector",
+              "publish_executor",
+              "manual_review",
+              "none"
+            ]
+          }
+        }
+      }
+    },
+    "checklist": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "category", "status", "blocks_publish", "upstream_fix_stage", "evidence", "recommended_fix"],
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "package_integrity",
+              "license",
+              "avatar_consent",
+              "caption",
+              "export",
+              "render",
+              "asset",
+              "voice",
+              "brand_safety",
+              "platform_policy",
+              "approval"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pass", "fail", "warning", "not_applicable"]
+          },
+          "blocks_publish": {
+            "type": "boolean"
+          },
+          "upstream_fix_stage": {
+            "type": "string",
+            "enum": [
+              "story_package_generation_v2",
+              "director_contract",
+              "storyboard_and_shot_plan",
+              "visual_prompt_builder",
+              "voice_performance_script",
+              "music_sfx_plan",
+              "asset_generation",
+              "narration_generation",
+              "render_manifest_construction",
+              "render_worker",
+              "caption_and_hashtags",
+              "approval_queue",
+              "avatar_presenter_selector",
+              "publish_executor",
+              "manual_review",
+              "none"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recommended_fix": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "blocking_issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "issue_id",
+          "category",
+          "severity",
+          "blocks_publish",
+          "related_artifact",
+          "upstream_fix_stage",
+          "evidence",
+          "recommended_fix"
+        ],
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "package_integrity",
+              "license",
+              "avatar_consent",
+              "caption",
+              "export",
+              "render",
+              "asset",
+              "voice",
+              "brand_safety",
+              "platform_policy",
+              "approval"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["blocking", "warning", "note"]
+          },
+          "blocks_publish": {
+            "type": "boolean"
+          },
+          "related_artifact": {
+            "type": "string",
+            "minLength": 1
+          },
+          "upstream_fix_stage": {
+            "type": "string",
+            "enum": [
+              "story_package_generation_v2",
+              "director_contract",
+              "storyboard_and_shot_plan",
+              "visual_prompt_builder",
+              "voice_performance_script",
+              "music_sfx_plan",
+              "asset_generation",
+              "narration_generation",
+              "render_manifest_construction",
+              "render_worker",
+              "caption_and_hashtags",
+              "approval_queue",
+              "avatar_presenter_selector",
+              "publish_executor",
+              "manual_review",
+              "none"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recommended_fix": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "non_blocking_issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "issue_id",
+          "category",
+          "severity",
+          "blocks_publish",
+          "related_artifact",
+          "upstream_fix_stage",
+          "evidence",
+          "recommended_fix"
+        ],
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "package_integrity",
+              "license",
+              "avatar_consent",
+              "caption",
+              "export",
+              "render",
+              "asset",
+              "voice",
+              "brand_safety",
+              "platform_policy",
+              "approval"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["blocking", "warning", "note"]
+          },
+          "blocks_publish": {
+            "type": "boolean"
+          },
+          "related_artifact": {
+            "type": "string",
+            "minLength": 1
+          },
+          "upstream_fix_stage": {
+            "type": "string",
+            "enum": [
+              "story_package_generation_v2",
+              "director_contract",
+              "storyboard_and_shot_plan",
+              "visual_prompt_builder",
+              "voice_performance_script",
+              "music_sfx_plan",
+              "asset_generation",
+              "narration_generation",
+              "render_manifest_construction",
+              "render_worker",
+              "caption_and_hashtags",
+              "approval_queue",
+              "avatar_presenter_selector",
+              "publish_executor",
+              "manual_review",
+              "none"
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recommended_fix": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "stage_fix_references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["issue_id", "upstream_fix_stage", "fix_summary", "validation_after_fix"],
+        "properties": {
+          "issue_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "upstream_fix_stage": {
+            "type": "string",
+            "enum": [
+              "story_package_generation_v2",
+              "director_contract",
+              "storyboard_and_shot_plan",
+              "visual_prompt_builder",
+              "voice_performance_script",
+              "music_sfx_plan",
+              "asset_generation",
+              "narration_generation",
+              "render_manifest_construction",
+              "render_worker",
+              "caption_and_hashtags",
+              "approval_queue",
+              "avatar_presenter_selector",
+              "publish_executor",
+              "manual_review",
+              "none"
+            ]
+          },
+          "fix_summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "validation_after_fix": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "publish_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selected_video_approved",
+        "caption_ready",
+        "export_public_url_ready",
+        "license_clearance_ready",
+        "avatar_consent_ready",
+        "platform_context_ready",
+        "blocks_publish"
+      ],
+      "properties": {
+        "selected_video_approved": {
+          "type": "boolean"
+        },
+        "caption_ready": {
+          "type": "boolean"
+        },
+        "export_public_url_ready": {
+          "type": "boolean"
+        },
+        "license_clearance_ready": {
+          "type": "boolean"
+        },
+        "avatar_consent_ready": {
+          "type": "boolean"
+        },
+        "platform_context_ready": {
+          "type": "boolean"
+        },
+        "blocks_publish": {
+          "type": "boolean"
+        }
+      }
+    },
+    "final_recommendation": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

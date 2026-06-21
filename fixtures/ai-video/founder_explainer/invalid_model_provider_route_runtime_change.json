@@ -1,0 +1,87 @@
+{
+  "model_route_version": "1.0",
+  "source_stage": "model_provider_router",
+  "scenario_id": "runtime_change_invalid",
+  "created_at": "2026-06-21T00:00:00.000Z",
+  "package_type": "instagram_reel",
+  "creative_direction_policy": "preserve_upstream_contracts",
+  "router_inputs": {
+    "selected_style_pack": "founder_explainer",
+    "client_account_context_key": "default_instagram_storytelling",
+    "target_duration_seconds": 40,
+    "route_objective": "Invalid fixture that tries to apply router output immediately.",
+    "constraints": ["Use only existing adapters."]
+  },
+  "provider_boundaries": [
+    {
+      "boundary_id": "text_generation",
+      "purpose": "Structured text generation.",
+      "current_selector": {
+        "env_keys": ["TEXT_LLM_PROVIDER"],
+        "default_provider": "openai",
+        "current_behavior_notes": "OpenAI is the only implemented text provider."
+      },
+      "candidates": [
+        {
+          "candidate_id": "text_openai_gpt_4_1",
+          "provider": "openai",
+          "model": "gpt-4.1",
+          "adapter_status": "implemented",
+          "fit_score": 0.9,
+          "fit_rationale": "Existing text adapter.",
+          "strengths": ["Implemented"],
+          "tradeoffs": ["Requires credentials"],
+          "constraints": [],
+          "required_env_vars": ["OPENAI_API_KEY"],
+          "cost_assumption": {
+            "tier": "medium",
+            "priced_in_cost_calculator": true,
+            "notes": "Priced by current calculator."
+          },
+          "speed_assumption": {
+            "tier": "medium",
+            "notes": "Medium speed assumption."
+          },
+          "quality_assumption": {
+            "tier": "high",
+            "notes": "High quality assumption."
+          },
+          "availability_notes": "Requires configured OpenAI credentials.",
+          "changes_runtime_behavior": true
+        }
+      ],
+      "selected_candidate_id": "text_openai_gpt_4_1",
+      "fallback_candidate_id": null,
+      "boundary_decision": {
+        "decision_status": "recommend_current",
+        "rationale": "Invalid because candidate claims runtime behavior changes."
+      }
+    }
+  ],
+  "selected_route_summary": {
+    "planning_only": false,
+    "changes_runtime_behavior": true,
+    "recommended_env_settings": [
+      {
+        "env_key": "TEXT_LLM_PROVIDER",
+        "recommended_value": "openai",
+        "reason": "Invalid fixture applies settings immediately.",
+        "apply_now": true
+      }
+    ],
+    "human_review_required": false,
+    "summary": "Invalid runtime-changing route."
+  },
+  "fallback_plan": [
+    {
+      "boundary_id": "text_generation",
+      "fallback_order": ["text_openai_gpt_4_1"],
+      "fail_closed_conditions": ["Validation fails"]
+    }
+  ],
+  "implementation_notes": {
+    "do_not_change": ["Do not change runtime behavior."],
+    "adapter_changes_required": false,
+    "notes": "Invalid by design."
+  }
+}

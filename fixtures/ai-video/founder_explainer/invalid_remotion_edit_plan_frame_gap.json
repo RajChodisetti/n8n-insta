@@ -1,0 +1,134 @@
+{
+  "remotion_edit_plan_version": "1.0",
+  "source_stage": "remotion_edit_plan",
+  "plan_id": "invalid_remotion_frame_gap",
+  "source_render_manifest_id": "render_manifest_v2_founder_explainer_001",
+  "content_id": "11111111-1111-4111-8111-111111111111",
+  "title": "Invalid Frame Gap",
+  "created_at": "2026-06-21T00:00:00.000Z",
+  "selected_style_pack": "founder_explainer",
+  "runtime_policy": {
+    "plan_only": true,
+    "install_remotion_now": false,
+    "replaces_ffmpeg": false,
+    "requires_package_install": false,
+    "active_runtime_renderer": "local_ffmpeg",
+    "notes": "Invalid fixture: runtime policy is safe but frame coverage has a gap."
+  },
+  "composition": {
+    "id": "InvalidFrameGap",
+    "component_name": "InvalidFrameGapComposition",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "duration_in_frames": 120,
+    "duration_seconds": 4,
+    "default_props": {
+      "title": "Invalid Frame Gap"
+    }
+  },
+  "render_environment": {
+    "status": "not_installed",
+    "expected_runtime": "local_remotion_project_future",
+    "required_packages": ["remotion", "@remotion/cli", "react", "react-dom"],
+    "commands_for_future_runtime_only": [],
+    "notes": "No runtime install for this invalid fixture."
+  },
+  "input_props_contract": {
+    "schema_style": "zod_future",
+    "required_props": ["title", "scenes"],
+    "optional_props": [],
+    "notes": "Minimal invalid fixture."
+  },
+  "sequences": [
+    {
+      "sequence_id": "scene_sequence_01",
+      "scene_number": 1,
+      "from_frame": 0,
+      "duration_in_frames": 60,
+      "start_time_seconds": 0,
+      "duration_seconds": 2,
+      "visual_asset_url": "https://cdn.example.com/n8n-insta/fixtures/founder_explainer/scene-01.jpg",
+      "asset_type": "image",
+      "component_hint": "SceneImage",
+      "props": {
+        "fit": "cover"
+      }
+    },
+    {
+      "sequence_id": "scene_sequence_02",
+      "scene_number": 2,
+      "from_frame": 75,
+      "duration_in_frames": 45,
+      "start_time_seconds": 2.5,
+      "duration_seconds": 1.5,
+      "visual_asset_url": "https://cdn.example.com/n8n-insta/fixtures/founder_explainer/scene-02.mp4",
+      "asset_type": "video",
+      "component_hint": "SceneVideo",
+      "props": {
+        "fit": "cover"
+      }
+    }
+  ],
+  "captions": {
+    "enabled": false,
+    "track_id": "captions_main",
+    "style": "cinematic_center_safe",
+    "safe_area_id": "safe_caption_lower",
+    "lines": []
+  },
+  "overlays": [],
+  "lower_thirds": [],
+  "audio_tracks": [
+    {
+      "track_id": "voice_per_scene",
+      "track_type": "narration",
+      "mode": "per_scene",
+      "from_frame": 0,
+      "duration_in_frames": 120,
+      "asset_urls": ["https://cdn.example.com/n8n-insta/fixtures/founder_explainer/narration-01.mp3"],
+      "volume": 1,
+      "ducking_strategy": "Primary narration track.",
+      "license_status": "not_applicable",
+      "publish_allowed": true
+    }
+  ],
+  "transitions": [],
+  "brand_elements": [],
+  "export_settings": {
+    "format": "mp4",
+    "codec": "h264",
+    "audio_codec": "aac",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "duration_in_frames": 120,
+    "duration_seconds": 4,
+    "quality": "draft",
+    "still_frame_check": {
+      "enabled": true,
+      "frame": 30
+    }
+  },
+  "fallback_plan": {
+    "active_fallback": true,
+    "fallback_renderer": "local_ffmpeg",
+    "fallback_reason": "Remotion runtime is not installed or wired yet.",
+    "ffmpeg_contract_path": "fixtures/ai-video/founder_explainer/expected_render_manifest_v2.json"
+  },
+  "quality_gates": [
+    {
+      "gate_id": "sequence_coverage",
+      "severity": "blocking",
+      "check": "Scene sequences are contiguous and cover the full composition.",
+      "expected_result": "No gaps or overlaps.",
+      "status": "pass"
+    }
+  ],
+  "implementation_notes": {
+    "runtime_behavior_changed": false,
+    "dependencies_added": false,
+    "active_workflow_consumes_this": false,
+    "notes": "Invalid fixture: second sequence starts at frame 75 instead of 60."
+  }
+}

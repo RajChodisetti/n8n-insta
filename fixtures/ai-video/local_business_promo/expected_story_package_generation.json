@@ -1,0 +1,238 @@
+{
+  "creative_direction_json": {
+    "core_angle": "A local bakery earns attention through the quiet ritual before the neighborhood wakes up.",
+    "point_of_view": "A warm observer telling a small community story.",
+    "emotional_arc": "Quiet morning to craft to neighborhood welcome.",
+    "narration_strategy": "Sensory, simple, and inviting without exaggerated claims.",
+    "visual_strategy": "Pre-dawn exterior, flour and hands, trays, first customers, no readable signage.",
+    "music_strategy": "Gentle acoustic guitar with soft room tone.",
+    "consistency_rules": [
+      "Keep the business fictional.",
+      "Avoid readable signs, menus, prices, or addresses.",
+      "Do not show identifiable real customers."
+    ]
+  },
+  "confidence_label": "fictional_promo",
+  "hook_option_1": "Before the neighborhood wakes up, this bakery is already warm.",
+  "hook_option_2": "The best part of this bakery happens before the first customer walks in.",
+  "hook_option_3": "At sunrise, the whole block starts to smell like fresh bread.",
+  "selected_hook": "Before the neighborhood wakes up, this bakery is already warm.",
+  "narration_script": "Before the neighborhood wakes up, this bakery is already warm. The lights come on while the street is still quiet. Flour hits the table, trays slide into the oven, and the first batch is timed for the morning rush. By the time the door opens, it feels less like a transaction and more like a routine the block shares together.",
+  "short_script": "A warm local bakery story about craft, routine, and neighborhood rhythm.",
+  "caption_draft": "A fictional local bakery promo built around the quiet work that happens before sunrise.",
+  "cta_line": "Stop in early and start the morning warm.",
+  "music_direction": "Gentle acoustic guitar with soft brushed percussion.",
+  "onscreen_text_json": [
+    {
+      "scene_number": 1,
+      "text": "Before sunrise"
+    },
+    {
+      "scene_number": 2,
+      "text": "The ovens start"
+    },
+    {
+      "scene_number": 3,
+      "text": "The first batch"
+    },
+    {
+      "scene_number": 4,
+      "text": "A neighborhood routine"
+    }
+  ],
+  "scene_guidance_json": [
+    {
+      "scene_number": 1,
+      "beat_label": "hook",
+      "start_time_seconds": 0,
+      "end_time_seconds": 4,
+      "duration_seconds": 4,
+      "narration_text": "Before the neighborhood wakes up, this bakery is already warm.",
+      "dialogue_lines": [
+        "Before sunrise, the bakery is already warm."
+      ],
+      "asset_type": "image",
+      "image_prompt": "Warm bakery window glowing before sunrise on a quiet street, sign shapes blurred and unreadable, cinematic realism.",
+      "music_cue": "soft acoustic chord",
+      "tts_instructions": "Warm and inviting, gentle pace.",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 2,
+      "beat_label": "prep",
+      "start_time_seconds": 4,
+      "end_time_seconds": 14,
+      "duration_seconds": 10,
+      "narration_text": "The lights come on while the street is still quiet.",
+      "dialogue_lines": [
+        "The lights come on while the street is quiet."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Interior bakery prep scene with warm lights, flour dust, trays, and hands preparing dough, no identifiable faces.",
+      "music_cue": "gentle brushed rhythm begins",
+      "tts_instructions": "Soft observational delivery.",
+      "includes_primary_character": true
+    },
+    {
+      "scene_number": 3,
+      "beat_label": "craft",
+      "start_time_seconds": 14,
+      "end_time_seconds": 25,
+      "duration_seconds": 11,
+      "narration_text": "Flour hits the table, trays slide into the oven, and the first batch is timed for the morning rush.",
+      "dialogue_lines": [
+        "The first batch is timed for the morning rush."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Close detail of dough shaping and trays entering an oven, golden warm light, no visible branding.",
+      "music_cue": "acoustic melody opens slightly",
+      "tts_instructions": "Sensory but concise.",
+      "includes_primary_character": true
+    },
+    {
+      "scene_number": 4,
+      "beat_label": "community",
+      "start_time_seconds": 25,
+      "end_time_seconds": 36,
+      "duration_seconds": 11,
+      "narration_text": "By the time the door opens, it feels less like a transaction and more like a routine the block shares together.",
+      "dialogue_lines": [
+        "It is a routine the block shares."
+      ],
+      "asset_type": "video",
+      "image_prompt": "First customers entering a cozy bakery from behind, faces not identifiable, warm counter shapes, no readable menu.",
+      "music_cue": "gentle resolved acoustic phrase",
+      "tts_instructions": "Smile in the voice, relaxed close.",
+      "includes_primary_character": false
+    }
+  ],
+  "storyboard_json": [
+    {
+      "scene_number": 1,
+      "duration_seconds": 4,
+      "narration_text": "Before the neighborhood wakes up, this bakery is already warm.",
+      "dialogue_lines": [
+        "Before sunrise, the bakery is already warm."
+      ],
+      "visual_prompt": "Warm bakery window glowing before sunrise on a quiet street, sign shapes blurred and unreadable, cinematic realism.",
+      "asset_type": "image",
+      "transition": "cut",
+      "mood": "warm",
+      "music_cue": "soft acoustic chord",
+      "tts_instructions": "Warm and inviting, gentle pace.",
+      "is_face_image": true,
+      "face_image_title": "Before Sunrise",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 2,
+      "duration_seconds": 10,
+      "narration_text": "The lights come on while the street is still quiet.",
+      "dialogue_lines": [
+        "The lights come on while the street is quiet."
+      ],
+      "visual_prompt": "Interior bakery prep scene with warm lights, flour dust, trays, and hands preparing dough, no identifiable faces.",
+      "asset_type": "video",
+      "transition": "soft cut",
+      "mood": "quiet",
+      "music_cue": "gentle brushed rhythm begins",
+      "tts_instructions": "Soft observational delivery.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": true
+    },
+    {
+      "scene_number": 3,
+      "duration_seconds": 11,
+      "narration_text": "Flour hits the table, trays slide into the oven, and the first batch is timed for the morning rush.",
+      "dialogue_lines": [
+        "The first batch is timed for the morning rush."
+      ],
+      "visual_prompt": "Close detail of dough shaping and trays entering an oven, golden warm light, no visible branding.",
+      "asset_type": "video",
+      "transition": "match cut",
+      "mood": "crafted",
+      "music_cue": "acoustic melody opens slightly",
+      "tts_instructions": "Sensory but concise.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": true
+    },
+    {
+      "scene_number": 4,
+      "duration_seconds": 11,
+      "narration_text": "By the time the door opens, it feels less like a transaction and more like a routine the block shares together.",
+      "dialogue_lines": [
+        "It is a routine the block shares."
+      ],
+      "visual_prompt": "First customers entering a cozy bakery from behind, faces not identifiable, warm counter shapes, no readable menu.",
+      "asset_type": "video",
+      "transition": "fade",
+      "mood": "neighborly",
+      "music_cue": "gentle resolved acoustic phrase",
+      "tts_instructions": "Smile in the voice, relaxed close.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": false
+    }
+  ],
+  "cover_prompt": "Warm bakery window before sunrise, cozy glow, no readable signage.",
+  "subtitle_lines_json": [
+    {
+      "scene_number": 1,
+      "text": "Before sunrise, it is already warm."
+    },
+    {
+      "scene_number": 2,
+      "text": "The quiet prep begins."
+    },
+    {
+      "scene_number": 3,
+      "text": "The first batch is timed."
+    },
+    {
+      "scene_number": 4,
+      "text": "The block shares the routine."
+    }
+  ],
+  "style_notes": "Warm local documentary look with no readable signage or identifiable customers.",
+  "visual_style_summary": "Cozy local bakery promo built from pre-dawn craft and community routine.",
+  "render_manifest_seed_json": {
+    "output": {
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "format": "mp4"
+    },
+    "timeline": [
+      {
+        "scene_number": 1,
+        "duration_seconds": 4,
+        "asset_type": "image",
+        "transition": "cut"
+      },
+      {
+        "scene_number": 2,
+        "duration_seconds": 10,
+        "asset_type": "video",
+        "transition": "soft cut"
+      },
+      {
+        "scene_number": 3,
+        "duration_seconds": 11,
+        "asset_type": "video",
+        "transition": "match cut"
+      },
+      {
+        "scene_number": 4,
+        "duration_seconds": 11,
+        "asset_type": "video",
+        "transition": "fade"
+      }
+    ],
+    "subtitles": {
+      "enabled": false,
+      "style": "cinematic_center_safe"
+    }
+  }
+}

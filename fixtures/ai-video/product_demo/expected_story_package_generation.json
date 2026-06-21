@@ -1,0 +1,238 @@
+{
+  "creative_direction_json": {
+    "core_angle": "Weekly updates become easier to review when the workflow separates signal from noise.",
+    "point_of_view": "A product walkthrough focused on the user workflow.",
+    "emotional_arc": "Messy to organized to ready for action.",
+    "narration_strategy": "Explain each step in concrete, calm language.",
+    "visual_strategy": "Abstract dashboard cards, queue states, summaries, and handoff moments with no readable UI text.",
+    "music_strategy": "Clean optimistic pulse with light synth layers.",
+    "consistency_rules": [
+      "Do not show real product names or real customer workspaces.",
+      "Keep all UI text unreadable or abstract.",
+      "Focus on workflow clarity rather than feature claims."
+    ]
+  },
+  "confidence_label": "fictional_demo",
+  "hook_option_1": "Most weekly updates fail because the review step is too messy.",
+  "hook_option_2": "Here is a cleaner way to review weekly project updates.",
+  "hook_option_3": "A better weekly update starts before the status meeting.",
+  "selected_hook": "Here is a cleaner way to review weekly project updates.",
+  "narration_script": "Here is a cleaner way to review weekly project updates. Start with every update in one queue, not scattered across chats and docs. Group each item by project, risk, and owner. Then turn the noisy parts into a short summary the team can actually scan. By the time the meeting starts, the question is no longer what changed. The question is what needs a decision.",
+  "short_script": "Centralize updates, group the signal, summarize the noise, and review decisions faster.",
+  "caption_draft": "A weekly update workflow should make decisions easier, not just collect more status notes.",
+  "cta_line": "Use this flow before your next weekly review.",
+  "music_direction": "Clean synth pulse with subtle lift during the handoff.",
+  "onscreen_text_json": [
+    {
+      "scene_number": 1,
+      "text": "Clean weekly reviews"
+    },
+    {
+      "scene_number": 2,
+      "text": "One update queue"
+    },
+    {
+      "scene_number": 3,
+      "text": "Group signal"
+    },
+    {
+      "scene_number": 4,
+      "text": "Review decisions"
+    }
+  ],
+  "scene_guidance_json": [
+    {
+      "scene_number": 1,
+      "beat_label": "hook",
+      "start_time_seconds": 0,
+      "end_time_seconds": 4,
+      "duration_seconds": 4,
+      "narration_text": "Here is a cleaner way to review weekly project updates.",
+      "dialogue_lines": [
+        "Here is a cleaner weekly review."
+      ],
+      "asset_type": "image",
+      "image_prompt": "Clean SaaS dashboard composition with abstract cards floating in a 9:16 frame, no readable text, bright neutral lighting.",
+      "music_cue": "soft synth pulse begins",
+      "tts_instructions": "Calm, helpful, product-led.",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 2,
+      "beat_label": "collect",
+      "start_time_seconds": 4,
+      "end_time_seconds": 17,
+      "duration_seconds": 13,
+      "narration_text": "Start with every update in one queue, not scattered across chats and docs.",
+      "dialogue_lines": [
+        "Put every update in one queue."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Abstract message cards and document shapes flowing into one clean queue, no readable labels or brand marks.",
+      "music_cue": "steady motion pulse",
+      "tts_instructions": "Explain the step plainly.",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 3,
+      "beat_label": "organize",
+      "start_time_seconds": 17,
+      "end_time_seconds": 31,
+      "duration_seconds": 14,
+      "narration_text": "Group each item by project, risk, and owner. Then turn the noisy parts into a short summary.",
+      "dialogue_lines": [
+        "Group by project, risk, and owner."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Dashboard cards grouping into columns with icon-only labels, summary panel appearing as blurred blocks, no readable text.",
+      "music_cue": "light synth layer enters",
+      "tts_instructions": "Slightly brighter cadence.",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 4,
+      "beat_label": "decision",
+      "start_time_seconds": 31,
+      "end_time_seconds": 45,
+      "duration_seconds": 14,
+      "narration_text": "By the time the meeting starts, the question is no longer what changed. The question is what needs a decision.",
+      "dialogue_lines": [
+        "Now the team reviews decisions."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Team review table with abstract decision cards on a screen, people out of focus, no readable content.",
+      "music_cue": "gentle lift and resolve",
+      "tts_instructions": "Confident closing cadence.",
+      "includes_primary_character": true
+    }
+  ],
+  "storyboard_json": [
+    {
+      "scene_number": 1,
+      "duration_seconds": 4,
+      "narration_text": "Here is a cleaner way to review weekly project updates.",
+      "dialogue_lines": [
+        "Here is a cleaner weekly review."
+      ],
+      "visual_prompt": "Clean SaaS dashboard composition with abstract cards floating in a 9:16 frame, no readable text, bright neutral lighting.",
+      "asset_type": "image",
+      "transition": "cut",
+      "mood": "clean",
+      "music_cue": "soft synth pulse begins",
+      "tts_instructions": "Calm, helpful, product-led.",
+      "is_face_image": true,
+      "face_image_title": "Cleaner Weekly Reviews",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 2,
+      "duration_seconds": 13,
+      "narration_text": "Start with every update in one queue, not scattered across chats and docs.",
+      "dialogue_lines": [
+        "Put every update in one queue."
+      ],
+      "visual_prompt": "Abstract message cards and document shapes flowing into one clean queue, no readable labels or brand marks.",
+      "asset_type": "video",
+      "transition": "slide",
+      "mood": "organized",
+      "music_cue": "steady motion pulse",
+      "tts_instructions": "Explain the step plainly.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 3,
+      "duration_seconds": 14,
+      "narration_text": "Group each item by project, risk, and owner. Then turn the noisy parts into a short summary.",
+      "dialogue_lines": [
+        "Group by project, risk, and owner."
+      ],
+      "visual_prompt": "Dashboard cards grouping into columns with icon-only labels, summary panel appearing as blurred blocks, no readable text.",
+      "asset_type": "video",
+      "transition": "morph",
+      "mood": "clarifying",
+      "music_cue": "light synth layer enters",
+      "tts_instructions": "Slightly brighter cadence.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 4,
+      "duration_seconds": 14,
+      "narration_text": "By the time the meeting starts, the question is no longer what changed. The question is what needs a decision.",
+      "dialogue_lines": [
+        "Now the team reviews decisions."
+      ],
+      "visual_prompt": "Team review table with abstract decision cards on a screen, people out of focus, no readable content.",
+      "asset_type": "video",
+      "transition": "soft cut",
+      "mood": "ready",
+      "music_cue": "gentle lift and resolve",
+      "tts_instructions": "Confident closing cadence.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": true
+    }
+  ],
+  "cover_prompt": "Abstract SaaS dashboard cards arranged cleanly in a vertical frame, no readable text.",
+  "subtitle_lines_json": [
+    {
+      "scene_number": 1,
+      "text": "Review updates cleanly."
+    },
+    {
+      "scene_number": 2,
+      "text": "Start with one queue."
+    },
+    {
+      "scene_number": 3,
+      "text": "Group the signal."
+    },
+    {
+      "scene_number": 4,
+      "text": "Review decisions."
+    }
+  ],
+  "style_notes": "Quiet product demo visuals with abstract UI only.",
+  "visual_style_summary": "Clean SaaS workflow animation, neutral palette, no readable UI text.",
+  "render_manifest_seed_json": {
+    "output": {
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "format": "mp4"
+    },
+    "timeline": [
+      {
+        "scene_number": 1,
+        "duration_seconds": 4,
+        "asset_type": "image",
+        "transition": "cut"
+      },
+      {
+        "scene_number": 2,
+        "duration_seconds": 13,
+        "asset_type": "video",
+        "transition": "slide"
+      },
+      {
+        "scene_number": 3,
+        "duration_seconds": 14,
+        "asset_type": "video",
+        "transition": "morph"
+      },
+      {
+        "scene_number": 4,
+        "duration_seconds": 14,
+        "asset_type": "video",
+        "transition": "soft cut"
+      }
+    ],
+    "subtitles": {
+      "enabled": false,
+      "style": "cinematic_center_safe"
+    }
+  }
+}

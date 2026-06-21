@@ -1,0 +1,42 @@
+{
+  "fixture_version": 1,
+  "stage": "story_package_generation",
+  "scenario": "avatar_sales_outreach",
+  "content_item": {
+    "title": "A Consent-Aware Avatar Intro for a Sales Follow-Up",
+    "slug": "fixture-avatar-sales-outreach",
+    "category": "avatar_sales_outreach",
+    "confidence_label": "synthetic_candidate",
+    "target_duration_seconds": 30,
+    "brand_profile": "default",
+    "source_payload_json": {
+      "abstract_idea": "A synthetic avatar-led sales follow-up that demonstrates consent and transparency constraints.",
+      "source_notes": [
+        "Use a fictional prospect and fictional product context.",
+        "The avatar must be synthetic or consent-approved.",
+        "Do not imply a real person endorsed or recorded the message."
+      ],
+      "avatar_context": {
+        "avatar_route": "optional",
+        "consent_status": "synthetic_only",
+        "disclosure_required": true
+      },
+      "creative_defaults": {
+        "tone": "clear, respectful, concise",
+        "visual_strategy": "neutral presenter frame, product context cards, clear handoff",
+        "music_mood": "minimal professional bed"
+      }
+    }
+  },
+  "prompt_template_data": {
+    "topic": "A Consent-Aware Avatar Intro for a Sales Follow-Up",
+    "category": "avatar_sales_outreach",
+    "target_duration_seconds": "30",
+    "brand_tone": "clear, respectful, concise",
+    "narrator_style": "professional presenter",
+    "ending_signature_family": "low-pressure next step",
+    "visual_style_rules": "synthetic presenter allowed only with disclosure, no real likeness",
+    "character_reference_context": "Synthetic avatar only. No real person likeness or implied endorsement."
+  },
+  "expected_status_after_success": "storyboard_complete"
+}

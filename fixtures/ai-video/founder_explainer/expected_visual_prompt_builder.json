@@ -1,0 +1,161 @@
+{
+  "visual_prompt_version": "1.0",
+  "source_stage": "visual_prompt_builder",
+  "selected_style_pack": "founder_explainer",
+  "global_continuity": {
+    "style_summary": "Documentary-realistic founder workspace, warm neutral daylight, close practical details, and restrained movement.",
+    "continuity_requirements": [
+      "Keep one calm founder workspace across scenes.",
+      "Use anonymized cards, notes, and roadmap shapes with no readable details.",
+      "Preserve soft daylight and warm neutral palette throughout."
+    ],
+    "character_continuity": "Use hands-only or a generic non-identifiable founder presence; do not imply a real founder likeness.",
+    "environment_continuity": "Desk, notes, and planning board should feel like the same small workspace."
+  },
+  "text_policy": {
+    "generated_asset_policy": "Generated image/video assets must be text-free and unobstructed.",
+    "renderer_text_policy": "Any opening title, captions, subtitles, or labels are reserved for later renderer metadata, not generated pixels.",
+    "forbidden_text_elements": [
+      "readable notes",
+      "support ticket text",
+      "UI copy",
+      "logos",
+      "subtitles",
+      "captions",
+      "watermarks",
+      "signage"
+    ]
+  },
+  "prompts": [
+    {
+      "scene_number": 1,
+      "asset_type": "image",
+      "duration_seconds": 4,
+      "aspect_ratio": "9:16",
+      "subject": "Generic founder workspace with laptop, abstract notes, and calm work artifacts.",
+      "environment": "Small desk or office corner in soft daylight with warm neutral colors.",
+      "composition": "Vertical 9:16 frame, clean central desk focal point, shallow background detail, mobile-readable subject silhouette.",
+      "camera": "Still documentary frame with a slightly close work surface angle.",
+      "motion": "Still image hold with optional subtle digital push added later by the renderer.",
+      "lighting": "Soft morning daylight, low contrast, warm practical highlights.",
+      "style": "Founder explainer, documentary-realistic, restrained SaaS workspace aesthetic.",
+      "continuity_requirements": [
+        "Use the same workspace palette as later scenes.",
+        "Keep all note and ticket-like objects unreadable.",
+        "Do not create a real identifiable founder face."
+      ],
+      "text_policy": "No generated readable text; opening title belongs only to later renderer metadata.",
+      "visual_prompt": "Vertical 9:16 documentary-realistic still image of a generic founder desk in soft morning daylight, laptop closed beside clustered abstract sticky notes and blurred support-card shapes, one clear central work surface focal point, warm neutral palette, shallow background, calm practical founder-explainer mood, clean unobstructed composition, no readable text, no UI copy, no logos, no labels, no subtitles, no watermark.",
+      "negative_prompt": "readable text, letters, numbers, UI, support ticket words, sticky note writing, labels, logo, watermark, subtitles, captions, title text, signage, real person likeness, distorted hands, cluttered collage, generic dark atmosphere",
+      "fallback_prompt": "Text-free vertical documentary still of a calm founder desk with abstract unreadable notes and soft daylight, warm neutral palette, clean central focal point.",
+      "safety_notes": [
+        "Keep the founder generic and non-identifiable.",
+        "Do not imply real customer data."
+      ],
+      "qa_checks": [
+        "No readable text appears anywhere.",
+        "Frame can support renderer-added title later without obstruction.",
+        "Subject, environment, and style are specific enough for generation."
+      ]
+    },
+    {
+      "scene_number": 2,
+      "asset_type": "video",
+      "duration_seconds": 12,
+      "aspect_ratio": "9:16",
+      "subject": "Anonymized support cards and founder hands in the same workspace.",
+      "environment": "Founder desk with slightly busier card arrangement and blurred work artifacts.",
+      "composition": "Medium-close vertical framing moving from scattered cards to early clusters.",
+      "camera": "Gentle lateral documentary camera move following the cards.",
+      "motion": "Cards and hands shift from messy scattered support volume into the first visible grouping pattern.",
+      "lighting": "Soft daylight with slightly busier contrast than the opening scene.",
+      "style": "Documentary founder explainer with practical, grounded workspace realism.",
+      "continuity_requirements": [
+        "Match scene 1 desk, color palette, and light quality.",
+        "Keep all cards abstract and unreadable.",
+        "Use hands or workspace details instead of identifiable faces."
+      ],
+      "text_policy": "No readable support ticket text, UI, labels, captions, or signage.",
+      "visual_prompt": "Vertical 9:16 documentary-realistic video shot at the same founder desk, generic hands sorting scattered abstract support cards into early clusters, cards are blurred and unreadable, laptop and workspace artifacts stay background-soft, medium-close composition, gentle lateral camera move, warm neutral daylight, practical founder-operator mood showing support overload beginning to reveal patterns, no readable text, no UI copy, no customer names, no logos, no subtitles, no watermark.",
+      "negative_prompt": "readable tickets, customer names, UI text, email inbox text, dashboard labels, logos, watermark, subtitles, captions, speech bubbles, fake metrics, chaotic collage, dramatic panic imagery, identifiable customer faces",
+      "fallback_prompt": "Text-free vertical video of generic hands sorting abstract unreadable support cards on a warm founder desk, moving from scattered cards to simple grouped patterns.",
+      "safety_notes": [
+        "No private customer details.",
+        "Do not imply a real support queue."
+      ],
+      "qa_checks": [
+        "Cards are unreadable.",
+        "Movement communicates pattern recognition.",
+        "No provider-specific or render-specific instructions appear."
+      ]
+    },
+    {
+      "scene_number": 3,
+      "asset_type": "video",
+      "duration_seconds": 12,
+      "aspect_ratio": "9:16",
+      "subject": "Founder hands grouping separate abstract notes into one shared pain-point cluster.",
+      "environment": "Same desk or adjacent planning board with consistent warm daylight.",
+      "composition": "Tight vertical composition centered on three separate note groups becoming one cluster.",
+      "camera": "Subtle push-in as the repeated pattern becomes clear.",
+      "motion": "Hands move three color-coded note groups into one central cluster.",
+      "lighting": "Warm daylight with clear focus on notes and hands.",
+      "style": "Practical founder explainer, documentary close-up, tactile workflow detail.",
+      "continuity_requirements": [
+        "Keep color palette aligned with prior scenes.",
+        "Represent three inputs without numbers or readable labels.",
+        "Maintain anonymized work artifacts."
+      ],
+      "text_policy": "No legible labels, card text, numbers, diagrams, or UI elements.",
+      "visual_prompt": "Vertical 9:16 documentary-realistic close-up video of generic founder hands moving three separate groups of color-coded abstract notes into one central cluster on a warm desk or planning board, notes are blank or blurred with no readable marks, subtle push-in camera motion as the pattern becomes obvious, soft daylight, grounded product-operator mood, clear subject-action-setting, no readable text, no numbers, no labels, no UI, no logos, no subtitles, no watermark.",
+      "negative_prompt": "readable labels, written notes, numbers, charts, fake metrics, product UI, logos, subtitles, captions, watermark, generic symbolic imagery, random portrait, exaggerated success proof",
+      "fallback_prompt": "Text-free vertical video close-up of generic hands grouping three abstract note clusters into one central pattern on a warm founder workspace.",
+      "safety_notes": [
+        "Do not imply measurable results.",
+        "Keep the pattern visual without text."
+      ],
+      "qa_checks": [
+        "Scene communicates repeated pain visually.",
+        "No fake metrics or labels appear.",
+        "Prompt includes subject, action, environment, camera, lighting, and style."
+      ]
+    },
+    {
+      "scene_number": 4,
+      "asset_type": "video",
+      "duration_seconds": 12,
+      "aspect_ratio": "9:16",
+      "subject": "Abstract roadmap board and founder hands arranging clean priority shapes.",
+      "environment": "Same founder workspace, calmer and less cluttered than earlier scenes.",
+      "composition": "Vertical final frame with clean board or desk arrangement and uncluttered negative space.",
+      "camera": "Slow settling move into a final hold.",
+      "motion": "Hands place final abstract priority shapes into a simple roadmap-like sequence.",
+      "lighting": "Soft calm daylight with gentle resolution and warm neutral tones.",
+      "style": "Founder explainer with documentary realism and restrained optimistic finish.",
+      "continuity_requirements": [
+        "Use the same workspace and palette as earlier scenes.",
+        "Carry the abstract cards into a cleaner roadmap arrangement.",
+        "Keep shapes unreadable and generic."
+      ],
+      "text_policy": "No readable roadmap items, labels, UI text, captions, or logos.",
+      "visual_prompt": "Vertical 9:16 documentary-realistic video of generic founder hands arranging blank abstract priority shapes into a clean roadmap-like sequence on the same warm desk or planning board, workspace is calmer and less cluttered, slow settling camera move into final hold, soft daylight, practical resolved founder-explainer mood, clear visual link from support patterns to priorities, no readable text, no roadmap words, no UI, no labels, no logos, no subtitles, no watermark.",
+      "negative_prompt": "readable roadmap text, labels, UI, product screenshots, logos, subtitles, captions, watermark, guaranteed outcome imagery, fake company branding, salesy hero shot, generic background",
+      "fallback_prompt": "Text-free vertical video of generic hands arranging blank abstract priority shapes into a simple roadmap pattern on a warm founder desk.",
+      "safety_notes": [
+        "Do not imply real company roadmap details.",
+        "Do not add guaranteed outcome visuals."
+      ],
+      "qa_checks": [
+        "Roadmap is abstract and unreadable.",
+        "Visual ending feels practical rather than promotional.",
+        "Continuity with earlier workspace is preserved."
+      ]
+    }
+  ],
+  "qa_focus": [
+    "Every prompt names concrete subject, action, environment, composition, camera, motion, lighting, and style.",
+    "Generated assets are text-free by default.",
+    "Fallback prompts are simpler but still specific.",
+    "No provider, model, host, storage, render, or publish choice appears."
+  ]
+}

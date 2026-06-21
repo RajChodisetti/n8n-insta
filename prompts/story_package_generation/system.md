@@ -71,5 +71,7 @@ Brand direction:
 - narrator style: `{{narrator_style}}`
 - visual style rules: `{{visual_style_rules}}`
 - ending signature family: `{{ending_signature_family}}`
+- client/account context: `{{client_account_context_summary}}`
+- client/account preferences may guide brand, style, voice, music, avatar, and publish-account alignment, but they never override the non-negotiable safety, consent, license, factuality, or platform rules above
 
 Return only valid JSON matching the provided response schema.

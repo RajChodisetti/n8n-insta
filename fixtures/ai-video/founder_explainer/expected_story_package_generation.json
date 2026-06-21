@@ -1,0 +1,238 @@
+{
+  "creative_direction_json": {
+    "core_angle": "Customer support is a roadmap signal when the same pain appears repeatedly.",
+    "point_of_view": "A solo founder looking back on a practical operating lesson.",
+    "emotional_arc": "Overwhelmed to attentive to focused.",
+    "narration_strategy": "Plainspoken first-person reflection with no hype.",
+    "visual_strategy": "Quiet desk scenes, anonymized ticket patterns, sketches, and a simple roadmap board with no readable UI text.",
+    "music_strategy": "Soft pulse that grows slightly as the plan becomes clearer.",
+    "consistency_rules": [
+      "Keep all customer details anonymous.",
+      "Use the same founder workspace across scenes.",
+      "Do not show readable ticket text or product UI."
+    ]
+  },
+  "confidence_label": "internal_case_study",
+  "hook_option_1": "I stopped guessing what to build when I reread the support inbox.",
+  "hook_option_2": "The roadmap was hiding in the same customer complaint, repeated again and again.",
+  "hook_option_3": "One founder habit changed our product direction: tagging every support ticket.",
+  "selected_hook": "The roadmap was hiding in the same customer complaint, repeated again and again.",
+  "narration_script": "The roadmap was hiding in the same customer complaint, repeated again and again. At first, every support ticket felt like a distraction from building. Then patterns started to show up. Three different customers were asking for the same fix in different words. Instead of adding another idea to a wish list, I grouped the pain, sketched the workflow, and turned the loudest pattern into the next release. The lesson was simple: support is not just where problems arrive. It is where priorities become visible.",
+  "short_script": "Repeated customer pain can be a better roadmap than founder guesses.",
+  "caption_draft": "A simple founder habit: tag repeated support pain before planning the next feature.",
+  "cta_line": "Save this before your next roadmap review.",
+  "music_direction": "Warm minimal piano with a subtle pulse, no dramatic hits.",
+  "onscreen_text_json": [
+    {
+      "scene_number": 1,
+      "text": "Support became the roadmap"
+    },
+    {
+      "scene_number": 2,
+      "text": "Patterns beat guesses"
+    },
+    {
+      "scene_number": 3,
+      "text": "Build from repeated pain"
+    },
+    {
+      "scene_number": 4,
+      "text": "Turn feedback into focus"
+    }
+  ],
+  "scene_guidance_json": [
+    {
+      "scene_number": 1,
+      "beat_label": "hook",
+      "start_time_seconds": 0,
+      "end_time_seconds": 4,
+      "duration_seconds": 4,
+      "narration_text": "The roadmap was hiding in the same customer complaint, repeated again and again.",
+      "dialogue_lines": [
+        "The roadmap was hiding in the same customer complaint."
+      ],
+      "asset_type": "image",
+      "image_prompt": "Documentary-realistic founder at a desk in soft morning light, laptop closed, sticky notes blurred, no readable text.",
+      "music_cue": "single warm piano note with soft pulse entering",
+      "tts_instructions": "Measured, intimate, slight pause after roadmap.",
+      "includes_primary_character": true
+    },
+    {
+      "scene_number": 2,
+      "beat_label": "problem",
+      "start_time_seconds": 4,
+      "end_time_seconds": 16,
+      "duration_seconds": 12,
+      "narration_text": "At first, every support ticket felt like a distraction from building. Then patterns started to show up.",
+      "dialogue_lines": [
+        "Every ticket felt like a distraction until patterns started to show up."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Close shots of an anonymized support queue represented by abstract cards and blurred interface shapes, no readable text.",
+      "music_cue": "soft ticking rhythm under piano",
+      "tts_instructions": "Reflective, restrained, not salesy.",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 3,
+      "beat_label": "turn",
+      "start_time_seconds": 16,
+      "end_time_seconds": 28,
+      "duration_seconds": 12,
+      "narration_text": "Three different customers were asking for the same fix in different words.",
+      "dialogue_lines": [
+        "Different words, same pain."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Hands grouping color-coded notes into one cluster on a whiteboard, labels intentionally blurred, realistic office lighting.",
+      "music_cue": "pulse becomes more confident",
+      "tts_instructions": "Slight emphasis on same fix.",
+      "includes_primary_character": true
+    },
+    {
+      "scene_number": 4,
+      "beat_label": "lesson",
+      "start_time_seconds": 28,
+      "end_time_seconds": 40,
+      "duration_seconds": 12,
+      "narration_text": "Support is not just where problems arrive. It is where priorities become visible.",
+      "dialogue_lines": [
+        "Support is where priorities become visible."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Founder sketching a clean roadmap board with shapes but no readable text, calm daylight, documentary realism.",
+      "music_cue": "gentle resolution",
+      "tts_instructions": "Clear closing cadence, calm confidence.",
+      "includes_primary_character": true
+    }
+  ],
+  "storyboard_json": [
+    {
+      "scene_number": 1,
+      "duration_seconds": 4,
+      "narration_text": "The roadmap was hiding in the same customer complaint, repeated again and again.",
+      "dialogue_lines": [
+        "The roadmap was hiding in the same customer complaint."
+      ],
+      "visual_prompt": "Documentary-realistic founder at a desk in soft morning light, laptop closed, sticky notes blurred, no readable text.",
+      "asset_type": "image",
+      "transition": "cut",
+      "mood": "focused",
+      "music_cue": "single warm piano note with soft pulse entering",
+      "tts_instructions": "Measured, intimate, slight pause after roadmap.",
+      "is_face_image": true,
+      "face_image_title": "Support Became Roadmap",
+      "includes_primary_character": true
+    },
+    {
+      "scene_number": 2,
+      "duration_seconds": 12,
+      "narration_text": "At first, every support ticket felt like a distraction from building. Then patterns started to show up.",
+      "dialogue_lines": [
+        "Every ticket felt like a distraction until patterns started to show up."
+      ],
+      "visual_prompt": "Close shots of an anonymized support queue represented by abstract cards and blurred interface shapes, no readable text.",
+      "asset_type": "video",
+      "transition": "match cut",
+      "mood": "overwhelmed",
+      "music_cue": "soft ticking rhythm under piano",
+      "tts_instructions": "Reflective, restrained, not salesy.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 3,
+      "duration_seconds": 12,
+      "narration_text": "Three different customers were asking for the same fix in different words.",
+      "dialogue_lines": [
+        "Different words, same pain."
+      ],
+      "visual_prompt": "Hands grouping color-coded notes into one cluster on a whiteboard, labels intentionally blurred, realistic office lighting.",
+      "asset_type": "video",
+      "transition": "push in",
+      "mood": "clarifying",
+      "music_cue": "pulse becomes more confident",
+      "tts_instructions": "Slight emphasis on same fix.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": true
+    },
+    {
+      "scene_number": 4,
+      "duration_seconds": 12,
+      "narration_text": "Support is not just where problems arrive. It is where priorities become visible.",
+      "dialogue_lines": [
+        "Support is where priorities become visible."
+      ],
+      "visual_prompt": "Founder sketching a clean roadmap board with shapes but no readable text, calm daylight, documentary realism.",
+      "asset_type": "video",
+      "transition": "soft cut",
+      "mood": "resolved",
+      "music_cue": "gentle resolution",
+      "tts_instructions": "Clear closing cadence, calm confidence.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": true
+    }
+  ],
+  "cover_prompt": "Founder at a calm desk with blurred roadmap notes, cinematic documentary lighting, no readable text.",
+  "subtitle_lines_json": [
+    {
+      "scene_number": 1,
+      "text": "The roadmap was hiding in support."
+    },
+    {
+      "scene_number": 2,
+      "text": "Patterns started to show up."
+    },
+    {
+      "scene_number": 3,
+      "text": "Different words, same pain."
+    },
+    {
+      "scene_number": 4,
+      "text": "Support makes priorities visible."
+    }
+  ],
+  "style_notes": "Keep the workspace consistent and all UI text unreadable.",
+  "visual_style_summary": "Documentary SaaS founder workspace with soft light and restrained motion.",
+  "render_manifest_seed_json": {
+    "output": {
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "format": "mp4"
+    },
+    "timeline": [
+      {
+        "scene_number": 1,
+        "duration_seconds": 4,
+        "asset_type": "image",
+        "transition": "cut"
+      },
+      {
+        "scene_number": 2,
+        "duration_seconds": 12,
+        "asset_type": "video",
+        "transition": "match cut"
+      },
+      {
+        "scene_number": 3,
+        "duration_seconds": 12,
+        "asset_type": "video",
+        "transition": "push in"
+      },
+      {
+        "scene_number": 4,
+        "duration_seconds": 12,
+        "asset_type": "video",
+        "transition": "soft cut"
+      }
+    ],
+    "subtitles": {
+      "enabled": false,
+      "style": "cinematic_center_safe"
+    }
+  }
+}

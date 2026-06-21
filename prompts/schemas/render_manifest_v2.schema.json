@@ -1,0 +1,864 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "render_manifest_v2_version",
+    "source_stage",
+    "manifest_id",
+    "content_id",
+    "title",
+    "created_at",
+    "selected_style_pack",
+    "target_renderer_policy",
+    "source_contracts",
+    "output",
+    "safe_areas",
+    "assets",
+    "scenes",
+    "timeline",
+    "audio_tracks",
+    "caption_tracks",
+    "overlays",
+    "transitions",
+    "brand_elements",
+    "export_settings",
+    "storage",
+    "ffmpeg_compatibility",
+    "quality_gates",
+    "implementation_notes"
+  ],
+  "properties": {
+    "render_manifest_v2_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "source_stage": {
+      "type": "string",
+      "enum": ["render_manifest_v2"]
+    },
+    "manifest_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "content_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "selected_style_pack": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_renderer_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "renderer_neutral",
+        "active_runtime_renderer",
+        "future_renderer_targets",
+        "replaces_current_renderer",
+        "notes"
+      ],
+      "properties": {
+        "renderer_neutral": {
+          "type": "boolean"
+        },
+        "active_runtime_renderer": {
+          "type": "string",
+          "enum": ["local_ffmpeg"]
+        },
+        "future_renderer_targets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["remotion", "other"]
+          }
+        },
+        "replaces_current_renderer": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "source_contracts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_stage", "source_version", "used_for"],
+        "properties": {
+          "source_stage": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "used_for": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width", "height", "fps", "format", "aspect_ratio", "duration_seconds"],
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "format": {
+          "type": "string",
+          "enum": ["mp4"]
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "enum": ["9:16"]
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 1
+        }
+      }
+    },
+    "safe_areas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "areas", "notes"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": ["instagram_reel", "instagram_image_post"]
+        },
+        "areas": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["safe_area_id", "purpose", "top_px", "bottom_px", "left_px", "right_px"],
+            "properties": {
+              "safe_area_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "purpose": {
+                "type": "string",
+                "enum": ["title_overlay", "caption", "brand", "general"]
+              },
+              "top_px": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "bottom_px": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "left_px": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "right_px": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asset_id",
+          "asset_type",
+          "asset_role",
+          "scene_number",
+          "storage_url",
+          "mime_type",
+          "duration_seconds",
+          "width",
+          "height",
+          "license_status",
+          "publish_allowed"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "asset_type": {
+            "type": "string",
+            "enum": ["image", "video", "narration_audio", "music", "sfx", "brand_asset"]
+          },
+          "asset_role": {
+            "type": "string",
+            "enum": ["scene_image", "scene_video", "scene_narration", "background_music", "sfx_event", "brand_overlay"]
+          },
+          "scene_number": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "storage_url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mime_type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "duration_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "license_status": {
+            "type": "string",
+            "enum": ["documented", "licensed", "public_domain", "cc0", "unknown", "not_applicable"]
+          },
+          "publish_allowed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scene_number",
+          "beat_id",
+          "start_time_seconds",
+          "end_time_seconds",
+          "duration_seconds",
+          "visual_asset_id",
+          "narration_asset_id",
+          "narration_text",
+          "caption_text",
+          "overlay_ids",
+          "audio_cue_ids",
+          "transition_id",
+          "render_notes"
+        ],
+        "properties": {
+          "scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "beat_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start_time_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "end_time_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "duration_seconds": {
+            "type": "number",
+            "minimum": 0.5
+          },
+          "visual_asset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "narration_asset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "narration_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "caption_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "overlay_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "audio_cue_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "transition_id": {
+            "type": ["string", "null"]
+          },
+          "render_notes": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "timeline": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "timeline_id",
+          "track_type",
+          "scene_number",
+          "asset_id",
+          "overlay_id",
+          "caption_track_id",
+          "start_time_seconds",
+          "end_time_seconds",
+          "duration_seconds",
+          "z_index",
+          "renderer_behavior"
+        ],
+        "properties": {
+          "timeline_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "track_type": {
+            "type": "string",
+            "enum": ["visual", "narration", "music", "sfx", "caption", "overlay"]
+          },
+          "scene_number": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "asset_id": {
+            "type": ["string", "null"]
+          },
+          "overlay_id": {
+            "type": ["string", "null"]
+          },
+          "caption_track_id": {
+            "type": ["string", "null"]
+          },
+          "start_time_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "end_time_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "duration_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "z_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "renderer_behavior": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "audio_tracks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "track_id",
+          "track_type",
+          "mode",
+          "asset_ids",
+          "volume",
+          "ducking",
+          "license_status",
+          "publish_allowed"
+        ],
+        "properties": {
+          "track_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "track_type": {
+            "type": "string",
+            "enum": ["narration", "music", "sfx"]
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["per_scene", "single", "bed", "event"]
+          },
+          "asset_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "volume": {
+            "type": "number",
+            "minimum": 0
+          },
+          "ducking": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["duck_against", "strategy", "target_volume", "fade_in_seconds", "fade_out_seconds"],
+            "properties": {
+              "duck_against": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "strategy": {
+                "type": "string",
+                "minLength": 1
+              },
+              "target_volume": {
+                "type": "number",
+                "minimum": 0
+              },
+              "fade_in_seconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "fade_out_seconds": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          },
+          "license_status": {
+            "type": "string",
+            "enum": ["documented", "licensed", "public_domain", "cc0", "unknown", "not_applicable"]
+          },
+          "publish_allowed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "caption_tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["track_id", "enabled", "safe_area_id", "style", "lines"],
+        "properties": {
+          "track_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "safe_area_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "style": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["scene_number", "start_time_seconds", "end_time_seconds", "text", "max_lines"],
+              "properties": {
+                "scene_number": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "start_time_seconds": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "end_time_seconds": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "max_lines": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "overlays": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "overlay_id",
+          "overlay_type",
+          "enabled",
+          "text",
+          "scene_number",
+          "start_time_seconds",
+          "duration_seconds",
+          "safe_area_id",
+          "style",
+          "renderer_owns_text",
+          "generated_asset_text_allowed"
+        ],
+        "properties": {
+          "overlay_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "overlay_type": {
+            "type": "string",
+            "enum": ["title", "lower_third", "brand_watermark", "cta", "label"]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": ["string", "null"]
+          },
+          "scene_number": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "start_time_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "duration_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "safe_area_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "style": {
+            "type": "string",
+            "minLength": 1
+          },
+          "renderer_owns_text": {
+            "type": "boolean"
+          },
+          "generated_asset_text_allowed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["transition_id", "from_scene_number", "to_scene_number", "type", "duration_seconds"],
+        "properties": {
+          "transition_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "from_scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "to_scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "type": {
+            "type": "string",
+            "enum": ["cut", "fade", "match_cut", "push"]
+          },
+          "duration_seconds": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "brand_elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["element_id", "element_type", "enabled", "asset_id", "placement", "notes"],
+        "properties": {
+          "element_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "element_type": {
+            "type": "string",
+            "enum": ["logo", "watermark", "color_token", "font_token", "none"]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "asset_id": {
+            "type": ["string", "null"]
+          },
+          "placement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "export_settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "video_codec", "audio_codec", "width", "height", "fps", "aspect_ratio", "max_duration_seconds"],
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": ["mp4"]
+        },
+        "video_codec": {
+          "type": "string",
+          "enum": ["h264"]
+        },
+        "audio_codec": {
+          "type": "string",
+          "enum": ["aac"]
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "aspect_ratio": {
+          "type": "string",
+          "enum": ["9:16"]
+        },
+        "max_duration_seconds": {
+          "type": "number",
+          "minimum": 1
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["output_path", "cover_asset_id", "public_url_required"],
+      "properties": {
+        "output_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cover_asset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "public_url_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ffmpeg_compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "can_map_to_current_ffmpeg",
+        "compatibility_mode",
+        "required_current_fields",
+        "unsupported_v2_features",
+        "mapping_notes",
+        "render_request_preview"
+      ],
+      "properties": {
+        "can_map_to_current_ffmpeg": {
+          "type": "boolean"
+        },
+        "compatibility_mode": {
+          "type": "string",
+          "enum": ["lower_to_current_render_request"]
+        },
+        "required_current_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "unsupported_v2_features": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "mapping_notes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "render_request_preview": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["render_provider", "output", "timeline", "audio", "subtitles", "cover", "storage", "title_overlay"],
+          "properties": {
+            "render_provider": {
+              "type": "string",
+              "enum": ["local_ffmpeg"]
+            },
+            "output": {
+              "type": "object"
+            },
+            "timeline": {
+              "type": "array",
+              "minItems": 1
+            },
+            "audio": {
+              "type": "object"
+            },
+            "subtitles": {
+              "type": "object"
+            },
+            "cover": {
+              "type": "object"
+            },
+            "storage": {
+              "type": "object"
+            },
+            "title_overlay": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "quality_gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate_id", "severity", "check", "expected_result", "status"],
+        "properties": {
+          "gate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["blocking", "must", "should"]
+          },
+          "check": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_result": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pass", "needs_review", "blocked"]
+          }
+        }
+      }
+    },
+    "implementation_notes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtime_behavior_changed",
+        "requires_renderer_replacement",
+        "active_workflow_consumes_this",
+        "notes"
+      ],
+      "properties": {
+        "runtime_behavior_changed": {
+          "type": "boolean"
+        },
+        "requires_renderer_replacement": {
+          "type": "boolean"
+        },
+        "active_workflow_consumes_this": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

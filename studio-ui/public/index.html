@@ -13,7 +13,7 @@
           <p class="eyebrow">Workflow Control Room</p>
           <h1>n8n Insta Studio</h1>
           <p class="hero-copy">
-            Turn one rough idea into a pipeline item, auto-run the full Reel publish flow, and adjust prompts or runtime settings only when you need to.
+            Turn one rough idea into a pipeline item, run the Reel workflow, approve the selected render, and adjust prompts or runtime settings only when you need to.
           </p>
         </div>
         <div class="hero-aside">
@@ -22,7 +22,7 @@
           </div>
           <div class="hero-tip">
             <strong>Best default path</strong>
-            <p>Use the abstract idea box first. It creates the topic row, builds the runtime prompt profile, and starts the one-click Reel publish workflow automatically.</p>
+            <p>Use the abstract idea box first. It creates the topic row, builds the runtime prompt profile, and starts the one-click Reel workflow automatically.</p>
           </div>
         </div>
       </header>
@@ -31,7 +31,7 @@
         <article class="overview-card">
           <span class="overview-step">1</span>
           <strong>Start With One Idea</strong>
-          <p>Paste a rough idea. The studio generates the injection JSON, builds the placeholder profile, and starts the full publish flow for you.</p>
+          <p>Paste a rough idea. The studio generates the injection JSON, builds the placeholder profile, and starts the Reel flow for you.</p>
         </article>
         <article class="overview-card">
           <span class="overview-step">2</span>
@@ -56,7 +56,7 @@
             <div>
               <p class="panel-kicker">Step 1</p>
               <h2>New Idea</h2>
-              <p>Most users should use the fast path. It now runs from abstract idea through publish. The manual form is only for cases where you want to inject a topic row without auto-running the workflow.</p>
+          <p>Most users should use the fast path. It runs from abstract idea through render, then waits for selected-render approval before publish. The manual form is only for cases where you want to inject a topic row without auto-running the workflow.</p>
             </div>
           </div>
           <div class="idea-layout">
@@ -65,7 +65,7 @@
                 <div>
                   <span class="mode-badge">Recommended</span>
                   <h3>Fast Path: Abstract Idea</h3>
-                  <p>Paste one rough idea. The studio will generate the topic injection JSON, create the runtime prompt profile, insert the `idea_approved` row, and immediately continue through the one-click Reel publish workflow.</p>
+                  <p>Paste one rough idea. The studio will generate the topic injection JSON, create the runtime prompt profile, insert the `idea_approved` row, and immediately continue through the one-click Reel workflow.</p>
                 </div>
               </div>
               <form id="abstract-idea-form" class="quick-idea-form">
@@ -95,8 +95,8 @@
                   </div>
                 </section>
                 <div class="form-actions span-2">
-                  <button type="submit" class="primary">Generate + Inject + Publish</button>
-                  <button type="button" class="secondary" id="abstract-idea-v2">Generate + Inject + Publish Video</button>
+                  <button type="submit" class="primary">Generate + Inject + Run</button>
+                  <button type="button" class="secondary" id="abstract-idea-v2">Generate + Inject + Run Video</button>
                   <span class="inline-status" id="abstract-idea-status"></span>
                 </div>
                 <p class="mode-note span-2">Webhook entrypoint: <code>POST /webhooks/abstract-idea</code> with JSON like <code>{"abstract_idea":"your idea"}</code> or a plain text body.</p>
@@ -311,6 +311,7 @@
                   <th>Status</th>
                   <th>Category</th>
                   <th>Render</th>
+                  <th>Approval</th>
                   <th>Publish</th>
                   <th>Updated</th>
                   <th>Cost</th>

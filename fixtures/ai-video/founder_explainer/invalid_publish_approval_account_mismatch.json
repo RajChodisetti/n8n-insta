@@ -1,0 +1,23 @@
+{
+  "approval_schema_version": "1.0",
+  "source_stage": "approval_queue",
+  "content_id": "11111111-1111-4111-8111-111111111111",
+  "platform": "instagram",
+  "platform_account_id": "17841499999999999",
+  "platform_account_username": "wrong_account",
+  "package_type": "instagram_reel",
+  "selected_video_id": "22222222-2222-4222-8222-222222222222",
+  "selected_asset_id": null,
+  "qa_status": "passed",
+  "qa_result_reference": {
+    "source": "final_qa_validator",
+    "publish_decision": "approved",
+    "blocks_publish": false,
+    "checked_at": "2026-06-21T00:00:00.000Z",
+    "summary": "Final QA approved the selected Reel package."
+  },
+  "approval_status": "approved",
+  "approved_by": "reviewer@example.com",
+  "approved_at": "2026-06-21T00:05:00.000Z",
+  "approval_note": "Invalid fixture: approval account does not match the publish account."
+}

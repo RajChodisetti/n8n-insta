@@ -1,0 +1,712 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "remotion_edit_plan_version",
+    "source_stage",
+    "plan_id",
+    "source_render_manifest_id",
+    "content_id",
+    "title",
+    "created_at",
+    "selected_style_pack",
+    "runtime_policy",
+    "composition",
+    "render_environment",
+    "input_props_contract",
+    "sequences",
+    "captions",
+    "overlays",
+    "lower_thirds",
+    "audio_tracks",
+    "transitions",
+    "brand_elements",
+    "export_settings",
+    "fallback_plan",
+    "quality_gates",
+    "implementation_notes"
+  ],
+  "properties": {
+    "remotion_edit_plan_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "source_stage": {
+      "type": "string",
+      "enum": ["remotion_edit_plan"]
+    },
+    "plan_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_render_manifest_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "content_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "selected_style_pack": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtime_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_only",
+        "install_remotion_now",
+        "replaces_ffmpeg",
+        "requires_package_install",
+        "active_runtime_renderer",
+        "notes"
+      ],
+      "properties": {
+        "plan_only": {
+          "type": "boolean"
+        },
+        "install_remotion_now": {
+          "type": "boolean"
+        },
+        "replaces_ffmpeg": {
+          "type": "boolean"
+        },
+        "requires_package_install": {
+          "type": "boolean"
+        },
+        "active_runtime_renderer": {
+          "type": "string",
+          "enum": ["local_ffmpeg"]
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "component_name",
+        "width",
+        "height",
+        "fps",
+        "duration_in_frames",
+        "duration_seconds",
+        "default_props"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "component_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "duration_in_frames": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 1
+        },
+        "default_props": {
+          "type": "object"
+        }
+      }
+    },
+    "render_environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "expected_runtime",
+        "required_packages",
+        "commands_for_future_runtime_only",
+        "notes"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["not_installed", "not_configured", "planned"]
+        },
+        "expected_runtime": {
+          "type": "string",
+          "enum": ["local_remotion_project_future"]
+        },
+        "required_packages": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "commands_for_future_runtime_only": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "input_props_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_style", "required_props", "optional_props", "notes"],
+      "properties": {
+        "schema_style": {
+          "type": "string",
+          "enum": ["zod_future", "json_schema_source"]
+        },
+        "required_props": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "optional_props": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "sequences": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequence_id",
+          "scene_number",
+          "from_frame",
+          "duration_in_frames",
+          "start_time_seconds",
+          "duration_seconds",
+          "visual_asset_url",
+          "asset_type",
+          "component_hint",
+          "props"
+        ],
+        "properties": {
+          "sequence_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "from_frame": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duration_in_frames": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "start_time_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "duration_seconds": {
+            "type": "number",
+            "minimum": 0.5
+          },
+          "visual_asset_url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "asset_type": {
+            "type": "string",
+            "enum": ["image", "video"]
+          },
+          "component_hint": {
+            "type": "string",
+            "enum": ["SceneImage", "SceneVideo"]
+          },
+          "props": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "captions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "track_id", "style", "safe_area_id", "lines"],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "track_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "style": {
+          "type": "string",
+          "minLength": 1
+        },
+        "safe_area_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "scene_number",
+              "from_frame",
+              "duration_in_frames",
+              "start_time_seconds",
+              "end_time_seconds",
+              "text",
+              "max_lines"
+            ],
+            "properties": {
+              "scene_number": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "from_frame": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "duration_in_frames": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "start_time_seconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "end_time_seconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1
+              },
+              "max_lines": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "overlays": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "overlay_id",
+          "overlay_type",
+          "enabled",
+          "from_frame",
+          "duration_in_frames",
+          "text",
+          "safe_area_id",
+          "component_hint",
+          "renderer_owns_text",
+          "generated_asset_text_allowed"
+        ],
+        "properties": {
+          "overlay_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "overlay_type": {
+            "type": "string",
+            "enum": ["title", "cta", "label", "brand_watermark"]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "from_frame": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duration_in_frames": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": ["string", "null"]
+          },
+          "safe_area_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "component_hint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "renderer_owns_text": {
+            "type": "boolean"
+          },
+          "generated_asset_text_allowed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "lower_thirds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["lower_third_id", "enabled", "scene_number", "from_frame", "duration_in_frames", "text", "safe_area_id"],
+        "properties": {
+          "lower_third_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "scene_number": {
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "from_frame": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duration_in_frames": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": ["string", "null"]
+          },
+          "safe_area_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "audio_tracks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "track_id",
+          "track_type",
+          "mode",
+          "from_frame",
+          "duration_in_frames",
+          "asset_urls",
+          "volume",
+          "ducking_strategy",
+          "license_status",
+          "publish_allowed"
+        ],
+        "properties": {
+          "track_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "track_type": {
+            "type": "string",
+            "enum": ["narration", "music", "sfx"]
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["per_scene", "single", "bed", "event"]
+          },
+          "from_frame": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "duration_in_frames": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "asset_urls": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "volume": {
+            "type": "number",
+            "minimum": 0
+          },
+          "ducking_strategy": {
+            "type": "string",
+            "minLength": 1
+          },
+          "license_status": {
+            "type": "string",
+            "enum": ["documented", "licensed", "public_domain", "cc0", "not_applicable"]
+          },
+          "publish_allowed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["transition_id", "from_scene_number", "to_scene_number", "type", "duration_in_frames", "component_hint"],
+        "properties": {
+          "transition_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "from_scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "to_scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "type": {
+            "type": "string",
+            "enum": ["cut", "fade", "match_cut", "push"]
+          },
+          "duration_in_frames": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "component_hint": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "brand_elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["element_id", "element_type", "enabled", "asset_url", "placement", "notes"],
+        "properties": {
+          "element_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "element_type": {
+            "type": "string",
+            "enum": ["logo", "watermark", "color_token", "font_token", "none"]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "asset_url": {
+            "type": ["string", "null"]
+          },
+          "placement": {
+            "type": "string",
+            "minLength": 1
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "export_settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "codec",
+        "audio_codec",
+        "width",
+        "height",
+        "fps",
+        "duration_in_frames",
+        "duration_seconds",
+        "quality",
+        "still_frame_check"
+      ],
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": ["mp4"]
+        },
+        "codec": {
+          "type": "string",
+          "enum": ["h264"]
+        },
+        "audio_codec": {
+          "type": "string",
+          "enum": ["aac"]
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "duration_in_frames": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "duration_seconds": {
+          "type": "number",
+          "minimum": 1
+        },
+        "quality": {
+          "type": "string",
+          "enum": ["draft", "production"]
+        },
+        "still_frame_check": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "frame"],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "frame": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "fallback_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["active_fallback", "fallback_renderer", "fallback_reason", "ffmpeg_contract_path"],
+      "properties": {
+        "active_fallback": {
+          "type": "boolean"
+        },
+        "fallback_renderer": {
+          "type": "string",
+          "enum": ["local_ffmpeg"]
+        },
+        "fallback_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ffmpeg_contract_path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "quality_gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate_id", "severity", "check", "expected_result", "status"],
+        "properties": {
+          "gate_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["blocking", "must", "should"]
+          },
+          "check": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_result": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pass", "needs_review", "blocked"]
+          }
+        }
+      }
+    },
+    "implementation_notes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtime_behavior_changed",
+        "dependencies_added",
+        "active_workflow_consumes_this",
+        "notes"
+      ],
+      "properties": {
+        "runtime_behavior_changed": {
+          "type": "boolean"
+        },
+        "dependencies_added": {
+          "type": "boolean"
+        },
+        "active_workflow_consumes_this": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

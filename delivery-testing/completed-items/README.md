@@ -4,12 +4,12 @@ This folder archives backlog items that passed testing and were moved out of the
 
 Archive rule:
 
-- an item should move here only after it already had a complete testing entry in [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
+- an item should move here only after it already had a complete testing entry in [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/docs/delivery/delivery-and-testing-workflow.md)
 - the archive record should preserve the same practical context: what was delivered, why it was tested, how it was tested, and what evidence confirmed completion
 
 Active tracker:
 
-- [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
+- [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/docs/delivery/delivery-and-testing-workflow.md)
 
 Completed items:
 

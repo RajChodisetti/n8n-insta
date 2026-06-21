@@ -1,0 +1,236 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "voice_performance_version",
+    "source_stage",
+    "content_language",
+    "selected_style_pack",
+    "target_duration_seconds",
+    "clean_spoken_script",
+    "script_preservation_policy",
+    "voice_profile",
+    "adapter_mapping_policy",
+    "total_estimated_spoken_duration_seconds",
+    "lines",
+    "music_ducking_summary",
+    "qa_focus"
+  ],
+  "properties": {
+    "voice_performance_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "source_stage": {
+      "type": "string",
+      "enum": ["voice_performance_script"]
+    },
+    "content_language": {
+      "type": "string",
+      "minLength": 1
+    },
+    "selected_style_pack": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_duration_seconds": {
+      "type": "number",
+      "minimum": 1
+    },
+    "clean_spoken_script": {
+      "type": "string",
+      "minLength": 1
+    },
+    "script_preservation_policy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "voice_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["voice_role", "delivery_summary", "energy", "accent_or_pronunciation_notes"],
+      "properties": {
+        "voice_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "delivery_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "energy": {
+          "type": "string",
+          "enum": ["low", "medium_low", "medium", "medium_high", "high"]
+        },
+        "accent_or_pronunciation_notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "adapter_mapping_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generic_contract_policy", "provider_mapping_notes", "prohibited_generic_syntax"],
+      "properties": {
+        "generic_contract_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_mapping_notes": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prohibited_generic_syntax": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "total_estimated_spoken_duration_seconds": {
+      "type": "number",
+      "minimum": 0.01
+    },
+    "lines": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "voice_line_id",
+          "scene_number",
+          "line_index",
+          "line_text",
+          "tone",
+          "pace",
+          "pauses",
+          "emphasis",
+          "pronunciation",
+          "estimated_duration_seconds",
+          "music_ducking_notes",
+          "provider_tag_policy",
+          "qa_checks"
+        ],
+        "properties": {
+          "voice_line_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "line_index": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "line_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tone": {
+            "type": "string",
+            "minLength": 1
+          },
+          "pace": {
+            "type": "string",
+            "enum": ["slow", "measured", "natural", "brisk", "urgent"]
+          },
+          "pauses": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["before_seconds", "after_seconds", "internal_pause_notes"],
+            "properties": {
+              "before_seconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "after_seconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "internal_pause_notes": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "emphasis": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["phrase", "intent"],
+              "properties": {
+                "phrase": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "intent": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "pronunciation": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["term", "guidance"],
+              "properties": {
+                "term": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "guidance": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          },
+          "estimated_duration_seconds": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "music_ducking_notes": {
+            "type": "string",
+            "minLength": 1
+          },
+          "provider_tag_policy": {
+            "type": "string",
+            "minLength": 1
+          },
+          "qa_checks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "music_ducking_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "qa_focus": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

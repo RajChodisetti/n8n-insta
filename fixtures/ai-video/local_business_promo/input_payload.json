@@ -1,0 +1,37 @@
+{
+  "fixture_version": 1,
+  "stage": "story_package_generation",
+  "scenario": "local_business_promo",
+  "content_item": {
+    "title": "The Neighborhood Bakery That Opens Before Sunrise",
+    "slug": "fixture-local-business-promo",
+    "category": "local_business",
+    "confidence_label": "fictional_promo",
+    "target_duration_seconds": 36,
+    "brand_profile": "default",
+    "source_payload_json": {
+      "abstract_idea": "A fictional local bakery promo focused on early-morning preparation and community routine.",
+      "source_notes": [
+        "The bakery is synthetic and has no real address.",
+        "Do not mention prices, guarantees, health claims, or real staff names.",
+        "Make the tone warm and local."
+      ],
+      "creative_defaults": {
+        "tone": "warm, inviting, grounded",
+        "visual_strategy": "pre-dawn lights, baking prep, first customers, neighborhood exterior",
+        "music_mood": "gentle acoustic warmth"
+      }
+    }
+  },
+  "prompt_template_data": {
+    "topic": "The Neighborhood Bakery That Opens Before Sunrise",
+    "category": "local_business",
+    "target_duration_seconds": "36",
+    "brand_tone": "warm, inviting, grounded",
+    "narrator_style": "friendly local storyteller",
+    "ending_signature_family": "community invitation",
+    "visual_style_rules": "warm local documentary style, no readable signage",
+    "character_reference_context": "No real staff or customer likeness."
+  },
+  "expected_status_after_success": "storyboard_complete"
+}

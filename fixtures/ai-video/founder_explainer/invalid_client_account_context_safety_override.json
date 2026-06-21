@@ -1,0 +1,69 @@
+{
+  "client_account_context_version": "1.0",
+  "source_stage": "client_account_context",
+  "account_context_key": "unsafe_override_example",
+  "client": {
+    "client_id": "unsafe-client",
+    "display_name": "Unsafe Client",
+    "industry": "creator_media",
+    "notes": null
+  },
+  "platform_account": {
+    "platform": "instagram",
+    "platform_account_id": "17841400000000000",
+    "platform_account_username": "unsafe_storytelling",
+    "region": "US"
+  },
+  "brand_policy": {
+    "brand_profile": "default",
+    "brand_tone": "urgent and sensational",
+    "audience": "general audience",
+    "value_props": [],
+    "forbidden_claims": [],
+    "required_disclosures": []
+  },
+  "style_policy": {
+    "preferred_style_pack_id": "founder_explainer",
+    "allowed_style_pack_ids": ["founder_explainer"],
+    "disallowed_style_pack_ids": [],
+    "visual_style_notes": "Cinematic founder visuals.",
+    "color_or_brand_asset_notes": null,
+    "text_policy": "Keep generated assets text-free."
+  },
+  "voice_policy": {
+    "narrator_style": "urgent narrator",
+    "allowed_voice_roles": [],
+    "pronunciation_notes": [],
+    "language_policy": "Use English."
+  },
+  "music_policy": {
+    "music_mood": "high tension",
+    "allowed_music_license_statuses": ["documented"],
+    "publish_allowed_required": true,
+    "vocals_policy": "No vocals.",
+    "disallowed_music": []
+  },
+  "avatar_policy": {
+    "avatar_allowed": false,
+    "requires_consent": true,
+    "default_avatar_mode": "none",
+    "consent_record_uri": null,
+    "disallowed_uses": []
+  },
+  "publishing_policy": {
+    "platform": "instagram",
+    "package_types": ["instagram_reel"],
+    "platform_account_id": "17841400000000000",
+    "platform_account_username": "unsafe_storytelling",
+    "approval_required": true,
+    "default_caption_tone": "urgent",
+    "hashtag_policy": "Use relevant hashtags.",
+    "restricted_topics": []
+  },
+  "safety_policy": {
+    "global_rules_override_allowed": true,
+    "legal_review_required_topics": [],
+    "notes": "This invalid fixture tries to let client policy override global rules."
+  },
+  "context_notes": "Invalid by design."
+}

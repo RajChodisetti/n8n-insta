@@ -13,9 +13,9 @@ Status: `complete` ✅
 
 ## Changed Files
 
-- [18-mvp-smoke-test-and-publish-runbook.md](/Users/rajchodisetti/n8n-insta/18-mvp-smoke-test-and-publish-runbook.md)
+- [docs/runbooks/mvp-smoke-test-and-publish.md](/Users/rajchodisetti/n8n-insta/docs/runbooks/mvp-smoke-test-and-publish.md)
 - [README.md](/Users/rajchodisetti/n8n-insta/README.md)
-- [15-delivery-and-testing-workflow.md](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
+- [docs/delivery/delivery-and-testing-workflow.md](/Users/rajchodisetti/n8n-insta/docs/delivery/delivery-and-testing-workflow.md)
 - [delivery-testing/completed-items/README.md](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/README.md)
 
 ## How It Was Tested

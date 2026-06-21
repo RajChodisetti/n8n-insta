@@ -1,0 +1,55 @@
+{
+  "visual_prompt_version": "1.0",
+  "source_stage": "visual_prompt_builder",
+  "selected_style_pack": "founder_explainer",
+  "global_continuity": {
+    "style_summary": "Documentary-realistic founder workspace with warm neutral daylight.",
+    "continuity_requirements": [
+      "Keep one calm founder workspace across scenes."
+    ],
+    "character_continuity": "Use a generic non-identifiable founder presence only.",
+    "environment_continuity": "Use the same small workspace throughout."
+  },
+  "text_policy": {
+    "generated_asset_policy": "Generated image/video assets must be text-free and unobstructed.",
+    "renderer_text_policy": "Any readable title or caption text is reserved for renderer metadata.",
+    "forbidden_text_elements": [
+      "readable notes",
+      "UI copy",
+      "logos",
+      "subtitles"
+    ]
+  },
+  "prompts": [
+    {
+      "scene_number": 1,
+      "asset_type": "image",
+      "duration_seconds": 4,
+      "aspect_ratio": "9:16",
+      "subject": "Generic founder workspace with laptop and abstract notes.",
+      "environment": "Small desk corner in soft daylight with warm neutral colors.",
+      "composition": "Vertical 9:16 frame, clean central desk focal point, shallow background detail.",
+      "camera": "Still documentary frame from a slightly close work surface angle.",
+      "motion": "Still image hold with optional subtle digital push added later by the renderer.",
+      "lighting": "Soft morning daylight, low contrast, warm practical highlights.",
+      "style": "Founder explainer, documentary-realistic, restrained SaaS workspace aesthetic.",
+      "continuity_requirements": [
+        "Use the same workspace palette as later scenes.",
+        "Keep all note and ticket-like objects unreadable."
+      ],
+      "text_policy": "No generated readable text; opening title belongs only to later renderer metadata.",
+      "visual_prompt": "Vertical 9:16 documentary-realistic still image of a generic founder desk in soft morning daylight, laptop closed beside clustered abstract sticky notes and blurred support-card shapes, one clear central work surface focal point, warm neutral palette, shallow background, calm practical founder-explainer mood, clean unobstructed composition, no readable text, no UI copy, no logos, no labels, no subtitles, no watermark.",
+      "fallback_prompt": "Text-free vertical documentary still of a calm founder desk with abstract unreadable notes and soft daylight, warm neutral palette, clean central focal point.",
+      "safety_notes": [
+        "Keep the founder generic and non-identifiable."
+      ],
+      "qa_checks": [
+        "No readable text appears anywhere.",
+        "Frame can support renderer-added title later without obstruction."
+      ]
+    }
+  ],
+  "qa_focus": [
+    "This fixture intentionally omits prompts[0].negative_prompt and should fail validation."
+  ]
+}

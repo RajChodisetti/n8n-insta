@@ -1,0 +1,238 @@
+{
+  "creative_direction_json": {
+    "core_angle": "A sales follow-up can be personalized without pretending a real person recorded it.",
+    "point_of_view": "A respectful synthetic presenter introducing a low-pressure next step.",
+    "emotional_arc": "Transparent to relevant to easy next action.",
+    "narration_strategy": "Concise, direct, and explicit about synthetic presentation.",
+    "visual_strategy": "Neutral presenter frame, abstract product cards, simple call handoff, no real likeness.",
+    "music_strategy": "Minimal professional bed that stays behind the voice.",
+    "consistency_rules": [
+      "Use only a synthetic or consent-approved avatar.",
+      "Do not imply the avatar is a real employee or customer.",
+      "Keep the ask low pressure and transparent."
+    ]
+  },
+  "confidence_label": "synthetic_candidate",
+  "hook_option_1": "This is a synthetic intro, but the follow-up is still personal.",
+  "hook_option_2": "Here is how to make an avatar sales follow-up feel transparent, not fake.",
+  "hook_option_3": "A good avatar intro starts with consent and clarity.",
+  "selected_hook": "A good avatar intro starts with consent and clarity.",
+  "narration_script": "A good avatar intro starts with consent and clarity. This message can use a synthetic presenter, but it should never pretend to be a real person who did not record it. Open with why the follow-up matters, connect it to the prospect's stated problem, and offer one easy next step. The point is not to mimic trust. The point is to make the next conversation simpler.",
+  "short_script": "Use synthetic presentation transparently, connect to the prospect problem, and offer one simple next step.",
+  "caption_draft": "Avatar outreach should be transparent first, personalized second, and low pressure throughout.",
+  "cta_line": "Use this as a consent checklist before avatar outreach.",
+  "music_direction": "Minimal professional synth bed with no dramatic swell.",
+  "onscreen_text_json": [
+    {
+      "scene_number": 1,
+      "text": "Consent first"
+    },
+    {
+      "scene_number": 2,
+      "text": "Synthetic disclosure"
+    },
+    {
+      "scene_number": 3,
+      "text": "Relevant follow-up"
+    },
+    {
+      "scene_number": 4,
+      "text": "One easy next step"
+    }
+  ],
+  "scene_guidance_json": [
+    {
+      "scene_number": 1,
+      "beat_label": "hook",
+      "start_time_seconds": 0,
+      "end_time_seconds": 4,
+      "duration_seconds": 4,
+      "narration_text": "A good avatar intro starts with consent and clarity.",
+      "dialogue_lines": [
+        "A good avatar intro starts with consent."
+      ],
+      "asset_type": "image",
+      "image_prompt": "Neutral synthetic presenter silhouette in a clean studio frame, no real likeness, no readable text.",
+      "music_cue": "minimal synth bed begins",
+      "tts_instructions": "Professional, transparent, calm.",
+      "includes_primary_character": true
+    },
+    {
+      "scene_number": 2,
+      "beat_label": "boundary",
+      "start_time_seconds": 4,
+      "end_time_seconds": 12,
+      "duration_seconds": 8,
+      "narration_text": "This message can use a synthetic presenter, but it should never pretend to be a real person who did not record it.",
+      "dialogue_lines": [
+        "Never pretend a synthetic presenter is a real recording."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Abstract consent checklist represented by icons and blurred cards, no readable text, professional neutral palette.",
+      "music_cue": "steady low pulse",
+      "tts_instructions": "Firm but neutral.",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 3,
+      "beat_label": "relevance",
+      "start_time_seconds": 12,
+      "end_time_seconds": 21,
+      "duration_seconds": 9,
+      "narration_text": "Open with why the follow-up matters, and connect it to the prospect's stated problem.",
+      "dialogue_lines": [
+        "Connect the follow-up to the stated problem."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Abstract product context cards connecting to a simple problem icon, no company names, no readable text.",
+      "music_cue": "subtle lift",
+      "tts_instructions": "Helpful and concise.",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 4,
+      "beat_label": "close",
+      "start_time_seconds": 21,
+      "end_time_seconds": 30,
+      "duration_seconds": 9,
+      "narration_text": "The point is not to mimic trust. The point is to make the next conversation simpler.",
+      "dialogue_lines": [
+        "Make the next conversation simpler."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Clean calendar handoff visual with abstract time blocks and a neutral presenter frame fading back, no readable text.",
+      "music_cue": "simple resolved tone",
+      "tts_instructions": "Low-pressure final cadence.",
+      "includes_primary_character": true
+    }
+  ],
+  "storyboard_json": [
+    {
+      "scene_number": 1,
+      "duration_seconds": 4,
+      "narration_text": "A good avatar intro starts with consent and clarity.",
+      "dialogue_lines": [
+        "A good avatar intro starts with consent."
+      ],
+      "visual_prompt": "Neutral synthetic presenter silhouette in a clean studio frame, no real likeness, no readable text.",
+      "asset_type": "image",
+      "transition": "cut",
+      "mood": "professional",
+      "music_cue": "minimal synth bed begins",
+      "tts_instructions": "Professional, transparent, calm.",
+      "is_face_image": true,
+      "face_image_title": "Consent First",
+      "includes_primary_character": true
+    },
+    {
+      "scene_number": 2,
+      "duration_seconds": 8,
+      "narration_text": "This message can use a synthetic presenter, but it should never pretend to be a real person who did not record it.",
+      "dialogue_lines": [
+        "Never pretend a synthetic presenter is a real recording."
+      ],
+      "visual_prompt": "Abstract consent checklist represented by icons and blurred cards, no readable text, professional neutral palette.",
+      "asset_type": "video",
+      "transition": "soft cut",
+      "mood": "clear",
+      "music_cue": "steady low pulse",
+      "tts_instructions": "Firm but neutral.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 3,
+      "duration_seconds": 9,
+      "narration_text": "Open with why the follow-up matters, and connect it to the prospect's stated problem.",
+      "dialogue_lines": [
+        "Connect the follow-up to the stated problem."
+      ],
+      "visual_prompt": "Abstract product context cards connecting to a simple problem icon, no company names, no readable text.",
+      "asset_type": "video",
+      "transition": "slide",
+      "mood": "relevant",
+      "music_cue": "subtle lift",
+      "tts_instructions": "Helpful and concise.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 4,
+      "duration_seconds": 9,
+      "narration_text": "The point is not to mimic trust. The point is to make the next conversation simpler.",
+      "dialogue_lines": [
+        "Make the next conversation simpler."
+      ],
+      "visual_prompt": "Clean calendar handoff visual with abstract time blocks and a neutral presenter frame fading back, no readable text.",
+      "asset_type": "video",
+      "transition": "fade",
+      "mood": "respectful",
+      "music_cue": "simple resolved tone",
+      "tts_instructions": "Low-pressure final cadence.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": true
+    }
+  ],
+  "cover_prompt": "Synthetic presenter silhouette in a clean professional frame, no real likeness, no readable text.",
+  "subtitle_lines_json": [
+    {
+      "scene_number": 1,
+      "text": "Consent first."
+    },
+    {
+      "scene_number": 2,
+      "text": "Disclose synthetic presentation."
+    },
+    {
+      "scene_number": 3,
+      "text": "Connect to the real problem."
+    },
+    {
+      "scene_number": 4,
+      "text": "Offer one easy next step."
+    }
+  ],
+  "style_notes": "Consent-aware avatar candidate with synthetic-only presenter visuals.",
+  "visual_style_summary": "Professional synthetic presenter style with abstract sales context cards.",
+  "render_manifest_seed_json": {
+    "output": {
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "format": "mp4"
+    },
+    "timeline": [
+      {
+        "scene_number": 1,
+        "duration_seconds": 4,
+        "asset_type": "image",
+        "transition": "cut"
+      },
+      {
+        "scene_number": 2,
+        "duration_seconds": 8,
+        "asset_type": "video",
+        "transition": "soft cut"
+      },
+      {
+        "scene_number": 3,
+        "duration_seconds": 9,
+        "asset_type": "video",
+        "transition": "slide"
+      },
+      {
+        "scene_number": 4,
+        "duration_seconds": 9,
+        "asset_type": "video",
+        "transition": "fade"
+      }
+    ],
+    "subtitles": {
+      "enabled": false,
+      "style": "cinematic_center_safe"
+    }
+  }
+}

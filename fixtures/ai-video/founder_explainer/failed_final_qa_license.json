@@ -1,0 +1,102 @@
+{
+  "qa_result_version": "1.0",
+  "source_stage": "final_qa_validator",
+  "scenario_id": "founder_explainer_failed_license",
+  "package_type": "instagram_reel",
+  "evaluated_at": "2026-06-21T00:00:00.000Z",
+  "selected_style_pack": "founder_explainer",
+  "publish_decision": "blocked",
+  "summary": {
+    "blocks_publish": true,
+    "approved_for_publish": false,
+    "overall_risk": "critical",
+    "human_review_required": true,
+    "notes": "Publish is blocked because the selected or required music asset has unclear license metadata."
+  },
+  "input_artifacts": [
+    {
+      "artifact": "music_sfx_plan",
+      "status": "fail",
+      "blocks_publish": true,
+      "evidence": "Music/SFX review references a music asset with license_status unknown and publish_allowed false.",
+      "upstream_fix_stage": "music_sfx_plan"
+    },
+    {
+      "artifact": "render_output",
+      "status": "pass",
+      "blocks_publish": false,
+      "evidence": "Render output exists, but cannot be published until music license clearance is fixed.",
+      "upstream_fix_stage": "none"
+    },
+    {
+      "artifact": "caption_package",
+      "status": "pass",
+      "blocks_publish": false,
+      "evidence": "Caption final is present and aligned with the content.",
+      "upstream_fix_stage": "none"
+    }
+  ],
+  "checklist": [
+    {
+      "check_id": "qa-license-clearance",
+      "category": "license",
+      "status": "fail",
+      "blocks_publish": true,
+      "upstream_fix_stage": "music_sfx_plan",
+      "evidence": "Unknown music license cannot be treated as publish-safe.",
+      "recommended_fix": "Replace the asset with catalog music where license_status is documented, licensed, public_domain, or cc0 and publish_allowed is true."
+    },
+    {
+      "check_id": "qa-caption-ready",
+      "category": "caption",
+      "status": "pass",
+      "blocks_publish": false,
+      "upstream_fix_stage": "none",
+      "evidence": "caption_final is present.",
+      "recommended_fix": "No fix required."
+    },
+    {
+      "check_id": "qa-export-ready",
+      "category": "export",
+      "status": "pass",
+      "blocks_publish": false,
+      "upstream_fix_stage": "none",
+      "evidence": "The render output URL shape is valid.",
+      "recommended_fix": "No fix required."
+    }
+  ],
+  "blocking_issues": [
+    {
+      "issue_id": "qa-license-unknown-music",
+      "category": "license",
+      "severity": "blocking",
+      "blocks_publish": true,
+      "related_artifact": "music_sfx_plan.asset_license_review",
+      "upstream_fix_stage": "music_sfx_plan",
+      "evidence": "A selected or required music candidate has license_status unknown or publish_allowed not true.",
+      "recommended_fix": "Update music_sfx_plan to use a publish-allowed catalog asset with explicit license metadata, then rerun final QA."
+    }
+  ],
+  "non_blocking_issues": [],
+  "stage_fix_references": [
+    {
+      "issue_id": "qa-license-unknown-music",
+      "upstream_fix_stage": "music_sfx_plan",
+      "fix_summary": "Resolve music license uncertainty or choose a publish-allowed replacement track.",
+      "validation_after_fix": [
+        "node scripts/validate_music_sfx_fixture.mjs fixtures/ai-video/founder_explainer/expected_music_sfx_plan.json",
+        "node scripts/validate_final_qa_fixture.mjs fixtures/ai-video/founder_explainer/expected_final_qa_result_pass.json"
+      ]
+    }
+  ],
+  "publish_requirements": {
+    "selected_video_approved": true,
+    "caption_ready": true,
+    "export_public_url_ready": true,
+    "license_clearance_ready": false,
+    "avatar_consent_ready": true,
+    "platform_context_ready": true,
+    "blocks_publish": true
+  },
+  "final_recommendation": "Do not publish. Fix music/SFX license clearance before the approval gate."
+}

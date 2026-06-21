@@ -19,6 +19,7 @@ export function selectTextProvider(stageKey) {
   const mapping = {
     research_and_script: ['RESEARCH_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
     story_package_generation: ['STORY_PACKAGE_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
+    story_package_generation_v2: ['STORY_PACKAGE_V2_LLM_PROVIDER', 'STORY_PACKAGE_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
     director_contract: ['DIRECTOR_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
     director: ['DIRECTOR_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
     idea_prompt_profile: ['PROMPT_BUILDER_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],

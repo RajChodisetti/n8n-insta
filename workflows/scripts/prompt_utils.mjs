@@ -60,6 +60,16 @@ const PROMPT_STEP_METADATA = Object.freeze({
     stepTitle: 'Director Contract',
     label: 'User Prompt',
   },
+  'workflow/director_contract.md': {
+    stepKey: 'director_contract',
+    stepTitle: 'Director Contract',
+    label: 'System Prompt',
+  },
+  'workflow/director_contract_user.md': {
+    stepKey: 'director_contract',
+    stepTitle: 'Director Contract',
+    label: 'User Prompt',
+  },
   'storyboard_and_prompts/system.md': {
     stepKey: 'storyboard_and_prompts',
     stepTitle: 'Storyboard & Prompts',

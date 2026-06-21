@@ -1,0 +1,37 @@
+{
+  "fixture_version": 1,
+  "stage": "story_package_generation",
+  "scenario": "product_demo",
+  "content_item": {
+    "title": "A Cleaner Way to Review Weekly Project Updates",
+    "slug": "fixture-product-demo",
+    "category": "product_demo",
+    "confidence_label": "fictional_demo",
+    "target_duration_seconds": 45,
+    "brand_profile": "default",
+    "source_payload_json": {
+      "abstract_idea": "A fictional SaaS demo showing how a weekly update review flow could work.",
+      "source_notes": [
+        "Use a synthetic product and synthetic workspace.",
+        "Do not claim real integrations, customer metrics, or performance benchmarks.",
+        "Show the workflow concept without readable product UI text."
+      ],
+      "creative_defaults": {
+        "tone": "clear, helpful, product-led",
+        "visual_strategy": "dashboard shapes, review queue, summary card, team handoff",
+        "music_mood": "clean optimistic pulse"
+      }
+    }
+  },
+  "prompt_template_data": {
+    "topic": "A Cleaner Way to Review Weekly Project Updates",
+    "category": "product_demo",
+    "target_duration_seconds": "45",
+    "brand_tone": "clear, helpful, product-led",
+    "narrator_style": "calm product walkthrough",
+    "ending_signature_family": "workflow benefit close",
+    "visual_style_rules": "quiet SaaS product motion, no readable UI text",
+    "character_reference_context": "No real customer or employee likeness."
+  },
+  "expected_status_after_success": "storyboard_complete"
+}

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "last_reviewed": "2026-06-21",
-  "git_commit": "0d0515b",
+  "git_commit": "d1e1bd0",
   "repo_summary": "Instagram-only AI storytelling pipeline orchestrated by n8n with file-backed prompts, Postgres state, provider adapter scripts, local FFmpeg render worker, Instagram publish/metrics workflows, shell smoke tests, and a local Studio UI.",
   "entrypoint_docs": [
     {
@@ -27,6 +27,10 @@
       "read_when": "Need current system components, data flow, and integration boundaries."
     },
     {
+      "path": "docs/ai-context/ai-video-workflow-inventory.md",
+      "read_when": "Need current AI video prompt stages, workflow contracts, status transitions, render manifest shape, provider routing, or publish gates."
+    },
+    {
       "path": "docs/ai-context/commands-and-validation.md",
       "read_when": "Need install, dev, Docker, smoke-test, or environment command guidance."
     },
@@ -49,6 +53,19 @@
   ],
   "major_areas": [
     {
+      "name": "docs",
+      "path_globs": [
+        "docs/**",
+        "README.md",
+        "AGENTS.md"
+      ],
+      "related_context_doc": "docs/README.md",
+      "read_when": "Documentation, runbook, roadmap, context, or repo-orientation work.",
+      "validation_commands": [
+        "jq empty docs/ai-context/context-manifest.json"
+      ]
+    },
+    {
       "name": "prompts",
       "path_globs": [
         "prompts/**"
@@ -56,10 +73,57 @@
       "related_context_doc": "prompts/AGENTS.md",
       "read_when": "Prompt wording, response schema, placeholder, or model-output shape work.",
       "validation_commands": [
+        "jq empty prompts/rules/rule_registry.json",
+        "jq empty prompts/style_packs/style_pack_registry.json",
+        "jq empty prompts/schemas/style_pack.schema.json",
+        "jq empty prompts/schemas/director_contract.schema.json",
+        "node scripts/validate_director_contract_fixture.mjs fixtures/ai-video/founder_explainer/expected_director_contract.json",
+        "jq empty prompts/schemas/storyboard.schema.json",
+        "node scripts/validate_storyboard_fixture.mjs fixtures/ai-video/founder_explainer/expected_storyboard_and_shot_plan.json",
+        "jq empty prompts/schemas/visual_prompt.schema.json",
+        "node scripts/validate_visual_prompt_fixture.mjs fixtures/ai-video/founder_explainer/expected_visual_prompt_builder.json",
+        "node scripts/validate_visual_prompt_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_visual_prompt_builder_missing_negative_prompt.json",
+        "jq empty prompts/schemas/voice_performance.schema.json",
+        "node scripts/validate_voice_performance_fixture.mjs fixtures/ai-video/founder_explainer/expected_voice_performance_script.json",
+        "jq empty prompts/schemas/music_sfx_plan.schema.json",
+        "jq empty prompts/schemas/music_asset.schema.json",
+        "jq empty prompts/schemas/sfx_asset.schema.json",
+        "node scripts/validate_music_sfx_fixture.mjs fixtures/ai-video/founder_explainer/expected_music_sfx_plan.json",
+        "jq empty prompts/schemas/qa_result.schema.json",
+        "node scripts/validate_final_qa_fixture.mjs --expect-approved fixtures/ai-video/founder_explainer/expected_final_qa_result_pass.json",
+        "node scripts/validate_final_qa_fixture.mjs --expect-blocked fixtures/ai-video/founder_explainer/failed_final_qa_license.json",
+        "node scripts/validate_final_qa_fixture.mjs --expect-blocked fixtures/ai-video/founder_explainer/failed_final_qa_avatar_consent.json",
+        "node scripts/validate_final_qa_fixture.mjs --expect-blocked fixtures/ai-video/founder_explainer/failed_final_qa_caption_export.json",
+        "jq empty prompts/schemas/approval.schema.json",
+        "node scripts/validate_approval_fixture.mjs --expected-platform-account-id 17841400000000000 fixtures/ai-video/founder_explainer/expected_publish_approval_reel.json",
+        "node scripts/validate_approval_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_publish_approval_missing_selected_video.json",
+        "node scripts/validate_approval_fixture.mjs --expect-fail --expected-platform-account-id 17841400000000000 fixtures/ai-video/founder_explainer/invalid_publish_approval_account_mismatch.json",
+        "node scripts/validate_approval_fixture.mjs --expect-fail --expect-publish-ready fixtures/ai-video/founder_explainer/invalid_publish_approval_unapproved_render.json",
+        "jq empty prompts/schemas/story_package.schema.json",
         "bash scripts/test_phase2_topic_to_storyboard_smoke.sh",
         "bash scripts/test_phase2_caption_iteration_smoke.sh",
         "bash scripts/test_phase3_scene_asset_generation_smoke.sh",
-        "bash scripts/test_phase3_narration_generation_smoke.sh"
+        "bash scripts/test_phase3_narration_generation_smoke.sh",
+        "jq empty prompts/schemas/client_account_context.schema.json",
+        "node scripts/validate_client_account_context_fixture.mjs fixtures/ai-video/founder_explainer/expected_client_account_context.json",
+        "node scripts/validate_client_account_context_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_client_account_context_safety_override.json",
+        "node scripts/validate_client_account_context_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_client_account_context_style_conflict.json",
+        "jq empty prompts/schemas/model_route.schema.json",
+        "node scripts/validate_model_route_fixture.mjs fixtures/ai-video/founder_explainer/expected_model_provider_route.json",
+        "node scripts/validate_model_route_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_model_provider_route_runtime_change.json",
+        "node scripts/validate_model_route_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_model_provider_route_boundary_mismatch.json",
+        "jq empty prompts/schemas/render_manifest_v2.schema.json",
+        "node scripts/validate_render_manifest_v2_fixture.mjs fixtures/ai-video/founder_explainer/expected_render_manifest_v2.json",
+        "node scripts/validate_render_manifest_v2_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_render_manifest_v2_renderer_replacement.json",
+        "node scripts/validate_render_manifest_v2_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_render_manifest_v2_timeline_gap.json",
+        "jq empty prompts/schemas/remotion_edit_plan.schema.json",
+        "node scripts/validate_remotion_edit_plan_fixture.mjs fixtures/ai-video/founder_explainer/expected_remotion_edit_plan.json",
+        "node scripts/validate_remotion_edit_plan_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_remotion_edit_plan_runtime_install.json",
+        "node scripts/validate_remotion_edit_plan_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_remotion_edit_plan_frame_gap.json",
+        "jq empty prompts/schemas/avatar_decision.schema.json prompts/schemas/presenter_profile.schema.json",
+        "node scripts/validate_avatar_decision_fixture.mjs fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision.json",
+        "node scripts/validate_avatar_decision_fixture.mjs --expect-fail fixtures/ai-video/avatar_sales_outreach/invalid_avatar_decision_missing_consent.json",
+        "node scripts/validate_ai_video_contract_regressions.mjs"
       ]
     },
     {
@@ -74,7 +138,55 @@
       "validation_commands": [
         "bash scripts/test_phase2_topic_to_storyboard_smoke.sh",
         "bash scripts/test_phase3_render_manifest_smoke.sh",
-        "bash scripts/test_phase3_render_worker_dispatch_smoke.sh"
+        "bash scripts/test_phase3_render_worker_dispatch_smoke.sh",
+        "node scripts/validate_publish_gate_workflow.mjs",
+        "node scripts/validate_music_library.mjs workflows/assets/music/library.json",
+        "node --check workflows/scripts/prompt_stage_defaults.mjs",
+        "node --check workflows/scripts/run_story_package_generation.mjs"
+      ]
+    },
+    {
+      "name": "fixtures",
+      "path_globs": [
+        "fixtures/**"
+      ],
+      "related_context_doc": "fixtures/CONTEXT.md",
+      "read_when": "Prompt/workflow fixture creation, fixture validation, or baseline contract comparison work.",
+      "validation_commands": [
+        "find fixtures/ai-video -name '*.json' -print0 | xargs -0 -n1 jq empty",
+        "node scripts/validate_director_contract_fixture.mjs fixtures/ai-video/founder_explainer/expected_director_contract.json",
+        "node scripts/validate_director_contract_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_director_contract_bad_style_pack.json",
+        "node scripts/validate_storyboard_fixture.mjs fixtures/ai-video/founder_explainer/expected_storyboard_and_shot_plan.json",
+        "node scripts/validate_visual_prompt_fixture.mjs fixtures/ai-video/founder_explainer/expected_visual_prompt_builder.json",
+        "node scripts/validate_visual_prompt_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_visual_prompt_builder_vague.json",
+        "node scripts/validate_visual_prompt_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_visual_prompt_builder_missing_negative_prompt.json",
+        "node scripts/validate_voice_performance_fixture.mjs fixtures/ai-video/founder_explainer/expected_voice_performance_script.json",
+        "node scripts/validate_voice_performance_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_voice_performance_script_mutated_text.json",
+        "node scripts/validate_music_sfx_fixture.mjs fixtures/ai-video/founder_explainer/expected_music_sfx_plan.json",
+        "node scripts/validate_music_sfx_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_music_sfx_plan_unknown_license.json",
+        "node scripts/validate_final_qa_fixture.mjs --expect-approved fixtures/ai-video/founder_explainer/expected_final_qa_result_pass.json",
+        "node scripts/validate_final_qa_fixture.mjs --expect-blocked fixtures/ai-video/founder_explainer/failed_final_qa_license.json",
+        "node scripts/validate_final_qa_fixture.mjs --expect-blocked fixtures/ai-video/founder_explainer/failed_final_qa_avatar_consent.json",
+        "node scripts/validate_final_qa_fixture.mjs --expect-blocked fixtures/ai-video/founder_explainer/failed_final_qa_caption_export.json",
+        "node scripts/validate_approval_fixture.mjs --expected-platform-account-id 17841400000000000 fixtures/ai-video/founder_explainer/expected_publish_approval_reel.json",
+        "node scripts/validate_approval_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_publish_approval_missing_selected_video.json",
+        "node scripts/validate_approval_fixture.mjs --expect-fail --expected-platform-account-id 17841400000000000 fixtures/ai-video/founder_explainer/invalid_publish_approval_account_mismatch.json",
+        "node scripts/validate_approval_fixture.mjs --expect-fail --expect-publish-ready fixtures/ai-video/founder_explainer/invalid_publish_approval_unapproved_render.json",
+        "node scripts/validate_client_account_context_fixture.mjs fixtures/ai-video/founder_explainer/expected_client_account_context.json",
+        "node scripts/validate_client_account_context_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_client_account_context_safety_override.json",
+        "node scripts/validate_client_account_context_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_client_account_context_style_conflict.json",
+        "node scripts/validate_model_route_fixture.mjs fixtures/ai-video/founder_explainer/expected_model_provider_route.json",
+        "node scripts/validate_model_route_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_model_provider_route_runtime_change.json",
+        "node scripts/validate_model_route_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_model_provider_route_boundary_mismatch.json",
+        "node scripts/validate_render_manifest_v2_fixture.mjs fixtures/ai-video/founder_explainer/expected_render_manifest_v2.json",
+        "node scripts/validate_render_manifest_v2_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_render_manifest_v2_renderer_replacement.json",
+        "node scripts/validate_render_manifest_v2_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_render_manifest_v2_timeline_gap.json",
+        "node scripts/validate_remotion_edit_plan_fixture.mjs fixtures/ai-video/founder_explainer/expected_remotion_edit_plan.json",
+        "node scripts/validate_remotion_edit_plan_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_remotion_edit_plan_runtime_install.json",
+        "node scripts/validate_remotion_edit_plan_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_remotion_edit_plan_frame_gap.json",
+        "node scripts/validate_avatar_decision_fixture.mjs fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision.json",
+        "node scripts/validate_avatar_decision_fixture.mjs --expect-fail fixtures/ai-video/avatar_sales_outreach/invalid_avatar_decision_missing_consent.json",
+        "node scripts/validate_ai_video_contract_regressions.mjs"
       ]
     },
     {
@@ -89,7 +201,8 @@
       "read_when": "Docker, schema, render worker, service port, or local runtime work.",
       "validation_commands": [
         "docker compose --env-file infra/.env -f infra/docker-compose.yml ps",
-        "docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c \"\\\\dt\""
+        "docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c \"\\\\dt\"",
+        "python3 -m py_compile infra/render-worker/app.py"
       ]
     },
     {
@@ -100,7 +213,8 @@
       "related_context_doc": "studio-ui/AGENTS.md",
       "read_when": "Local UI, prompt editor, runtime settings, workflow launcher, or recent item inspection work.",
       "validation_commands": [
-        "docker compose --env-file infra/.env -f infra/docker-compose.yml up -d postgres redis minio minio-bootstrap n8n render-worker studio-ui"
+        "docker compose --env-file infra/.env -f infra/docker-compose.yml up -d postgres redis minio minio-bootstrap n8n render-worker studio-ui",
+        "node --check studio-ui/server.mjs"
       ]
     },
     {
@@ -111,9 +225,24 @@
       "related_context_doc": "scripts/CONTEXT.md",
       "read_when": "Smoke-test, live-candidate prep, token, or operational script work.",
       "validation_commands": [
+        "node --check scripts/validate_final_qa_fixture.mjs",
+        "node --check scripts/validate_approval_fixture.mjs",
+        "node scripts/validate_publish_gate_workflow.mjs",
         "bash scripts/test_phase2_topic_to_storyboard_smoke.sh",
         "bash scripts/test_phase3_render_manifest_smoke.sh",
-        "bash scripts/test_phase4_metrics_collection_smoke.sh"
+        "bash scripts/test_phase4_metrics_collection_smoke.sh",
+        "node --check scripts/validate_client_account_context_fixture.mjs",
+        "node scripts/validate_client_account_context_fixture.mjs fixtures/ai-video/founder_explainer/expected_client_account_context.json",
+        "node --check scripts/validate_model_route_fixture.mjs",
+        "node scripts/validate_model_route_fixture.mjs fixtures/ai-video/founder_explainer/expected_model_provider_route.json",
+        "node --check scripts/validate_render_manifest_v2_fixture.mjs",
+        "node scripts/validate_render_manifest_v2_fixture.mjs fixtures/ai-video/founder_explainer/expected_render_manifest_v2.json",
+        "node --check scripts/validate_remotion_edit_plan_fixture.mjs",
+        "node scripts/validate_remotion_edit_plan_fixture.mjs fixtures/ai-video/founder_explainer/expected_remotion_edit_plan.json",
+        "node --check scripts/validate_avatar_decision_fixture.mjs",
+        "node scripts/validate_avatar_decision_fixture.mjs fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision.json",
+        "node --check scripts/validate_ai_video_contract_regressions.mjs",
+        "node scripts/validate_ai_video_contract_regressions.mjs"
       ]
     },
     {
@@ -128,9 +257,19 @@
   ],
   "path_globs": [
     {
+      "glob": "docs/**",
+      "related_context_doc": "docs/README.md",
+      "read_when": "Changing docs, runbooks, roadmap files, or the AI context layer."
+    },
+    {
       "glob": "prompts/**",
       "related_context_doc": "prompts/AGENTS.md",
       "read_when": "Editing prompt files or schemas."
+    },
+    {
+      "glob": "fixtures/**",
+      "related_context_doc": "fixtures/CONTEXT.md",
+      "read_when": "Editing or validating sanitized baseline fixtures."
     },
     {
       "glob": "workflows/n8n/*.json",
@@ -139,13 +278,13 @@
     },
     {
       "glob": "workflows/scripts/*.mjs",
-      "related_context_doc": "workflows/AGENTS.md",
-      "read_when": "Changing helper scripts, adapters, prompt rendering, or orchestration."
+      "related_context_doc": "docs/ai-context/ai-video-workflow-inventory.md",
+      "read_when": "Changing helper scripts, adapters, prompt rendering, client/account context loading, or orchestration."
     },
     {
       "glob": "infra/postgres/init/*.sql",
       "related_context_doc": "infra/AGENTS.md",
-      "read_when": "Changing schema contracts."
+      "read_when": "Changing schema contracts, including publish approval and client/account context storage."
     },
     {
       "glob": "infra/render-worker/**",
@@ -174,7 +313,64 @@
     "phase3_render_manifest": "bash scripts/test_phase3_render_manifest_smoke.sh",
     "phase3_render_dispatch": "bash scripts/test_phase3_render_worker_dispatch_smoke.sh",
     "phase3_render_callback": "bash scripts/test_phase3_render_status_callback_smoke.sh",
-    "phase4_metrics": "bash scripts/test_phase4_metrics_collection_smoke.sh"
+    "phase4_metrics": "bash scripts/test_phase4_metrics_collection_smoke.sh",
+    "ai_video_fixtures_json": "find fixtures/ai-video -name '*.json' -print0 | xargs -0 -n1 jq empty",
+    "ai_video_contract_regression_suite": "node scripts/validate_ai_video_contract_regressions.mjs",
+    "prompt_rule_registry": "jq empty prompts/rules/rule_registry.json",
+    "style_pack_registry": "jq empty prompts/style_packs/style_pack_registry.json && jq empty prompts/schemas/style_pack.schema.json",
+    "director_contract_schema": "jq empty prompts/schemas/director_contract.schema.json",
+    "director_contract_fixture": "node scripts/validate_director_contract_fixture.mjs fixtures/ai-video/founder_explainer/expected_director_contract.json",
+    "director_contract_invalid_style_fixture": "node scripts/validate_director_contract_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_director_contract_bad_style_pack.json",
+    "storyboard_shot_plan_schema": "jq empty prompts/schemas/storyboard.schema.json",
+    "storyboard_shot_plan_fixture": "node scripts/validate_storyboard_fixture.mjs fixtures/ai-video/founder_explainer/expected_storyboard_and_shot_plan.json",
+    "visual_prompt_schema": "jq empty prompts/schemas/visual_prompt.schema.json",
+    "visual_prompt_fixture": "node scripts/validate_visual_prompt_fixture.mjs fixtures/ai-video/founder_explainer/expected_visual_prompt_builder.json",
+    "visual_prompt_invalid_vague_fixture": "node scripts/validate_visual_prompt_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_visual_prompt_builder_vague.json",
+    "visual_prompt_missing_negative_prompt_fixture": "node scripts/validate_visual_prompt_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_visual_prompt_builder_missing_negative_prompt.json",
+    "voice_performance_schema": "jq empty prompts/schemas/voice_performance.schema.json",
+    "voice_performance_fixture": "node scripts/validate_voice_performance_fixture.mjs fixtures/ai-video/founder_explainer/expected_voice_performance_script.json",
+    "voice_performance_invalid_mutated_text_fixture": "node scripts/validate_voice_performance_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_voice_performance_script_mutated_text.json",
+    "music_sfx_plan_schema": "jq empty prompts/schemas/music_sfx_plan.schema.json",
+    "music_asset_schema": "jq empty prompts/schemas/music_asset.schema.json",
+    "sfx_asset_schema": "jq empty prompts/schemas/sfx_asset.schema.json",
+    "music_sfx_plan_fixture": "node scripts/validate_music_sfx_fixture.mjs fixtures/ai-video/founder_explainer/expected_music_sfx_plan.json",
+    "music_sfx_invalid_unknown_license_fixture": "node scripts/validate_music_sfx_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_music_sfx_plan_unknown_license.json",
+    "music_library_license_metadata": "node scripts/validate_music_library.mjs workflows/assets/music/library.json",
+    "final_qa_schema": "jq empty prompts/schemas/qa_result.schema.json",
+    "final_qa_approved_fixture": "node scripts/validate_final_qa_fixture.mjs --expect-approved fixtures/ai-video/founder_explainer/expected_final_qa_result_pass.json",
+    "final_qa_failed_license_fixture": "node scripts/validate_final_qa_fixture.mjs --expect-blocked fixtures/ai-video/founder_explainer/failed_final_qa_license.json",
+    "final_qa_failed_avatar_consent_fixture": "node scripts/validate_final_qa_fixture.mjs --expect-blocked fixtures/ai-video/founder_explainer/failed_final_qa_avatar_consent.json",
+    "final_qa_failed_caption_export_fixture": "node scripts/validate_final_qa_fixture.mjs --expect-blocked fixtures/ai-video/founder_explainer/failed_final_qa_caption_export.json",
+    "approval_schema": "jq empty prompts/schemas/approval.schema.json",
+    "approval_approved_reel_fixture": "node scripts/validate_approval_fixture.mjs --expected-platform-account-id 17841400000000000 fixtures/ai-video/founder_explainer/expected_publish_approval_reel.json",
+    "approval_publish_ready_reel_fixture": "node scripts/validate_approval_fixture.mjs --expect-publish-ready --expected-platform-account-id 17841400000000000 fixtures/ai-video/founder_explainer/expected_publish_approval_reel.json",
+    "approval_missing_selected_video_fixture": "node scripts/validate_approval_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_publish_approval_missing_selected_video.json",
+    "approval_account_mismatch_fixture": "node scripts/validate_approval_fixture.mjs --expect-fail --expected-platform-account-id 17841400000000000 fixtures/ai-video/founder_explainer/invalid_publish_approval_account_mismatch.json",
+    "approval_unapproved_render_fixture": "node scripts/validate_approval_fixture.mjs --expect-fail --expect-publish-ready fixtures/ai-video/founder_explainer/invalid_publish_approval_unapproved_render.json",
+    "publish_gate_workflow": "node scripts/validate_publish_gate_workflow.mjs",
+    "render_worker_syntax": "python3 -m py_compile infra/render-worker/app.py",
+    "story_package_v2_contract": "jq empty prompts/schemas/story_package.schema.json && find prompts/examples -name '*.json' -print0 | xargs -0 -n1 jq empty",
+    "story_package_v2_compat_helper": "node --check workflows/scripts/story_package_v2_compat.mjs",
+    "story_package_v2_prompt_build": "node workflows/scripts/build_prompt_request.mjs story_package_generation_v2 \"$PAYLOAD_BASE64\" > /tmp/story-package-v2-request.json",
+    "client_account_context_schema": "jq empty prompts/schemas/client_account_context.schema.json",
+    "client_account_context_fixture": "node scripts/validate_client_account_context_fixture.mjs fixtures/ai-video/founder_explainer/expected_client_account_context.json",
+    "client_account_context_safety_override_fixture": "node scripts/validate_client_account_context_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_client_account_context_safety_override.json",
+    "client_account_context_style_conflict_fixture": "node scripts/validate_client_account_context_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_client_account_context_style_conflict.json",
+    "model_route_schema": "jq empty prompts/schemas/model_route.schema.json",
+    "model_route_fixture": "node scripts/validate_model_route_fixture.mjs fixtures/ai-video/founder_explainer/expected_model_provider_route.json",
+    "model_route_runtime_change_fixture": "node scripts/validate_model_route_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_model_provider_route_runtime_change.json",
+    "model_route_boundary_mismatch_fixture": "node scripts/validate_model_route_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_model_provider_route_boundary_mismatch.json",
+    "render_manifest_v2_schema": "jq empty prompts/schemas/render_manifest_v2.schema.json",
+    "render_manifest_v2_fixture": "node scripts/validate_render_manifest_v2_fixture.mjs fixtures/ai-video/founder_explainer/expected_render_manifest_v2.json",
+    "render_manifest_v2_renderer_replacement_fixture": "node scripts/validate_render_manifest_v2_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_render_manifest_v2_renderer_replacement.json",
+    "render_manifest_v2_timeline_gap_fixture": "node scripts/validate_render_manifest_v2_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_render_manifest_v2_timeline_gap.json",
+    "remotion_edit_plan_schema": "jq empty prompts/schemas/remotion_edit_plan.schema.json",
+    "remotion_edit_plan_fixture": "node scripts/validate_remotion_edit_plan_fixture.mjs fixtures/ai-video/founder_explainer/expected_remotion_edit_plan.json",
+    "remotion_edit_plan_runtime_install_fixture": "node scripts/validate_remotion_edit_plan_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_remotion_edit_plan_runtime_install.json",
+    "remotion_edit_plan_frame_gap_fixture": "node scripts/validate_remotion_edit_plan_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_remotion_edit_plan_frame_gap.json",
+    "avatar_decision_schemas": "jq empty prompts/schemas/avatar_decision.schema.json prompts/schemas/presenter_profile.schema.json",
+    "avatar_decision_fixture": "node scripts/validate_avatar_decision_fixture.mjs fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision.json",
+    "avatar_decision_missing_consent_fixture": "node scripts/validate_avatar_decision_fixture.mjs --expect-fail fixtures/ai-video/avatar_sales_outreach/invalid_avatar_decision_missing_consent.json"
   },
   "ignore_paths": [
     ".DS_Store",

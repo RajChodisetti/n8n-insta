@@ -21,6 +21,9 @@ Source notes:
 Character reference guidance:
 {{character_reference_context}}
 
+Client/account context snapshot:
+{{client_account_context_json}}
+
 Required output:
 
 - `creative_direction_json`: the core POV, emotional arc, visual strategy, narration strategy, and consistency rules

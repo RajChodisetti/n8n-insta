@@ -12,10 +12,29 @@ Last reviewed: 2026-06-21 at git commit `0d0515b`.
 | creative defaults | Idea-ingest defaults stored on content payloads to guide downstream tone, visuals, narration, and music. |
 | prompt profile | Older per-stage placeholder override concept retained for legacy flows. |
 | director contract | Direction layer stored in `directors`, with voice, visual strategy, pacing, and music direction. |
+| voice performance script | Contract-only Session 10 output that keeps clean narration text separate from line-level tone, pace, pause, emphasis, pronunciation, duration, and music ducking metadata. |
+| clean spoken script | The exact words intended for narration, without provider-specific tags or delivery metadata inserted. |
+| music/SFX plan | Contract-only Session 11 output that describes background music, sparse SFX, ducking, and license requirements without selecting final providers or storage. |
+| license status | Catalog field that records whether a music/SFX asset is documented, licensed, public domain, CC0, or unknown. Unknown status blocks publish. |
+| final QA result | Contract-only Session 12 output that records package readiness, blocking issues, non-blocking issues, upstream fix stages, and publish requirements. |
+| blocking issue | QA issue that must prevent publish until its upstream fix stage resolves it. |
+| publish approval | Session 13 approval record in `publish_approvals` tying QA pass and human approval to a selected render or asset for a specific Instagram account. |
+| client/account context | Session 14 policy snapshot that carries brand, style, voice, music, avatar, publishing, and safety boundaries for a specific client/platform account. Stored in `client_account_contexts`, `content_account_contexts`, and Studio-created `source_payload_json.client_account_context`. |
+| model provider router | Contract-only Session 15 planner that recommends provider/model candidates, fallbacks, constraints, and assumptions without changing adapter selection or calling providers. |
+| model route | Structured `model_provider_router` output shaped by `prompts/schemas/model_route.schema.json`; planning data only, not active runtime configuration. |
 | face image | Scene 1 opening image/title-card concept for Reel visual identity. |
 | scene asset | Per-scene visual asset, usually `scene_image` and in v3 possibly `scene_video`. |
 | narration audio | TTS output persisted as an `assets` row with role `narration_audio`. |
 | render manifest | Canonical render payload stored in `renders.render_manifest_json`. |
+| render manifest v2 | Contract-only Session 16 bridge that defines a renderer-neutral timeline, assets, captions, overlays, safe areas, export settings, and FFmpeg lowering preview. |
+| FFmpeg compatibility preview | `render_manifest_v2` section showing how the renderer-neutral contract can lower to the current local FFmpeg render-worker request shape. |
+| Remotion edit plan | Contract-only Session 17 plan that describes a Remotion-compatible composition, frame-based sequences, captions, overlays, lower thirds, audio, transitions, export settings, and local FFmpeg fallback without installing Remotion. |
+| duration in frames | Integer frame length used by the Remotion edit plan; derived from seconds multiplied by composition FPS. |
+| avatar presenter selector | Contract-only Session 18 stage id for deciding whether avatar/presenter output is allowed as an asset route, with consent and disclosure gates. The prompt file is `prompts/workflow/avatar_video_selector.md`. |
+| presenter profile | Structured profile containing consent status, consent record URI, allowed/disallowed use cases, usage restrictions, provider avatar ID, provider voice ID, disclosure policy, and asset-route policy. |
+| consent record URI | Internal or external reference to the consent artifact that permits a likeness, voice, or approved synthetic presenter use. It is metadata, not a character-reference image. |
+| avatar asset route | Avatar/presenter output path that may create an asset for rendering later; it is not a publish route and still requires final QA and selected-render approval. |
+| AI video contract regression suite | Offline Session 19 Node runner at `scripts/validate_ai_video_contract_regressions.mjs` that executes the fixture validators for prompt contracts and publish blockers without Docker or provider calls. |
 | local_ffmpeg | Current render provider implemented by `infra/render-worker/app.py`. |
 | object_storage | S3-compatible/MinIO asset host mode. |
 | google_cloud_storage | GCS asset host mode using a mounted service-account key. |

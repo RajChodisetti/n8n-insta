@@ -1,0 +1,69 @@
+{
+  "client_account_context_version": "1.0",
+  "source_stage": "client_account_context",
+  "account_context_key": "style_conflict_example",
+  "client": {
+    "client_id": "style-conflict-client",
+    "display_name": "Style Conflict Client",
+    "industry": "creator_media",
+    "notes": null
+  },
+  "platform_account": {
+    "platform": "instagram",
+    "platform_account_id": "17841400000000000",
+    "platform_account_username": "style_conflict_storytelling",
+    "region": "US"
+  },
+  "brand_policy": {
+    "brand_profile": "default",
+    "brand_tone": "calm and useful",
+    "audience": "founders",
+    "value_props": [],
+    "forbidden_claims": [],
+    "required_disclosures": []
+  },
+  "style_policy": {
+    "preferred_style_pack_id": "founder_explainer",
+    "allowed_style_pack_ids": ["founder_explainer"],
+    "disallowed_style_pack_ids": ["founder_explainer"],
+    "visual_style_notes": "Founder explainer visuals.",
+    "color_or_brand_asset_notes": null,
+    "text_policy": "Keep generated assets text-free."
+  },
+  "voice_policy": {
+    "narrator_style": "thoughtful founder voiceover",
+    "allowed_voice_roles": ["founder narrator"],
+    "pronunciation_notes": [],
+    "language_policy": "Use English."
+  },
+  "music_policy": {
+    "music_mood": "quiet momentum",
+    "allowed_music_license_statuses": ["documented"],
+    "publish_allowed_required": true,
+    "vocals_policy": "No vocals.",
+    "disallowed_music": []
+  },
+  "avatar_policy": {
+    "avatar_allowed": false,
+    "requires_consent": true,
+    "default_avatar_mode": "none",
+    "consent_record_uri": null,
+    "disallowed_uses": []
+  },
+  "publishing_policy": {
+    "platform": "instagram",
+    "package_types": ["instagram_reel"],
+    "platform_account_id": "17841400000000000",
+    "platform_account_username": "style_conflict_storytelling",
+    "approval_required": true,
+    "default_caption_tone": "practical",
+    "hashtag_policy": "Use relevant hashtags.",
+    "restricted_topics": []
+  },
+  "safety_policy": {
+    "global_rules_override_allowed": false,
+    "legal_review_required_topics": [],
+    "notes": "Global rules still apply."
+  },
+  "context_notes": "Invalid by design."
+}

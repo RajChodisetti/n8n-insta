@@ -1,139 +1,39 @@
-# Instagram AI Storytelling Workflow — Documentation Pack
+# n8n-insta
 
-This repository contains the starter documentation for building an Instagram-only, n8n-orchestrated AI storytelling workflow.
+Instagram-focused AI storytelling pipeline orchestrated with n8n. The repo covers topic intake, prompt-driven content packaging, generated visual/audio assets, local rendering, Instagram publishing, metrics collection, and a small local Studio UI.
 
-## Objective
+## Start Here
 
-Long-term, build a system that can:
+- [Agent context](AGENTS.md)
+- [Documentation index](docs/README.md)
+- [AI context system](docs/ai-context/README.md)
+- [AI video workflow session plan](docs/roadmaps/ai-video-workflow-session-plan.md)
+- [Delivery tracker](docs/delivery/delivery-and-testing-workflow.md)
+- [Engineering backlog](docs/delivery/engineering-backlog.md)
 
-1. Discover or accept story ideas
-2. Research and structure them into short-form scripts
-3. Convert scripts into scene-by-scene storyboards
-4. Generate or source visuals and narration
-5. Render final 9:16 Reels
-6. Publish to Instagram
-7. Pull insights and improve future content
+## Common Local Commands
 
-## Current MVP target
+```bash
+docker compose --env-file infra/.env -f infra/docker-compose.yml up -d
+docker compose --env-file infra/.env -f infra/docker-compose.yml ps
+bash scripts/test_phase2_topic_to_storyboard_smoke.sh
+bash scripts/test_phase3_render_manifest_smoke.sh
+```
 
-Before the full Reel pipeline, the immediate target is a simpler working loop:
+See [commands and validation](docs/ai-context/commands-and-validation.md) for the full command map.
 
-1. accept one topic
-2. generate one caption draft
-3. generate one hashtag set
-4. attach one simple image asset
-5. publish one Instagram post
-6. persist publish metadata
+## Documentation Layout
 
-## Guiding principle
+- `docs/product/` - product, content, brand, and feedback-loop docs
+- `docs/architecture/` - system, workflow, data, rendering, and adapter docs
+- `docs/prompts/` - prompt inventory and prompt-library docs
+- `docs/integrations/` - provider and platform integration docs
+- `docs/features/` - focused feature docs
+- `docs/runbooks/` - operational runbooks
+- `docs/delivery/` - setup, tracker, and backlog docs
+- `docs/roadmaps/` - implementation plans and roadmap docs
+- `docs/ai-context/` - lightweight context layer for future coding agents
 
-The target is **high automation with controlled quality**, not blind full automation.
+## Safety Notes
 
-Recommended operating model:
-- 85–90% automated
-- 10–15% human approval
-
-## What has been decided
-
-- Platform focus: **Instagram only**
-- Long-term primary format: **Reels**
-- Current MVP publish target: **simple Instagram post**
-- Content style: **English, faceless, AI-narrated, visually cinematic interesting stories**
-- Brand identity: **consistent voice, pacing, subtitle style, and ending signature**
-- Orchestrator: **n8n**
-- Video rendering: **external render worker / FFmpeg service triggered by n8n**
-- Storage: **cloud drive or object storage**
-- Data tracking: **content database + metrics history**
-- Improvement loop: **Instagram insights are analyzed and fed back into the topic/script generator**
-
-## Suggested folder usage
-
-Read in this order:
-
-1. `01-product-overview.md`
-2. `02-architecture.md`
-3. `03-content-strategy.md`
-4. `04-workflows.md`
-5. `05-data-model.md`
-6. `06-n8n-build-plan.md`
-7. `07-prompt-library.md`
-8. `08-rendering-contract.md`
-9. `09-instagram-publishing.md`
-10. `10-insights-and-feedback-loop.md`
-11. `11-setup-checklist.md`
-12. `12-roadmap.md`
-13. `13-provider-strategy.md`
-14. `14-instagram-professional-account-runbook.md`
-15. `15-delivery-and-testing-workflow.md`
-16. `16-engineering-backlog.md`
-17. `17-brand-identity.md`
-18. `18-mvp-smoke-test-and-publish-runbook.md`
-19. `19-phase2-manual-review-and-live-publish-runbook.md`
-
-## Delivery Tracking
-
-- Active tracker: [15-delivery-and-testing-workflow.md](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
-- Engineering backlog: [16-engineering-backlog.md](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
-- Completed items archive: [delivery-testing/completed-items/README.md](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/README.md)
-
-## Git Branching Strategy
-
-Current integration branch:
-
-- `release/2.0`
-
-Branch flow:
-
-1. cut every feature branch from `release/2.0`
-2. implement the feature on that feature branch
-3. test the feature and document the result in [15-delivery-and-testing-workflow.md](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
-4. merge tested feature branches into `release/2.0`
-5. merge `release/2.0` into `main` only when the release branch contains a meaningful, validated upgrade
-
-Rule:
-
-- do not start new feature work directly from `main`
-- do not raise routine feature PRs against `main`
-- use `main` as the long-lived stable line for completed releases
-
-## Recommended build approach
-
-Do not implement everything at once.
-
-### Phase 1
-- simple-post MVP
-- caption + hashtags
-- one image asset
-- Instagram publish validation
-- publish metadata persistence
-
-### Phase 2
-- topic to script to storyboard flow
-  Current active items: `P2-04` smarter image generation and `P2-05` basic content approval flow
-- better content planning
-- approval hardening
-
-### Phase 3
-- AI narration generation
-- generated assets
-- render worker integration
-
-### Phase 4
-- Reel publishing automation
-- insights collection
-- performance analysis
-- recommendation engine
-
-## Core success metric
-
-Long-term success flow:
-
-`story -> script -> storyboard -> assets -> reel -> publish -> analyze -> improve`
-
-Current MVP success flow:
-
-`topic -> caption/hashtags -> simple image -> publish -> persist`
-
-Current local milestone:
-
-`working MVP complete`
+Do not commit real `.env` files, local env backups, service-account keys, logs, caches, `infra/state/`, or generated runtime files. Live publish, token exchange, and paid provider calls should only be run intentionally.

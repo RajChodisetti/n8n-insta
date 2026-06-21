@@ -9,7 +9,7 @@ What was completed:
 - added public asset-host support for generated-image delivery, with persisted host metadata in `assets.metadata_json`
 - added the manual approval workflow [wf_content_approval.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_content_approval.json)
 - added the combined helper [prepare_phase2_live_post_candidate.sh](/Users/rajchodisetti/n8n-insta/scripts/prepare_phase2_live_post_candidate.sh) to prepare one real candidate through research, storyboard, caption, hashtag, and image generation before manual review and live publish
-- updated the live-post runbook in [19-phase2-manual-review-and-live-publish-runbook.md](/Users/rajchodisetti/n8n-insta/19-phase2-manual-review-and-live-publish-runbook.md)
+- updated the live-post runbook in [docs/runbooks/phase2-manual-review-and-live-publish.md](/Users/rajchodisetti/n8n-insta/docs/runbooks/phase2-manual-review-and-live-publish.md)
 
 Why it was tested:
 

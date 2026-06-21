@@ -3,6 +3,8 @@
 import { normalizePromptProfile } from './prompt_profile_contract.mjs';
 
 const FIXED_PIPELINE_CONTENT_LANGUAGE = 'English';
+const DEFAULT_RULE_REGISTRY_SUMMARY = 'Use the global rule registry concepts: brand_safety, visual_consistency, voice, music_sfx, avatar, editing, provider_routing, platform_publishing, and approval. Treat blocking rules as publish blockers.';
+const DEFAULT_STYLE_PACK_REGISTRY_SUMMARY = 'Known style pack IDs include founder_explainer, cinematic_problem_solution, fast_reel_hook, product_demo_walkthrough, before_after_transformation, client_testimonial_case_study, educational_mini_lesson, meme_relatable_pain_point, premium_brand_film, local_business_promo, avatar_sales_outreach, and ugc_style_product_pitch.';
 
 function firstNonEmpty(...values) {
   for (const value of values) {
@@ -12,6 +14,78 @@ function firstNonEmpty(...values) {
     }
   }
   return '';
+}
+
+function plainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function compactList(value = []) {
+  return Array.isArray(value)
+    ? value.map((entry) => String(entry ?? '').trim()).filter(Boolean)
+    : [];
+}
+
+function summarizeClientAccountContext(context = {}) {
+  const client = plainObject(context.client);
+  const platformAccount = plainObject(context.platform_account);
+  const brandPolicy = plainObject(context.brand_policy);
+  const stylePolicy = plainObject(context.style_policy);
+  const voicePolicy = plainObject(context.voice_policy);
+  const musicPolicy = plainObject(context.music_policy);
+  const avatarPolicy = plainObject(context.avatar_policy);
+  const publishingPolicy = plainObject(context.publishing_policy);
+  const safetyPolicy = plainObject(context.safety_policy);
+  if (Object.keys(context).length === 0) {
+    return 'No client/account context snapshot was supplied. Use global defaults and global safety rules.';
+  }
+
+  const lines = [
+    `Account context key: ${firstNonEmpty(context.account_context_key, 'unknown')}.`,
+    `Client/account: ${firstNonEmpty(client.display_name, client.client_id, 'unknown')} on ${firstNonEmpty(platformAccount.platform, publishingPolicy.platform, 'instagram')}.`,
+    `Brand profile: ${firstNonEmpty(brandPolicy.brand_profile, 'default')}; tone: ${firstNonEmpty(brandPolicy.brand_tone, 'not specified')}.`,
+    `Preferred style pack: ${firstNonEmpty(stylePolicy.preferred_style_pack_id, 'not specified')}; allowed style packs: ${compactList(stylePolicy.allowed_style_pack_ids).join(', ') || 'not specified'}.`,
+    `Voice: ${firstNonEmpty(voicePolicy.narrator_style, 'not specified')}.`,
+    `Music: ${firstNonEmpty(musicPolicy.music_mood, 'not specified')}; publish-allowed music required: ${musicPolicy.publish_allowed_required !== false ? 'yes' : 'no'}.`,
+    `Avatar mode: ${firstNonEmpty(avatarPolicy.default_avatar_mode, 'none')}; consent required: ${avatarPolicy.requires_consent !== false ? 'yes' : 'no'}.`,
+    `Publishing account: ${firstNonEmpty(publishingPolicy.platform_account_username, platformAccount.platform_account_username, publishingPolicy.platform_account_id, platformAccount.platform_account_id, 'not specified')}; approval required: ${publishingPolicy.approval_required !== false ? 'yes' : 'no'}.`,
+    `Safety override allowed: ${safetyPolicy.global_rules_override_allowed === true ? 'yes' : 'no'}. Global safety, consent, license, and platform rules still take priority.`,
+  ];
+  return lines.join(' ');
+}
+
+function applyClientAccountContextDefaults(merged) {
+  const context = plainObject(merged.client_account_context ?? merged.clientAccountContext);
+  merged.client_account_context = context;
+  merged.client_account_context_json = Object.keys(context).length > 0 ? JSON.stringify(context, null, 2) : '{}';
+  merged.client_account_context_summary = firstNonEmpty(
+    merged.client_account_context_summary,
+    summarizeClientAccountContext(context),
+  );
+  if (Object.keys(context).length === 0) {
+    return;
+  }
+
+  const brandPolicy = plainObject(context.brand_policy);
+  const stylePolicy = plainObject(context.style_policy);
+  const voicePolicy = plainObject(context.voice_policy);
+  const musicPolicy = plainObject(context.music_policy);
+  const publishingPolicy = plainObject(context.publishing_policy);
+
+  merged.brand_profile = firstNonEmpty(merged.brand_profile, brandPolicy.brand_profile);
+  merged.brand_tone = firstNonEmpty(merged.brand_tone, brandPolicy.brand_tone);
+  merged.narrator_style = firstNonEmpty(merged.narrator_style, voicePolicy.narrator_style);
+  merged.narration_style = firstNonEmpty(merged.narration_style, voicePolicy.narrator_style);
+  merged.visual_style_rules = firstNonEmpty(merged.visual_style_rules, stylePolicy.visual_style_notes);
+  merged.style_notes = firstNonEmpty(merged.style_notes, stylePolicy.visual_style_notes);
+  merged.background_music_direction = firstNonEmpty(merged.background_music_direction, musicPolicy.music_mood);
+  merged.music_mood = firstNonEmpty(merged.music_mood, musicPolicy.music_mood);
+  merged.selected_style_pack = firstNonEmpty(merged.selected_style_pack, stylePolicy.preferred_style_pack_id);
+  merged.preferred_style_pack_id = firstNonEmpty(merged.preferred_style_pack_id, stylePolicy.preferred_style_pack_id);
+  merged.platform_account_id = firstNonEmpty(merged.platform_account_id, publishingPolicy.platform_account_id);
+  merged.platform_account_username = firstNonEmpty(merged.platform_account_username, publishingPolicy.platform_account_username);
+  merged.default_caption_tone = firstNonEmpty(merged.default_caption_tone, publishingPolicy.default_caption_tone);
+  merged.hashtag_policy = firstNonEmpty(merged.hashtag_policy, publishingPolicy.hashtag_policy);
 }
 
 function parsePositiveNumber(value) {
@@ -250,6 +324,8 @@ export function resolveDirectorTemplateData(templateData = {}) {
     scene_count: String(scenes.length || ''),
     creative_defaults_json: templateData.creative_defaults_json
       || (Object.keys(creativeDefaults).length > 0 ? JSON.stringify(creativeDefaults, null, 2) : '{}'),
+    rule_registry_summary: firstNonEmpty(templateData.rule_registry_summary, DEFAULT_RULE_REGISTRY_SUMMARY),
+    style_pack_registry_summary: firstNonEmpty(templateData.style_pack_registry_summary, DEFAULT_STYLE_PACK_REGISTRY_SUMMARY),
   };
 }
 
@@ -262,6 +338,7 @@ export function resolveStagePromptTemplateData(stageKey, templateData = {}) {
   };
   delete merged.prompt_profile;
   delete merged.promptProfile;
+  applyClientAccountContextDefaults(merged);
   const language = resolveStageLanguage(stageKey, merged.content_language);
 
   merged.content_language = language;
@@ -272,8 +349,24 @@ export function resolveStagePromptTemplateData(stageKey, templateData = {}) {
     Object.assign(merged, directorData);
   }
 
-  if (stageKey === 'research_and_script' || stageKey === 'story_package_generation') {
+  if (stageKey === 'research_and_script' || stageKey === 'story_package_generation' || stageKey === 'story_package_generation_v2') {
     merged.timing_guidance = resolveResearchTimingGuidance(merged);
+  }
+
+  if (stageKey === 'story_package_generation_v2') {
+    const creativeDefaults = merged.creative_defaults && typeof merged.creative_defaults === 'object'
+      ? merged.creative_defaults
+      : {};
+    merged.creative_defaults_json = merged.creative_defaults_json
+      || (Object.keys(creativeDefaults).length > 0 ? JSON.stringify(creativeDefaults, null, 2) : '{}');
+    merged.rule_registry_summary = firstNonEmpty(
+      merged.rule_registry_summary,
+      DEFAULT_RULE_REGISTRY_SUMMARY,
+    );
+    merged.style_pack_registry_summary = firstNonEmpty(
+      merged.style_pack_registry_summary,
+      DEFAULT_STYLE_PACK_REGISTRY_SUMMARY,
+    );
   }
 
   if (stageKey === 'storyboard_and_prompts') {

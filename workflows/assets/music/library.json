@@ -37,7 +37,17 @@
     "source_page_url": "https://mixkit.co/free-stock-music/mood/sombre/",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/departure-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/departure-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   },
   {
     "id": "vastness-mixkit",
@@ -77,7 +87,17 @@
     "source_page_url": "https://mixkit.co/free-stock-music/mood/calm/",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/vastness-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/vastness-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   },
   {
     "id": "spirit-in-the-woods-mixkit",
@@ -116,7 +136,17 @@
     "source_page_url": "https://mixkit.co/free-stock-music/mood/calm/",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/spirit-in-the-woods-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/spirit-in-the-woods-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   },
   {
     "id": "echoes-mixkit",
@@ -155,7 +185,17 @@
     "source_page_url": "https://mixkit.co/free-stock-music/mood/sombre/",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/echoes-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/echoes-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   },
   {
     "id": "selpan-mixkit",
@@ -194,7 +234,17 @@
     "source_page_url": "https://mixkit.co/free-stock-music/tag/dark/",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/selpan-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/selpan-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   },
   {
     "id": "relaxation-05-mixkit",
@@ -233,7 +283,17 @@
     "source_page_url": "https://mixkit.co/free-stock-music/mood/calm/",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/relaxation-05-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/relaxation-05-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   },
   {
     "id": "cyberpunk-city-mixkit",
@@ -271,7 +331,17 @@
     "source_page_url": "https://mixkit.co/free-stock-music/tag/dark/",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/cyberpunk-city-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/cyberpunk-city-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   },
   {
     "id": "gymnopedie-no-1",
@@ -306,7 +376,15 @@
     "default": false,
     "source_url": "https://commons.wikimedia.org/wiki/File:Gymnopedie_No._1..ogg",
     "license": "CC0",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/gymnopedie-no-1.ogg"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/gymnopedie-no-1.ogg",
+    "license_status": "cc0",
+    "publish_allowed": true,
+    "license_scope": "Repo music README documents this asset as CC0 for background music use in rendered videos.",
+    "license_notes": "Repo metadata records CC0 status from the listed source URL.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": []
   },
   {
     "id": "moonlight-sonata",
@@ -341,7 +419,15 @@
     "default": false,
     "source_url": "https://commons.wikimedia.org/wiki/File:Moonlight_Sonata.ogg",
     "license": "Public domain",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/moonlight-sonata.ogg"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/moonlight-sonata.ogg",
+    "license_status": "public_domain",
+    "publish_allowed": true,
+    "license_scope": "Repo music README documents this asset as public domain for background music use in rendered videos.",
+    "license_notes": "Repo metadata records public domain status from the listed source URL.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": []
   },
   {
     "id": "chopin-nocturne-op9-no2",
@@ -376,7 +462,15 @@
     "default": false,
     "source_url": "https://commons.wikimedia.org/wiki/File:Chopin.Nocturne.Es-Dur.opus.9.2.ogg",
     "license": "CC0",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/chopin-nocturne-op9-no2.ogg"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/chopin-nocturne-op9-no2.ogg",
+    "license_status": "cc0",
+    "publish_allowed": true,
+    "license_scope": "Repo music README documents this asset as CC0 for background music use in rendered videos.",
+    "license_notes": "Repo metadata records CC0 status from the listed source URL.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": []
   },
   {
     "id": "danse-macabre",
@@ -410,7 +504,15 @@
     "default": false,
     "source_url": "https://commons.wikimedia.org/wiki/File:PhiladelphiaSymphonyOrchestra-DanseMacabre.ogg",
     "license": "Public domain",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/danse-macabre.ogg"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/danse-macabre.ogg",
+    "license_status": "public_domain",
+    "publish_allowed": true,
+    "license_scope": "Repo music README documents this asset as public domain for background music use in rendered videos.",
+    "license_notes": "Repo metadata records public domain status from the listed source URL.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": []
   },
   {
     "id": "night-on-bald-mountain",
@@ -444,7 +546,15 @@
     "default": false,
     "source_url": "https://commons.wikimedia.org/wiki/File:Modest_Mussorgsky_-_night_on_bald_mountain.ogg",
     "license": "Public domain",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/night-on-bald-mountain.ogg"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/night-on-bald-mountain.ogg",
+    "license_status": "public_domain",
+    "publish_allowed": true,
+    "license_scope": "Repo music README documents this asset as public domain for background music use in rendered videos.",
+    "license_notes": "Repo metadata records public domain status from the listed source URL.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": []
   },
   {
     "id": "mars-bringer-of-war",
@@ -478,7 +588,15 @@
     "default": false,
     "source_url": "https://commons.wikimedia.org/wiki/File:Holst-_mars.ogg",
     "license": "Public domain",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/mars-bringer-of-war.ogg"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/mars-bringer-of-war.ogg",
+    "license_status": "public_domain",
+    "publish_allowed": true,
+    "license_scope": "Repo music README documents this asset as public domain for background music use in rendered videos.",
+    "license_notes": "Repo metadata records public domain status from the listed source URL.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": []
   },
   {
     "id": "silent-descent-mixkit",
@@ -521,7 +639,17 @@
     "source_asset_url": "https://assets.mixkit.co/music/614/614.mp3",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/silent-descent-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/silent-descent-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   },
   {
     "id": "shame-mixkit",
@@ -562,7 +690,17 @@
     "source_asset_url": "https://assets.mixkit.co/music/553/553.mp3",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/shame-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/shame-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   },
   {
     "id": "ode-to-loneliness-mixkit",
@@ -602,7 +740,17 @@
     "source_asset_url": "https://assets.mixkit.co/music/520/520.mp3",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/ode-to-loneliness-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/ode-to-loneliness-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   },
   {
     "id": "indian-meditations-mixkit",
@@ -643,7 +791,17 @@
     "source_asset_url": "https://assets.mixkit.co/music/21/21.mp3",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/indian-meditations-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/indian-meditations-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   },
   {
     "id": "alignment-mixkit",
@@ -682,7 +840,17 @@
     "source_asset_url": "https://assets.mixkit.co/music/310/310.mp3",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/alignment-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/alignment-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   },
   {
     "id": "epic-games-mixkit",
@@ -722,6 +890,16 @@
     "source_asset_url": "https://assets.mixkit.co/music/76/76.mp3",
     "license": "Mixkit Stock Music Free License",
     "license_url": "https://mixkit.co/license/#musicFree",
-    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/epic-games-mixkit.mp3"
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/epic-games-mixkit.mp3",
+    "license_status": "documented",
+    "publish_allowed": true,
+    "license_scope": "Embedded background music inside rendered videos; do not redistribute as standalone music.",
+    "license_notes": "Repo music README identifies this as Mixkit Stock Music Free License and restricts standalone redistribution.",
+    "allowed_uses": [
+      "embedded_background_music_in_video"
+    ],
+    "disallowed_uses": [
+      "standalone_music_redistribution"
+    ]
   }
 ]

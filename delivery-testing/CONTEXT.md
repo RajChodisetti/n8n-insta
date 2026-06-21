@@ -23,7 +23,7 @@ Documentation evidence only.
 
 ## Depends on
 
-Root delivery docs such as `15-delivery-and-testing-workflow.md` and `16-engineering-backlog.md`.
+Root delivery docs such as `docs/delivery/delivery-and-testing-workflow.md` and `docs/delivery/engineering-backlog.md`.
 
 ## Used by
 
@@ -49,7 +49,7 @@ Docs-only validation. No command required.
 
 ## Uncertainties
 
-- Current active state should be verified from root runbooks, workflow files, and `docs/ai-context/current-focus.md`.
+- Current active state should be verified from `docs/runbooks/`, workflow files, and `docs/ai-context/current-focus.md`.
 
 ## Last reviewed
 

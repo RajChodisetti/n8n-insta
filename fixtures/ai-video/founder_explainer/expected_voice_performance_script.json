@@ -1,0 +1,203 @@
+{
+  "voice_performance_version": "1.0",
+  "source_stage": "voice_performance_script",
+  "content_language": "English",
+  "selected_style_pack": "founder_explainer",
+  "target_duration_seconds": 40,
+  "clean_spoken_script": "The roadmap was hiding in the same customer complaint, repeated again and again. At first, every support ticket felt like a distraction from building. Then patterns started to show up. Three different customers were asking for the same fix in different words. Support is not just where problems arrive. It is where priorities become visible.",
+  "script_preservation_policy": "The clean script and every line_text stay free of delivery tags, provider syntax, added words, or paraphrased claims.",
+  "voice_profile": {
+    "voice_role": "grounded founder narrator",
+    "delivery_summary": "Reflective, practical, and calm, with curiosity in the hook and a clear resolved close.",
+    "energy": "medium_low",
+    "accent_or_pronunciation_notes": "Use clear natural English pronunciation; keep product and support terms plain."
+  },
+  "adapter_mapping_policy": {
+    "generic_contract_policy": "This contract is provider-neutral and describes performance metadata only.",
+    "provider_mapping_notes": "A later adapter may translate tone, pace, pauses, and emphasis into provider-specific instructions without changing line_text.",
+    "prohibited_generic_syntax": [
+      "parenthetical emotion tags inside spoken text",
+      "inline voice model control codes",
+      "provider names",
+      "voice IDs",
+      "reference IDs"
+    ]
+  },
+  "total_estimated_spoken_duration_seconds": 23.8,
+  "lines": [
+    {
+      "voice_line_id": "v01",
+      "scene_number": 1,
+      "line_index": 1,
+      "line_text": "The roadmap was hiding in the same customer complaint, repeated again and again.",
+      "tone": "curious confidence",
+      "pace": "measured",
+      "pauses": {
+        "before_seconds": 0,
+        "after_seconds": 0.8,
+        "internal_pause_notes": "Briefly lift after complaint, then land repeated again and again."
+      },
+      "emphasis": [
+        {
+          "phrase": "roadmap was hiding",
+          "intent": "Signal the central insight without sounding dramatic."
+        }
+      ],
+      "pronunciation": [
+        {
+          "term": "roadmap",
+          "guidance": "Say as one clear compound word."
+        }
+      ],
+      "estimated_duration_seconds": 5.1,
+      "music_ducking_notes": "Keep the bed low under the hook and leave space after the final word.",
+      "provider_tag_policy": "No provider-specific tags or control codes in line_text.",
+      "qa_checks": [
+        "Line text exactly matches the clean script segment.",
+        "Delivery metadata does not add claims."
+      ]
+    },
+    {
+      "voice_line_id": "v02",
+      "scene_number": 2,
+      "line_index": 2,
+      "line_text": "At first, every support ticket felt like a distraction from building.",
+      "tone": "restrained reflection",
+      "pace": "natural",
+      "pauses": {
+        "before_seconds": 0.2,
+        "after_seconds": 0.45,
+        "internal_pause_notes": "Half breath after At first to establish contrast."
+      },
+      "emphasis": [
+        {
+          "phrase": "distraction from building",
+          "intent": "Make the early tension clear without panic."
+        }
+      ],
+      "pronunciation": [],
+      "estimated_duration_seconds": 4.7,
+      "music_ducking_notes": "Keep music steady and tucked under the reflective problem line.",
+      "provider_tag_policy": "No provider-specific tags or control codes in line_text.",
+      "qa_checks": [
+        "Line stays clean and spoken.",
+        "Tone is not salesy or theatrical."
+      ]
+    },
+    {
+      "voice_line_id": "v03",
+      "scene_number": 2,
+      "line_index": 3,
+      "line_text": "Then patterns started to show up.",
+      "tone": "focused recognition",
+      "pace": "measured",
+      "pauses": {
+        "before_seconds": 0.15,
+        "after_seconds": 0.55,
+        "internal_pause_notes": "Let the short sentence breathe after patterns."
+      },
+      "emphasis": [
+        {
+          "phrase": "patterns",
+          "intent": "Mark the turn from overwhelm to signal."
+        }
+      ],
+      "pronunciation": [],
+      "estimated_duration_seconds": 2.4,
+      "music_ducking_notes": "Allow a subtle lift after the line while keeping narration intelligible.",
+      "provider_tag_policy": "No provider-specific tags or control codes in line_text.",
+      "qa_checks": [
+        "Short line is not rushed.",
+        "No new explanation is added."
+      ]
+    },
+    {
+      "voice_line_id": "v04",
+      "scene_number": 3,
+      "line_index": 4,
+      "line_text": "Three different customers were asking for the same fix in different words.",
+      "tone": "practical certainty",
+      "pace": "natural",
+      "pauses": {
+        "before_seconds": 0.15,
+        "after_seconds": 0.7,
+        "internal_pause_notes": "Slightly stress same fix, then release the final phrase."
+      },
+      "emphasis": [
+        {
+          "phrase": "same fix",
+          "intent": "Underline the repeated-pain signal."
+        }
+      ],
+      "pronunciation": [],
+      "estimated_duration_seconds": 5,
+      "music_ducking_notes": "Keep the pulse low so same fix remains easy to hear.",
+      "provider_tag_policy": "No provider-specific tags or control codes in line_text.",
+      "qa_checks": [
+        "No customer details are invented.",
+        "Line remains generic and fictional."
+      ]
+    },
+    {
+      "voice_line_id": "v05",
+      "scene_number": 4,
+      "line_index": 5,
+      "line_text": "Support is not just where problems arrive.",
+      "tone": "calm authority",
+      "pace": "measured",
+      "pauses": {
+        "before_seconds": 0.25,
+        "after_seconds": 0.65,
+        "internal_pause_notes": "Hold a clear beat after not just."
+      },
+      "emphasis": [
+        {
+          "phrase": "not just",
+          "intent": "Set up the final lesson contrast."
+        }
+      ],
+      "pronunciation": [],
+      "estimated_duration_seconds": 3.4,
+      "music_ducking_notes": "Lower the bed slightly for the closing lesson.",
+      "provider_tag_policy": "No provider-specific tags or control codes in line_text.",
+      "qa_checks": [
+        "Line starts the lesson without overclaiming.",
+        "Pause does not split the sentence awkwardly."
+      ]
+    },
+    {
+      "voice_line_id": "v06",
+      "scene_number": 4,
+      "line_index": 6,
+      "line_text": "It is where priorities become visible.",
+      "tone": "resolved clarity",
+      "pace": "measured",
+      "pauses": {
+        "before_seconds": 0.2,
+        "after_seconds": 1,
+        "internal_pause_notes": "Close cleanly and let the final word settle."
+      },
+      "emphasis": [
+        {
+          "phrase": "priorities become visible",
+          "intent": "Land the practical takeaway."
+        }
+      ],
+      "pronunciation": [],
+      "estimated_duration_seconds": 3.2,
+      "music_ducking_notes": "Let the music resolve after the final word without masking it.",
+      "provider_tag_policy": "No provider-specific tags or control codes in line_text.",
+      "qa_checks": [
+        "Closing line matches the clean script.",
+        "No CTA or extra sentence is added."
+      ]
+    }
+  ],
+  "music_ducking_summary": "Keep music consistently below speech, duck a little more during the hook and final lesson, and allow brief air after scene boundaries.",
+  "qa_focus": [
+    "Clean script equals the joined line_text values.",
+    "Performance metadata is separate from spoken text.",
+    "No provider names, voice IDs, model IDs, or inline control tags appear.",
+    "Estimated spoken duration leaves room inside the 40 second target."
+  ]
+}

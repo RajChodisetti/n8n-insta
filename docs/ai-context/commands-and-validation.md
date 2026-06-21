@@ -77,6 +77,62 @@ Most smoke scripts:
 | Metrics | `bash scripts/test_phase4_metrics_collection_smoke.sh` |
 | Instagram token/account | `bash scripts/check_instagram_permissions.sh` |
 | Context manifest | `jq empty docs/ai-context/context-manifest.json` |
+| AI video fixtures | `find fixtures/ai-video -name '*.json' -print0 \| xargs -0 -n1 jq empty` |
+| AI video contract regression suite | `node scripts/validate_ai_video_contract_regressions.mjs` |
+| Prompt rule registry | `jq empty prompts/rules/rule_registry.json` |
+| Style pack registry | `jq empty prompts/style_packs/style_pack_registry.json && jq empty prompts/schemas/style_pack.schema.json` |
+| Story package v2 contract | `jq empty prompts/schemas/story_package.schema.json && find prompts/examples -name '*.json' -print0 \| xargs -0 -n1 jq empty` |
+| Story package v2 prompt build | `node workflows/scripts/build_prompt_request.mjs story_package_generation_v2 "$PAYLOAD_BASE64" > /tmp/story-package-v2-request.json` |
+| Story package v2 compatibility helper | `node --check workflows/scripts/story_package_v2_compat.mjs` |
+| Director contract schema | `jq empty prompts/schemas/director_contract.schema.json` |
+| Director contract fixture | `node scripts/validate_director_contract_fixture.mjs fixtures/ai-video/founder_explainer/expected_director_contract.json` |
+| Director invalid style fixture | `node scripts/validate_director_contract_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_director_contract_bad_style_pack.json` |
+| Storyboard shot-plan schema | `jq empty prompts/schemas/storyboard.schema.json` |
+| Storyboard shot-plan fixture | `node scripts/validate_storyboard_fixture.mjs fixtures/ai-video/founder_explainer/expected_storyboard_and_shot_plan.json` |
+| Visual prompt schema | `jq empty prompts/schemas/visual_prompt.schema.json` |
+| Visual prompt fixture | `node scripts/validate_visual_prompt_fixture.mjs fixtures/ai-video/founder_explainer/expected_visual_prompt_builder.json` |
+| Visual prompt vague fixture | `node scripts/validate_visual_prompt_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_visual_prompt_builder_vague.json` |
+| Visual prompt missing negative prompt fixture | `node scripts/validate_visual_prompt_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_visual_prompt_builder_missing_negative_prompt.json` |
+| Voice performance schema | `jq empty prompts/schemas/voice_performance.schema.json` |
+| Voice performance fixture | `node scripts/validate_voice_performance_fixture.mjs fixtures/ai-video/founder_explainer/expected_voice_performance_script.json` |
+| Voice performance mutated-text fixture | `node scripts/validate_voice_performance_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_voice_performance_script_mutated_text.json` |
+| Music/SFX plan schema | `jq empty prompts/schemas/music_sfx_plan.schema.json` |
+| Music asset schema | `jq empty prompts/schemas/music_asset.schema.json` |
+| SFX asset schema | `jq empty prompts/schemas/sfx_asset.schema.json` |
+| Music/SFX plan fixture | `node scripts/validate_music_sfx_fixture.mjs fixtures/ai-video/founder_explainer/expected_music_sfx_plan.json` |
+| Music/SFX unknown-license fixture | `node scripts/validate_music_sfx_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_music_sfx_plan_unknown_license.json` |
+| Music catalog license metadata | `node scripts/validate_music_library.mjs workflows/assets/music/library.json` |
+| Final QA schema | `jq empty prompts/schemas/qa_result.schema.json` |
+| Final QA approved fixture | `node scripts/validate_final_qa_fixture.mjs --expect-approved fixtures/ai-video/founder_explainer/expected_final_qa_result_pass.json` |
+| Final QA failed license fixture | `node scripts/validate_final_qa_fixture.mjs --expect-blocked fixtures/ai-video/founder_explainer/failed_final_qa_license.json` |
+| Final QA failed avatar consent fixture | `node scripts/validate_final_qa_fixture.mjs --expect-blocked fixtures/ai-video/founder_explainer/failed_final_qa_avatar_consent.json` |
+| Final QA failed caption/export fixture | `node scripts/validate_final_qa_fixture.mjs --expect-blocked fixtures/ai-video/founder_explainer/failed_final_qa_caption_export.json` |
+| Approval schema | `jq empty prompts/schemas/approval.schema.json` |
+| Approval approved Reel fixture | `node scripts/validate_approval_fixture.mjs --expected-platform-account-id 17841400000000000 fixtures/ai-video/founder_explainer/expected_publish_approval_reel.json` |
+| Approval publish-ready Reel fixture | `node scripts/validate_approval_fixture.mjs --expect-publish-ready --expected-platform-account-id 17841400000000000 fixtures/ai-video/founder_explainer/expected_publish_approval_reel.json` |
+| Approval missing selected video fixture | `node scripts/validate_approval_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_publish_approval_missing_selected_video.json` |
+| Approval account mismatch fixture | `node scripts/validate_approval_fixture.mjs --expect-fail --expected-platform-account-id 17841400000000000 fixtures/ai-video/founder_explainer/invalid_publish_approval_account_mismatch.json` |
+| Approval unapproved render fixture | `node scripts/validate_approval_fixture.mjs --expect-fail --expect-publish-ready fixtures/ai-video/founder_explainer/invalid_publish_approval_unapproved_render.json` |
+| Client/account context schema | `jq empty prompts/schemas/client_account_context.schema.json` |
+| Client/account context fixture | `node scripts/validate_client_account_context_fixture.mjs fixtures/ai-video/founder_explainer/expected_client_account_context.json` |
+| Client/account safety override fixture | `node scripts/validate_client_account_context_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_client_account_context_safety_override.json` |
+| Client/account style conflict fixture | `node scripts/validate_client_account_context_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_client_account_context_style_conflict.json` |
+| Model provider route schema | `jq empty prompts/schemas/model_route.schema.json` |
+| Model provider route fixture | `node scripts/validate_model_route_fixture.mjs fixtures/ai-video/founder_explainer/expected_model_provider_route.json` |
+| Model provider runtime-change fixture | `node scripts/validate_model_route_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_model_provider_route_runtime_change.json` |
+| Model provider boundary-mismatch fixture | `node scripts/validate_model_route_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_model_provider_route_boundary_mismatch.json` |
+| Render manifest v2 schema | `jq empty prompts/schemas/render_manifest_v2.schema.json` |
+| Render manifest v2 fixture | `node scripts/validate_render_manifest_v2_fixture.mjs fixtures/ai-video/founder_explainer/expected_render_manifest_v2.json` |
+| Render manifest v2 renderer-replacement fixture | `node scripts/validate_render_manifest_v2_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_render_manifest_v2_renderer_replacement.json` |
+| Render manifest v2 timeline-gap fixture | `node scripts/validate_render_manifest_v2_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_render_manifest_v2_timeline_gap.json` |
+| Remotion edit-plan schema | `jq empty prompts/schemas/remotion_edit_plan.schema.json` |
+| Remotion edit-plan fixture | `node scripts/validate_remotion_edit_plan_fixture.mjs fixtures/ai-video/founder_explainer/expected_remotion_edit_plan.json` |
+| Remotion edit-plan runtime-install fixture | `node scripts/validate_remotion_edit_plan_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_remotion_edit_plan_runtime_install.json` |
+| Remotion edit-plan frame-gap fixture | `node scripts/validate_remotion_edit_plan_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_remotion_edit_plan_frame_gap.json` |
+| Avatar decision schemas | `jq empty prompts/schemas/avatar_decision.schema.json prompts/schemas/presenter_profile.schema.json` |
+| Avatar decision fixture | `node scripts/validate_avatar_decision_fixture.mjs fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision.json` |
+| Avatar decision missing-consent fixture | `node scripts/validate_avatar_decision_fixture.mjs --expect-fail fixtures/ai-video/avatar_sales_outreach/invalid_avatar_decision_missing_consent.json` |
+| Publish gate workflow checks | `node scripts/validate_publish_gate_workflow.mjs` |
 
 ## Lint/typecheck/format
 
@@ -102,7 +158,7 @@ Run live publish or token commands only when the user explicitly requests them.
 
 Do not expose values. Key groups discovered from examples and code:
 
-- AI/model: `OPENAI_API_KEY`, `LLL_API_KEY`, `TEXT_LLM_PROVIDER`, `TEXT_MODEL`, `RESEARCH_MODEL`, `STORYBOARD_MODEL`, `CAPTION_MODEL`, `PROMPT_BUILDER_MODEL`
+- AI/model: `OPENAI_API_KEY`, `LLL_API_KEY`, `TEXT_LLM_PROVIDER`, `STORY_PACKAGE_LLM_PROVIDER`, `STORY_PACKAGE_V2_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_MODEL`, `RESEARCH_MODEL`, `STORY_PACKAGE_MODEL`, `STORY_PACKAGE_V2_MODEL`, `STORY_PACKAGE_GENERATION_STAGE`, `STORY_PACKAGE_STAGE`, `STORYBOARD_MODEL`, `CAPTION_MODEL`, `PROMPT_BUILDER_MODEL`
 - Image/video: `IMAGE_GENERATION_PROVIDER`, `SCENE_IMAGE_PROVIDER`, `POST_IMAGE_PROVIDER`, `FAL_AI_API_KEY`, `WAN_VIDEO_MODEL`, `WAN_REFERENCE_VIDEO_MODEL`
 - TTS: `NARRATION_PROVIDER`, `TTS_PROVIDER`, `OPENAI_TTS_MODEL`, `FISH_AUDIO_API_KEY`, `SMALLEST_AI_API_KEY`
 - Hosting: `ASSET_HOST_PROVIDER`, `REELS_STORAGE_*`, `GOOGLE_CLOUD_STORAGE_*`

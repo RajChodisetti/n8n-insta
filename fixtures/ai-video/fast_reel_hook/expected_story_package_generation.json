@@ -1,0 +1,238 @@
+{
+  "creative_direction_json": {
+    "core_angle": "A hook should be understandable before the viewer commits attention.",
+    "point_of_view": "A practical editor teaching a fast self-check.",
+    "emotional_arc": "Urgent to clear to actionable.",
+    "narration_strategy": "Short sentences with direct commands.",
+    "visual_strategy": "Fast creator desk cuts, phone preview motion, timeline trimming, no readable UI text.",
+    "music_strategy": "Clean percussion with tight edits.",
+    "consistency_rules": [
+      "Do not promise views or growth.",
+      "Keep the screen content abstract and unreadable.",
+      "Use fast movement without clutter."
+    ]
+  },
+  "confidence_label": "general_advice",
+  "hook_option_1": "If your Reel needs six seconds to make sense, the hook is late.",
+  "hook_option_2": "Try this three-second test before posting your next Reel.",
+  "hook_option_3": "Your hook should work before the viewer turns the sound on.",
+  "selected_hook": "Try this three-second test before posting your next Reel.",
+  "narration_script": "Try this three-second test before posting your next Reel. Mute the draft. Watch only the first three seconds. If you cannot tell what the video is about, tighten the opening shot, cut the setup, and start with the result. The goal is not to explain everything. The goal is to make the next second feel obvious.",
+  "short_script": "Mute the draft, watch three seconds, and cut anything that delays the point.",
+  "caption_draft": "Before posting: mute your Reel and watch the first three seconds. If the idea is not clear, the hook is late.",
+  "cta_line": "Use this on your next edit.",
+  "music_direction": "Fast dry percussion with light clicks and no heavy bass.",
+  "onscreen_text_json": [
+    {
+      "scene_number": 1,
+      "text": "Three-second hook test"
+    },
+    {
+      "scene_number": 2,
+      "text": "Mute the draft"
+    },
+    {
+      "scene_number": 3,
+      "text": "Cut the setup"
+    },
+    {
+      "scene_number": 4,
+      "text": "Start with the result"
+    }
+  ],
+  "scene_guidance_json": [
+    {
+      "scene_number": 1,
+      "beat_label": "hook",
+      "start_time_seconds": 0,
+      "end_time_seconds": 4,
+      "duration_seconds": 4,
+      "narration_text": "Try this three-second test before posting your next Reel.",
+      "dialogue_lines": [
+        "Try this three-second test before posting."
+      ],
+      "asset_type": "image",
+      "image_prompt": "Close mobile creator desk scene with a phone face down beside editing notes, no readable text, high-energy lighting.",
+      "music_cue": "tight percussion hit",
+      "tts_instructions": "Fast, clipped, confident.",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 2,
+      "beat_label": "test",
+      "start_time_seconds": 4,
+      "end_time_seconds": 11,
+      "duration_seconds": 7,
+      "narration_text": "Mute the draft. Watch only the first three seconds.",
+      "dialogue_lines": [
+        "Mute the draft. Watch three seconds."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Fast shot of a phone video preview with abstract blurred controls and a visible mute gesture, no readable interface text.",
+      "music_cue": "quick clicks under the words",
+      "tts_instructions": "Precise instruction cadence.",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 3,
+      "beat_label": "diagnosis",
+      "start_time_seconds": 11,
+      "end_time_seconds": 18,
+      "duration_seconds": 7,
+      "narration_text": "If you cannot tell what the video is about, tighten the opening shot and cut the setup.",
+      "dialogue_lines": [
+        "If it is not clear, cut the setup."
+      ],
+      "asset_type": "video",
+      "image_prompt": "Hands trimming an abstract timeline represented by colored blocks, quick cuts, no readable labels.",
+      "music_cue": "percussion accelerates slightly",
+      "tts_instructions": "Urgent but not harsh.",
+      "includes_primary_character": true
+    },
+    {
+      "scene_number": 4,
+      "beat_label": "close",
+      "start_time_seconds": 18,
+      "end_time_seconds": 24,
+      "duration_seconds": 6,
+      "narration_text": "Start with the result. Make the next second feel obvious.",
+      "dialogue_lines": [
+        "Start with the result."
+      ],
+      "asset_type": "video",
+      "image_prompt": "A clean before-and-after edit board with abstract blocks snapping into a tighter first scene, no readable text.",
+      "music_cue": "short resolved hit",
+      "tts_instructions": "Punchy final sentence.",
+      "includes_primary_character": false
+    }
+  ],
+  "storyboard_json": [
+    {
+      "scene_number": 1,
+      "duration_seconds": 4,
+      "narration_text": "Try this three-second test before posting your next Reel.",
+      "dialogue_lines": [
+        "Try this three-second test before posting."
+      ],
+      "visual_prompt": "Close mobile creator desk scene with a phone face down beside editing notes, no readable text, high-energy lighting.",
+      "asset_type": "image",
+      "transition": "smash cut",
+      "mood": "urgent",
+      "music_cue": "tight percussion hit",
+      "tts_instructions": "Fast, clipped, confident.",
+      "is_face_image": true,
+      "face_image_title": "Three Second Hook",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 2,
+      "duration_seconds": 7,
+      "narration_text": "Mute the draft. Watch only the first three seconds.",
+      "dialogue_lines": [
+        "Mute the draft. Watch three seconds."
+      ],
+      "visual_prompt": "Fast shot of a phone video preview with abstract blurred controls and a visible mute gesture, no readable interface text.",
+      "asset_type": "video",
+      "transition": "jump cut",
+      "mood": "practical",
+      "music_cue": "quick clicks under the words",
+      "tts_instructions": "Precise instruction cadence.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": false
+    },
+    {
+      "scene_number": 3,
+      "duration_seconds": 7,
+      "narration_text": "If you cannot tell what the video is about, tighten the opening shot and cut the setup.",
+      "dialogue_lines": [
+        "If it is not clear, cut the setup."
+      ],
+      "visual_prompt": "Hands trimming an abstract timeline represented by colored blocks, quick cuts, no readable labels.",
+      "asset_type": "video",
+      "transition": "whip cut",
+      "mood": "decisive",
+      "music_cue": "percussion accelerates slightly",
+      "tts_instructions": "Urgent but not harsh.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": true
+    },
+    {
+      "scene_number": 4,
+      "duration_seconds": 6,
+      "narration_text": "Start with the result. Make the next second feel obvious.",
+      "dialogue_lines": [
+        "Start with the result."
+      ],
+      "visual_prompt": "A clean before-and-after edit board with abstract blocks snapping into a tighter first scene, no readable text.",
+      "asset_type": "video",
+      "transition": "snap cut",
+      "mood": "clear",
+      "music_cue": "short resolved hit",
+      "tts_instructions": "Punchy final sentence.",
+      "is_face_image": false,
+      "face_image_title": "",
+      "includes_primary_character": false
+    }
+  ],
+  "cover_prompt": "Mobile creator desk with phone and abstract edit blocks, high-energy lighting, no readable text.",
+  "subtitle_lines_json": [
+    {
+      "scene_number": 1,
+      "text": "Try the three-second test."
+    },
+    {
+      "scene_number": 2,
+      "text": "Mute the draft."
+    },
+    {
+      "scene_number": 3,
+      "text": "Cut the setup."
+    },
+    {
+      "scene_number": 4,
+      "text": "Start with the result."
+    }
+  ],
+  "style_notes": "Keep edits fast, bright, and mobile-native without showing readable platform UI.",
+  "visual_style_summary": "Fast creator workflow with abstract phone and timeline visuals.",
+  "render_manifest_seed_json": {
+    "output": {
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "format": "mp4"
+    },
+    "timeline": [
+      {
+        "scene_number": 1,
+        "duration_seconds": 4,
+        "asset_type": "image",
+        "transition": "smash cut"
+      },
+      {
+        "scene_number": 2,
+        "duration_seconds": 7,
+        "asset_type": "video",
+        "transition": "jump cut"
+      },
+      {
+        "scene_number": 3,
+        "duration_seconds": 7,
+        "asset_type": "video",
+        "transition": "whip cut"
+      },
+      {
+        "scene_number": 4,
+        "duration_seconds": 6,
+        "asset_type": "video",
+        "transition": "snap cut"
+      }
+    ],
+    "subtitles": {
+      "enabled": false,
+      "style": "cinematic_center_safe"
+    }
+  }
+}

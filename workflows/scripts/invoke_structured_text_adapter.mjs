@@ -60,6 +60,14 @@ const RESPONSE_KEYS = {
     metadataKey: 'provider_metadata',
     passthroughKeys: ['content_id', 'title', 'status_after_success', 'target_duration_seconds'],
   },
+  story_package_generation_v2: {
+    requestKey: 'openai_request_story_package_generation_v2',
+    responseKey: 'story_package_v2_response',
+    modelKey: 'generation_model',
+    providerKey: 'generation_provider',
+    metadataKey: 'provider_metadata',
+    passthroughKeys: ['content_id', 'title', 'status_after_success', 'target_duration_seconds'],
+  },
   storyboard_and_prompts: {
     requestKey: 'openai_request',
     responseKey: 'storyboard_response',

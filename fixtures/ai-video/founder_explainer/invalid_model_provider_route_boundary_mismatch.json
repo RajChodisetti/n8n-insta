@@ -1,0 +1,80 @@
+{
+  "model_route_version": "1.0",
+  "source_stage": "model_provider_router",
+  "scenario_id": "boundary_mismatch_invalid",
+  "created_at": "2026-06-21T00:00:00.000Z",
+  "package_type": "instagram_reel",
+  "creative_direction_policy": "preserve_upstream_contracts",
+  "router_inputs": {
+    "selected_style_pack": "founder_explainer",
+    "client_account_context_key": "default_instagram_storytelling",
+    "target_duration_seconds": 40,
+    "route_objective": "Invalid fixture that puts a TTS provider in the image boundary.",
+    "constraints": ["Use only existing adapters."]
+  },
+  "provider_boundaries": [
+    {
+      "boundary_id": "image_generation",
+      "purpose": "Scene still generation.",
+      "current_selector": {
+        "env_keys": ["SCENE_IMAGE_PROVIDER"],
+        "default_provider": "openai",
+        "current_behavior_notes": "Image generation supports OpenAI and Fal image routes."
+      },
+      "candidates": [
+        {
+          "candidate_id": "image_fish_audio_wrong_boundary",
+          "provider": "fish_audio",
+          "model": "s2-pro",
+          "adapter_status": "implemented",
+          "fit_score": 0.2,
+          "fit_rationale": "Invalid because Fish Audio is a TTS provider, not an image provider.",
+          "strengths": ["Implemented elsewhere"],
+          "tradeoffs": ["Wrong boundary"],
+          "constraints": [],
+          "required_env_vars": ["FISH_AUDIO_API_KEY"],
+          "cost_assumption": {
+            "tier": "medium",
+            "priced_in_cost_calculator": true,
+            "notes": "Priced as TTS, not image."
+          },
+          "speed_assumption": {
+            "tier": "medium",
+            "notes": "Not applicable to image generation."
+          },
+          "quality_assumption": {
+            "tier": "unknown",
+            "notes": "No image generation quality applies."
+          },
+          "availability_notes": "Wrong provider boundary.",
+          "changes_runtime_behavior": false
+        }
+      ],
+      "selected_candidate_id": "image_fish_audio_wrong_boundary",
+      "fallback_candidate_id": null,
+      "boundary_decision": {
+        "decision_status": "blocked",
+        "rationale": "Invalid because the selected provider is not supported for this boundary."
+      }
+    }
+  ],
+  "selected_route_summary": {
+    "planning_only": true,
+    "changes_runtime_behavior": false,
+    "recommended_env_settings": [],
+    "human_review_required": true,
+    "summary": "Invalid provider boundary mismatch."
+  },
+  "fallback_plan": [
+    {
+      "boundary_id": "image_generation",
+      "fallback_order": ["image_fish_audio_wrong_boundary"],
+      "fail_closed_conditions": ["Provider boundary mismatch"]
+    }
+  ],
+  "implementation_notes": {
+    "do_not_change": ["Do not place TTS providers in image generation routes."],
+    "adapter_changes_required": false,
+    "notes": "Invalid by design."
+  }
+}

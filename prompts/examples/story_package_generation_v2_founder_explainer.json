@@ -1,0 +1,192 @@
+{
+  "story_package_version": "2.0",
+  "research_brief": {
+    "topic": "How a Solo Founder Turned Support Tickets Into a Product Roadmap",
+    "category": "founder_story",
+    "audience_language": "English",
+    "target_duration_seconds": 40,
+    "source_summary": "A synthetic founder story about using repeated customer support pain to guide roadmap priorities.",
+    "confidence_label": "internal_case_study",
+    "source_boundaries": [
+      "The founder, company, customers, and support details are fictional.",
+      "The only supported lesson is that repeated support patterns can inform product priorities."
+    ],
+    "open_questions": [
+      "No real product category, customer segment, or measurable result is provided."
+    ],
+    "do_not_claim": [
+      "Do not claim revenue impact.",
+      "Do not name real customers.",
+      "Do not imply the workflow is proven by external data."
+    ]
+  },
+  "claim_registry": [
+    {
+      "claim_id": "claim_01",
+      "claim": "Repeated support tickets can reveal product roadmap priorities.",
+      "supporting_source": "Fixture source notes describe repeated customer pain as the core lesson.",
+      "confidence": "medium",
+      "allowed_uses": ["narration", "caption", "visual_context"],
+      "risk_level": "none"
+    },
+    {
+      "claim_id": "claim_02",
+      "claim": "Customer details must remain anonymous.",
+      "supporting_source": "Fixture source notes explicitly prohibit real customers and proprietary support details.",
+      "confidence": "high",
+      "allowed_uses": ["risk_note", "visual_context"],
+      "risk_level": "review"
+    }
+  ],
+  "narrative_strategy": {
+    "core_angle": "The roadmap became clearer when the founder stopped treating support as noise and started looking for repeated pain.",
+    "point_of_view": "First-person founder reflection.",
+    "audience_promise": "A practical operating lesson for founders and product teams.",
+    "emotional_arc": "Overwhelmed by tickets, then focused by patterns, then resolved around a clearer priority.",
+    "hook_strategy": "Lead with the counterintuitive idea that the roadmap was already in the inbox.",
+    "ending_strategy": "Close on support as a place where priorities become visible.",
+    "suggested_style_pack_ids": ["founder_explainer", "product_demo_walkthrough"],
+    "rejected_style_pack_ids": ["meme_relatable_pain_point", "premium_brand_film"],
+    "visual_strategy": "Use a consistent founder workspace, anonymized ticket cards, note clustering, and roadmap sketches without readable UI text.",
+    "voice_strategy": "Grounded founder voice, calm and credible, with clean narration and no provider-specific emotion tags.",
+    "music_strategy": "Warm minimal piano or soft pulse that supports reflection without drama."
+  },
+  "clean_script": {
+    "hook_options": [
+      "The roadmap was hiding in the same customer complaint, repeated again and again.",
+      "I stopped guessing what to build when I reread the support inbox.",
+      "One founder habit changed the roadmap: tagging every repeated pain."
+    ],
+    "selected_hook": "The roadmap was hiding in the same customer complaint, repeated again and again.",
+    "narration_script": "The roadmap was hiding in the same customer complaint, repeated again and again. At first, every support ticket felt like a distraction from building. Then patterns started to show up. Different customers were asking for the same fix in different words. Instead of adding another idea to a wish list, the founder grouped the pain, sketched the workflow, and turned the loudest pattern into the next release. Support is not just where problems arrive. It is where priorities become visible.",
+    "scene_dialogue_lines": [
+      {
+        "scene_number": 1,
+        "beat_label": "hook",
+        "start_time_seconds": 0,
+        "end_time_seconds": 4,
+        "duration_seconds": 4,
+        "narration_text": "The roadmap was hiding in the same customer complaint, repeated again and again.",
+        "dialogue_lines": [
+          "The roadmap was hiding in the same customer complaint, repeated again and again."
+        ]
+      },
+      {
+        "scene_number": 2,
+        "beat_label": "problem",
+        "start_time_seconds": 4,
+        "end_time_seconds": 16,
+        "duration_seconds": 12,
+        "narration_text": "At first, every support ticket felt like a distraction from building. Then patterns started to show up.",
+        "dialogue_lines": [
+          "At first, every support ticket felt like a distraction from building.",
+          "Then patterns started to show up."
+        ]
+      },
+      {
+        "scene_number": 3,
+        "beat_label": "turn",
+        "start_time_seconds": 16,
+        "end_time_seconds": 28,
+        "duration_seconds": 12,
+        "narration_text": "Different customers were asking for the same fix in different words.",
+        "dialogue_lines": [
+          "Different customers were asking for the same fix in different words."
+        ]
+      },
+      {
+        "scene_number": 4,
+        "beat_label": "lesson",
+        "start_time_seconds": 28,
+        "end_time_seconds": 40,
+        "duration_seconds": 12,
+        "narration_text": "Support is not just where problems arrive. It is where priorities become visible.",
+        "dialogue_lines": [
+          "Support is not just where problems arrive.",
+          "It is where priorities become visible."
+        ]
+      }
+    ],
+    "short_script": "Repeated customer pain can be a better roadmap than founder guesses.",
+    "estimated_duration_seconds": 40,
+    "word_count": 77
+  },
+  "caption_seed": {
+    "caption_draft": "A simple founder habit: tag repeated support pain before planning the next feature.",
+    "cta_line": "Save this before your next roadmap review.",
+    "caption_angle": "Practical founder lesson about support-driven prioritization.",
+    "hashtag_notes": "Use founder, product, startup, and customer feedback tags later; do not rank here.",
+    "do_not_include": [
+      "Revenue claims",
+      "Customer names",
+      "Hashtags inside the caption draft"
+    ]
+  },
+  "downstream_constraints": {
+    "global_rules": [
+      "Treat the fixture notes as the factual boundary.",
+      "Keep customer and product details anonymous.",
+      "Do not show readable support tickets or product UI."
+    ],
+    "visual_constraints": {
+      "text_policy": "Generated visuals must remain text-free; scene 1 title belongs only in face_image_title metadata later.",
+      "face_image_title_guidance": "A later storyboard can use a 2-5 word title such as Support Became Roadmap.",
+      "character_continuity": "If a founder appears repeatedly, keep a generic non-identifiable founder silhouette or hands-only continuity.",
+      "prohibited_visuals": [
+        "Readable customer tickets",
+        "Real product UI",
+        "Customer names",
+        "Company logos"
+      ]
+    },
+    "voice_constraints": {
+      "clean_script_policy": "No Fish Audio or provider-specific tags in clean_script.",
+      "delivery_notes": "Grounded, reflective, credible founder voice.",
+      "provider_specific_handling": "Adapters may add delivery tags later; this contract does not choose a TTS provider."
+    },
+    "music_sfx_constraints": {
+      "music_brief": "Warm minimal piano or soft pulse under narration.",
+      "sfx_brief": "Sparse desk, paper, and subtle interface textures only.",
+      "license_requirements": "Music and SFX must have known usage rights before publish."
+    },
+    "editing_constraints": {
+      "target_duration_seconds": 40,
+      "scene_count": 4,
+      "timing_notes": "Keep four contiguous scenes with scene 1 at 4 seconds and all later scenes around 12 seconds.",
+      "subtitles_enabled": false
+    },
+    "approval_constraints": {
+      "publish_blockers": [
+        "Readable private customer data in visuals",
+        "Unsupported product outcome claims",
+        "Unknown music license"
+      ],
+      "review_focus": [
+        "Factual humility",
+        "No visible UI text",
+        "No implied real customer data"
+      ]
+    },
+    "provider_constraints": {
+      "provider_selection_policy": "Do not choose text, image, video, TTS, host, or render providers in this contract.",
+      "avatar_policy": "Avatar is not required; use only transparent synthetic or approved presenter routes later.",
+      "render_policy": "Do not generate render instructions beyond timing and subtitle constraints."
+    }
+  },
+  "risk_flags": [
+    {
+      "risk_id": "risk_private_customer_data",
+      "severity": "review",
+      "description": "The concept references support tickets, which could tempt visuals with private customer details.",
+      "mitigation": "Use abstract unreadable cards and generic notes only.",
+      "blocks_publish": false
+    },
+    {
+      "risk_id": "risk_unsupported_metrics",
+      "severity": "watch",
+      "description": "No performance metrics or business results are supplied.",
+      "mitigation": "Avoid all revenue, growth, or conversion claims.",
+      "blocks_publish": false
+    }
+  ]
+}

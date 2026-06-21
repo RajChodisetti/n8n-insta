@@ -1,0 +1,257 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "music_sfx_plan_version",
+    "source_stage",
+    "content_language",
+    "selected_style_pack",
+    "target_duration_seconds",
+    "license_policy",
+    "music_plan",
+    "sfx_plan",
+    "scene_audio_plan",
+    "asset_license_review",
+    "publish_safety",
+    "qa_focus"
+  ],
+  "properties": {
+    "music_sfx_plan_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "source_stage": {
+      "type": "string",
+      "enum": ["music_sfx_plan"]
+    },
+    "content_language": {
+      "type": "string",
+      "minLength": 1
+    },
+    "selected_style_pack": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_duration_seconds": {
+      "type": "number",
+      "minimum": 1
+    },
+    "license_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unknown_license_blocks_publish", "publish_allowed_required", "allowed_license_statuses", "policy_notes"],
+      "properties": {
+        "unknown_license_blocks_publish": {
+          "type": "boolean"
+        },
+        "publish_allowed_required": {
+          "type": "boolean"
+        },
+        "allowed_license_statuses": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["documented", "licensed", "public_domain", "cc0"]
+          }
+        },
+        "policy_notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "music_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selection_mode",
+        "brief",
+        "mood",
+        "instrumentation",
+        "tempo",
+        "intensity",
+        "vocals_policy",
+        "ducking_strategy",
+        "avoid"
+      ],
+      "properties": {
+        "selection_mode": {
+          "type": "string",
+          "enum": ["brief_only", "candidate_review"]
+        },
+        "brief": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mood": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instrumentation": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "tempo": {
+          "type": "string",
+          "enum": ["slow", "medium_slow", "medium", "medium_fast", "fast"]
+        },
+        "intensity": {
+          "type": "string",
+          "enum": ["very_low", "low", "medium_low", "medium", "high"]
+        },
+        "vocals_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ducking_strategy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "avoid": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "sfx_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_policy", "needed", "avoid"],
+      "properties": {
+        "default_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "needed": {
+          "type": "boolean"
+        },
+        "avoid": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "scene_audio_plan": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["scene_number", "music_intent", "sfx_intent", "ducking_notes", "intensity"],
+        "properties": {
+          "scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "music_intent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sfx_intent": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ducking_notes": {
+            "type": "string",
+            "minLength": 1
+          },
+          "intensity": {
+            "type": "string",
+            "enum": ["very_low", "low", "medium_low", "medium", "high"]
+          }
+        }
+      }
+    },
+    "asset_license_review": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asset_id",
+          "asset_type",
+          "selection_status",
+          "license_status",
+          "publish_allowed",
+          "license_scope",
+          "blocks_publish",
+          "notes"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "asset_type": {
+            "type": "string",
+            "enum": ["music", "sfx"]
+          },
+          "selection_status": {
+            "type": "string",
+            "enum": ["candidate", "rejected", "not_selected"]
+          },
+          "license_status": {
+            "type": "string",
+            "enum": ["documented", "licensed", "public_domain", "cc0", "unknown"]
+          },
+          "publish_allowed": {
+            "type": "boolean"
+          },
+          "license_scope": {
+            "type": "string",
+            "minLength": 1
+          },
+          "blocks_publish": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "publish_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blocks_publish", "blocking_reasons", "review_notes"],
+      "properties": {
+        "blocks_publish": {
+          "type": "boolean"
+        },
+        "blocking_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "review_notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "qa_focus": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

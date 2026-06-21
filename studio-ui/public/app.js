@@ -4,6 +4,7 @@ const state = {
   selectedPromptPath: '',
   selectedPromptMeta: null,
   deletingTopicIds: new Set(),
+  approvingTopicIds: new Set(),
   runtimePromptBuilder: {
     enabled: false,
     idea: '',
@@ -517,7 +518,7 @@ async function loadTopics() {
   if (!payload.topics.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="7" class="table-empty-cell">
+        <td colspan="8" class="table-empty-cell">
           <div class="placeholder-empty">No pipeline items yet.</div>
         </td>
       </tr>
@@ -527,9 +528,18 @@ async function loadTopics() {
 
   tbody.innerHTML = payload.topics.map((topic) => {
     const isDeleting = state.deletingTopicIds.has(topic.content_id);
+    const isApproving = state.approvingTopicIds.has(topic.content_id);
     const costUsd = Number(topic.total_cost_usd ?? 0);
     const costDisplay = costUsd > 0 ? `$${costUsd.toFixed(4)}` : '—';
     const failureDetails = buildTopicFailureDetails(topic);
+    const approvalStatus = topic.approval_status
+      ? `${topic.approval_status}${topic.approval_qa_status ? ` / ${topic.approval_qa_status}` : ''}`
+      : '';
+    const canApprove = topic.status === 'render_complete'
+      && topic.render_status === 'success'
+      && topic.output_video_url
+      && topic.publish_status !== 'published'
+      && topic.approval_status !== 'approved';
     return `
     <tr data-topic-row="${escapeHtml(topic.content_id)}">
       <td>
@@ -540,10 +550,23 @@ async function loadTopics() {
       <td>${renderStatusPill(topic.status)}</td>
       <td>${escapeHtml(topic.category || '—')}</td>
       <td>${renderStatusPill(topic.render_status)}</td>
+      <td>
+        ${renderStatusPill(approvalStatus)}
+        ${topic.approved_by ? `<div class="subline">${escapeHtml(topic.approved_by)}</div>` : ''}
+      </td>
       <td>${renderStatusPill(topic.publish_status)}</td>
       <td>${escapeHtml(new Date(topic.updated_at).toLocaleString())}</td>
       <td class="cost-cell">${escapeHtml(costDisplay)}</td>
       <td class="table-actions">
+        ${canApprove ? `
+          <button
+            type="button"
+            class="secondary"
+            data-approve-topic="${escapeHtml(topic.content_id)}"
+            data-approve-title="${escapeHtml(topic.title)}"
+            ${isApproving ? 'disabled' : ''}
+          >${isApproving ? 'Approving...' : 'Approve'}</button>
+        ` : ''}
         <button
           type="button"
           class="secondary"
@@ -560,6 +583,19 @@ async function loadTopics() {
     </tr>
   `;
   }).join('');
+
+  tbody.querySelectorAll('[data-approve-topic]').forEach((button) => {
+    button.addEventListener('click', () => {
+      approveTopic(
+        button.getAttribute('data-approve-topic') || '',
+        button.getAttribute('data-approve-title') || '',
+      ).catch((error) => {
+        state.approvingTopicIds.delete(button.getAttribute('data-approve-topic') || '');
+        setText('topics-status', error.message);
+        loadTopics().catch((loadError) => setText('topics-status', loadError.message));
+      });
+    });
+  });
 
   tbody.querySelectorAll('[data-delete-topic]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -582,6 +618,57 @@ async function loadTopics() {
       });
     });
   });
+}
+
+async function approveTopic(contentId, title) {
+  const normalizedContentId = String(contentId || '').trim();
+  if (!normalizedContentId) {
+    setText('topics-status', 'Missing content_id for approval.');
+    return;
+  }
+  const approvedBy = window.prompt(`Approver for ${title || 'this Reel'}:`, state.configValues.STUDIO_APPROVER_NAME || '');
+  if (approvedBy === null) {
+    return;
+  }
+  const platformAccountId = window.prompt('Instagram account ID for this approval:', state.configValues.INSTAGRAM_IG_USER_ID || '');
+  if (platformAccountId === null) {
+    return;
+  }
+  const trimmedApprover = String(approvedBy || '').trim();
+  const trimmedAccountId = String(platformAccountId || '').trim();
+  if (!trimmedApprover || !trimmedAccountId) {
+    setText('topics-status', 'Approver and Instagram account ID are required.');
+    return;
+  }
+  const confirmed = window.confirm('Approve this selected render for Instagram publish?');
+  if (!confirmed) {
+    return;
+  }
+
+  state.approvingTopicIds.add(normalizedContentId);
+  setText('topics-status', 'Recording approval...');
+  await loadTopics();
+  await api(`/api/topics/${encodeURIComponent(normalizedContentId)}/approval`, {
+    method: 'POST',
+    body: JSON.stringify({
+      approved_by: trimmedApprover,
+      platform_account_id: trimmedAccountId,
+      approval_note: 'Selected render approved from Studio UI.',
+      qa_result: {
+        source_stage: 'manual_review',
+        publish_decision: 'approved',
+        blocks_publish: false,
+        evaluated_at: new Date().toISOString(),
+        summary: {
+          blocks_publish: false,
+          notes: 'Reviewer confirmed final QA pass in Studio UI.',
+        },
+      },
+    }),
+  });
+  state.approvingTopicIds.delete(normalizedContentId);
+  setText('topics-status', 'Selected render approved for publish.');
+  await loadTopics();
 }
 
 function formatCostDetail(cost) {
@@ -820,8 +907,8 @@ async function submitAbstractIdea(useV2 = false) {
   }
 
   const pendingLabel = useV2
-    ? 'Generating payload, injecting, and starting V2 publish...'
-    : 'Generating payload, injecting, and starting publish...';
+    ? 'Generating payload, injecting, and starting V2 workflow...'
+    : 'Generating payload, injecting, and starting workflow...';
   setText('abstract-idea-status', pendingLabel);
   const characterReference = await uploadCharacterReferenceFromForm(form, 'abstract-idea-status', pendingLabel);
   const payload = await api(useV2 ? '/api/ideas/auto-publish-v2' : '/api/ideas/auto-publish', {
@@ -851,8 +938,8 @@ async function submitAbstractIdea(useV2 = false) {
   setText(
     'abstract-idea-status',
     useV2
-      ? `Created ${payload.topic?.title || 'topic'}${payload.generation_model ? ` with ${payload.generation_model}` : ''}, and queued V2 premium story-package publish.`
-      : `Created ${payload.topic?.title || 'topic'}${payload.generation_model ? ` with ${payload.generation_model}` : ''}, built the prompt profile${payload.prompt_profile_generation_model ? ` with ${payload.prompt_profile_generation_model}` : ''}, and queued one-click publish.`,
+      ? `Created ${payload.topic?.title || 'topic'}${payload.generation_model ? ` with ${payload.generation_model}` : ''}, and queued the V2 premium story-package workflow.`
+      : `Created ${payload.topic?.title || 'topic'}${payload.generation_model ? ` with ${payload.generation_model}` : ''}, built the prompt profile${payload.prompt_profile_generation_model ? ` with ${payload.prompt_profile_generation_model}` : ''}, and queued the one-click workflow.`,
   );
   form.reset();
   await loadTopics();
@@ -860,10 +947,10 @@ async function submitAbstractIdea(useV2 = false) {
   if (payload.workflow_job?.job_id) {
     const finalJob = await pollWorkflowJob(payload.workflow_job.job_id);
     if (finalJob?.status === 'completed') {
-      setText('abstract-idea-status', `Published ${payload.topic?.title || 'the new Reel'} successfully.`);
+      setText('abstract-idea-status', `Workflow completed for ${payload.topic?.title || 'the new Reel'}. Approve the selected render before publish.`);
       return;
     }
-    setText('abstract-idea-status', `Created ${payload.topic?.title || 'the new Reel'}, but the auto-publish run failed. Inspect the workflow output below.`);
+    setText('abstract-idea-status', `Created ${payload.topic?.title || 'the new Reel'}, but the workflow run failed. Inspect the workflow output below.`);
   }
 }
 

@@ -1,14 +1,15 @@
 # Repo Map
 
-Last reviewed: 2026-06-21 at git commit `0d0515b`.
+Last reviewed: 2026-06-21 at git commit `d1e1bd0`.
 
 | Path | Purpose | Key files | Commonly read? | Type | Ignore or avoid notes |
 | --- | --- | --- | --- | --- | --- |
 | `AGENTS.md` | Root agent routing and guardrails. | `AGENTS.md` | Yes | docs | Keep concise. Do not put long architecture notes here. |
 | `docs/ai-context/` | Agent context layer. | `README.md`, `task-routing.md`, `context-manifest.json` | Yes | docs | Update when structure or validation changes. |
-| Root numbered docs | Product, architecture, runbooks, backlog, provider strategy. | `README.md`, `02-architecture.md`, `15-delivery-and-testing-workflow.md`, `16-engineering-backlog.md`, `21-prompt-reference-and-model-call-map.md`, `24-adapter-architecture-and-provider-switching.md` | Sometimes | docs | Read only task-relevant runbooks; many are phase-specific. |
+| `docs/` | Organized product, architecture, runbook, delivery, prompt, integration, feature, roadmap, and AI-context docs. | `docs/README.md`, `docs/architecture/`, `docs/runbooks/`, `docs/delivery/`, `docs/prompts/`, `docs/roadmaps/` | Sometimes | docs | Read only task-relevant docs; avoid loading whole doc tree. |
 | `prompts/` | File-backed prompt templates and response schemas used by workflows and Studio UI. | `prompts/README.md`, `*/system.md`, `*/user.md`, `*/response-schema.json`, image/narration prompt files | Yes for prompt/model-output work | prompts/source | Preserve `{{placeholder}}` tokens unless updating the supplying code. |
 | `workflows/` | n8n workflow exports, helper scripts, and media assets. | `workflows/README.md`, `workflows/n8n/*.json`, `workflows/scripts/*.mjs`, `workflows/assets/` | Yes for pipeline work | source/config/assets | Workflow credentials stay in n8n, not JSON. Avoid editing workflow JSON for prompt wording. |
+| `fixtures/` | Sanitized baseline prompt/workflow contract fixtures. | `fixtures/CONTEXT.md`, `fixtures/ai-video/*/input_payload.json`, `fixtures/ai-video/*/expected_story_package_generation.json` | Yes for fixture/testing work | tests/fixtures | Keep synthetic. Do not include secrets, private client data, or provider-generated paid outputs. |
 | `infra/` | Local Docker stack, Postgres schema, render worker, launchd token refresh plist. | `infra/docker-compose.yml`, `infra/postgres/init/*.sql`, `infra/render-worker/app.py`, `infra/render-worker/Dockerfile` | Yes for infra/schema/render work | infra/source/config | Do not edit `infra/state/`, `infra/.env`, or `__pycache__` casually. |
 | `scripts/` | Shell smoke tests, live-candidate prep helpers, token helpers, music upload helper. | `test_phase*.sh`, `prepare_phase*.sh`, `start.sh`, `check_instagram_permissions.sh` | Yes for validation work | tests/ops | Many scripts call containers, APIs, or mutate DB fixtures. Read before running. |
 | `studio-ui/` | Local browser UI for injecting topics, editing prompts/env, launching workflows, viewing recent items/costs. | `server.mjs`, `public/index.html`, `public/app.js`, `public/styles.css` | Yes for UI/control-panel work | source/frontend/backend | Server can edit `.env` and prompt files. Treat endpoints as local ops tooling. |
@@ -32,4 +33,4 @@ Agents should usually ignore:
 - `infra/render-worker/__pycache__/`
 - `.claude/worktrees/`
 
-Note: some runtime artifacts are currently tracked by git, including `sa-key.json`, `logs/token-refresh.log`, and `infra/render-worker/__pycache__/app.cpython-314.pyc`. Treat them as avoid/cleanup candidates, not normal implementation files.
+Runtime artifacts such as `sa-key.json`, `logs/`, `.env.bak.*`, and `infra/render-worker/__pycache__/` should remain local-only and untracked.

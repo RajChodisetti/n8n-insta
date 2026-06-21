@@ -1,0 +1,37 @@
+{
+  "fixture_version": 1,
+  "stage": "story_package_generation",
+  "scenario": "fast_reel_hook",
+  "content_item": {
+    "title": "The Three-Second Test for a Better Reel Hook",
+    "slug": "fixture-fast-reel-hook",
+    "category": "social_strategy",
+    "confidence_label": "general_advice",
+    "target_duration_seconds": 24,
+    "brand_profile": "default",
+    "source_payload_json": {
+      "abstract_idea": "A quick teaching Reel about checking whether a hook is understandable with sound off.",
+      "source_notes": [
+        "Use general creative advice only.",
+        "Avoid platform performance claims or guaranteed growth numbers.",
+        "Keep pace fast and practical."
+      ],
+      "creative_defaults": {
+        "tone": "sharp, practical, direct",
+        "visual_strategy": "phone preview, timeline trimming, creator desk",
+        "music_mood": "fast clean percussion"
+      }
+    }
+  },
+  "prompt_template_data": {
+    "topic": "The Three-Second Test for a Better Reel Hook",
+    "category": "social_strategy",
+    "target_duration_seconds": "24",
+    "brand_tone": "sharp, practical, direct",
+    "narrator_style": "fast editor voiceover",
+    "ending_signature_family": "actionable close",
+    "visual_style_rules": "mobile-first creator workflow, no readable interface text",
+    "character_reference_context": "No character reference."
+  },
+  "expected_status_after_success": "storyboard_complete"
+}

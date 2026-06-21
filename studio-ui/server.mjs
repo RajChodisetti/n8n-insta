@@ -47,6 +47,57 @@ const TOPIC_CONFIDENCE_LABELS = Object.freeze(['unverified', 'legend', 'disputed
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CHARACTER_REFERENCE_MAX_BYTES = 20 * 1024 * 1024;
 const CHARACTER_REFERENCE_ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const PUBLISH_APPROVAL_SCHEMA_SQL = `
+create table if not exists publish_approvals (
+  approval_id uuid primary key default gen_random_uuid(),
+  content_id uuid not null references content_items(content_id) on delete cascade,
+  platform text not null default 'instagram',
+  platform_account_id text not null,
+  platform_account_username text,
+  package_type text not null default 'instagram_reel',
+  selected_video_id uuid references renders(render_id) on delete set null,
+  selected_asset_id uuid references assets(asset_id) on delete set null,
+  qa_status text not null default 'unknown',
+  qa_result_json jsonb not null default '{}'::jsonb,
+  approval_status text not null default 'pending',
+  approved_by text,
+  approved_at timestamptz,
+  approval_note text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (content_id, platform, package_type)
+);
+create index if not exists idx_publish_approvals_content_id on publish_approvals (content_id);
+create index if not exists idx_publish_approvals_status on publish_approvals (platform, package_type, approval_status);
+`;
+const CLIENT_ACCOUNT_CONTEXT_SCHEMA_SQL = `
+create table if not exists client_account_contexts (
+  account_context_id uuid primary key default gen_random_uuid(),
+  account_context_key text not null unique,
+  client_name text not null default 'Default Client',
+  brand_profile text not null default 'default',
+  platform text not null default 'instagram',
+  platform_account_id text,
+  platform_account_username text,
+  context_json jsonb not null default '{}'::jsonb,
+  context_status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists idx_client_account_contexts_platform
+  on client_account_contexts (platform, platform_account_id);
+create table if not exists content_account_contexts (
+  content_id uuid primary key references content_items(content_id) on delete cascade,
+  account_context_id uuid references client_account_contexts(account_context_id) on delete set null,
+  account_context_key text not null,
+  context_snapshot_json jsonb not null default '{}'::jsonb,
+  snapshot_version text not null default '1.0',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists idx_content_account_contexts_key
+  on content_account_contexts (account_context_key);
+`;
 
 const PROMPT_STEP_GROUPS = Object.freeze([
   {
@@ -521,6 +572,9 @@ const CONFIG_SECTIONS = [
       field('GOOGLE_CLOUD_STORAGE_PUBLIC_BASE_URL', 'GCS Public Base URL', 'Public base URL used to build the final object URL served to Meta.', ['https://storage.googleapis.com', 'https://storage.googleapis.com']),
       field('REELS_STORAGE_PUBLIC_BASE_URL', 'Object Storage Public Base URL', 'Public base URL used only for the generic object-storage adapter.', ['https://cdn.example.com', 'https://bucket.example.net']),
       field('INSTAGRAM_PUBLISH_ENABLED', 'Instagram Publish Enabled', 'Safety switch for live publishing.', ['true', 'false']),
+      field('INSTAGRAM_IG_USER_ID', 'Instagram Account ID', 'Instagram professional account ID that approval records must match before Reel publish.', ['17841400000000000']),
+      field('INSTAGRAM_USERNAME', 'Instagram Username', 'Optional display username stored with publish approvals.', ['story_account']),
+      field('STUDIO_APPROVER_NAME', 'Default Approver Name', 'Default reviewer name used when approving selected renders from Studio UI.', ['reviewer@example.com', 'local reviewer']),
       field('INSTAGRAM_INSIGHTS_COLLECTION_MODE', 'Metrics Collection Mode', 'Stub or live metrics collection mode.', ['stub', 'live']),
       field('PG_CREDENTIAL_NAME', 'n8n Postgres Credential Name', 'Credential name used when activating or executing workflows from the studio UI.', ['Postgres account', 'Local Postgres']),
     ],
@@ -1060,6 +1114,7 @@ async function createTopicFromAbstractIdea(abstractIdea, options = {}) {
     ...generated.generated_payload,
     abstract_idea: generated.abstract_idea,
     character_reference: extractCharacterReferenceFromPayload(options),
+    client_account_context: options.client_account_context ?? options.source_payload_json?.client_account_context,
   });
   return {
     ...generated,
@@ -1077,6 +1132,7 @@ async function createTopicFromAbstractIdeaV2(abstractIdea, options = {}) {
     ...generated.generated_payload,
     abstract_idea: generated.abstract_idea,
     character_reference: extractCharacterReferenceFromPayload(options),
+    client_account_context: options.client_account_context ?? options.source_payload_json?.client_account_context,
   });
   return {
     ...generated,
@@ -1221,6 +1277,224 @@ function parseJsonObject(value) {
 
 function normalizeHostedString(value) {
   return String(value ?? '').trim();
+}
+
+async function ensurePublishApprovalSchema(clientOrPool = pool) {
+  await clientOrPool.query(PUBLISH_APPROVAL_SCHEMA_SQL);
+}
+
+async function ensureClientAccountContextSchema(clientOrPool = pool) {
+  await clientOrPool.query(CLIENT_ACCOUNT_CONTEXT_SCHEMA_SQL);
+}
+
+function firstNonEmptyString(...values) {
+  for (const value of values) {
+    const normalized = normalizeHostedString(value);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return '';
+}
+
+function normalizePolicyStringArray(value, fallback = []) {
+  const entries = Array.isArray(value) ? value : parseTextareaLines(value);
+  const normalized = entries.map((entry) => normalizeHostedString(entry)).filter(Boolean);
+  return normalized.length ? normalized : fallback;
+}
+
+function nullableString(value) {
+  const normalized = normalizeHostedString(value);
+  return normalized || null;
+}
+
+function normalizeClientAccountContext(value = {}, envValues = {}) {
+  const raw = parseJsonObject(value);
+  const rawClient = parseJsonObject(raw.client);
+  const rawPlatformAccount = parseJsonObject(raw.platform_account);
+  const rawBrand = parseJsonObject(raw.brand_policy);
+  const rawStyle = parseJsonObject(raw.style_policy);
+  const rawVoice = parseJsonObject(raw.voice_policy);
+  const rawMusic = parseJsonObject(raw.music_policy);
+  const rawAvatar = parseJsonObject(raw.avatar_policy);
+  const rawPublishing = parseJsonObject(raw.publishing_policy);
+  const rawSafety = parseJsonObject(raw.safety_policy);
+
+  const accountContextKey = firstNonEmptyString(
+    raw.account_context_key,
+    envValues.STUDIO_ACCOUNT_CONTEXT_KEY,
+    envValues.CLIENT_ACCOUNT_CONTEXT_KEY,
+    'default_instagram_account',
+  );
+  const platformAccountId = nullableString(
+    rawPlatformAccount.platform_account_id
+      ?? rawPublishing.platform_account_id
+      ?? envValues.INSTAGRAM_IG_USER_ID
+      ?? envValues.INSTAGRAM_TARGET_IG_USER_ID,
+  );
+  const platformAccountUsername = nullableString(
+    rawPlatformAccount.platform_account_username
+      ?? rawPublishing.platform_account_username
+      ?? envValues.INSTAGRAM_USERNAME,
+  );
+  const brandProfile = firstNonEmptyString(rawBrand.brand_profile, raw.brand_profile, envValues.STUDIO_BRAND_PROFILE, 'default');
+  const brandTone = firstNonEmptyString(rawBrand.brand_tone, envValues.STUDIO_BRAND_TONE, 'cinematic, concise, credible');
+  const preferredStylePackId = firstNonEmptyString(rawStyle.preferred_style_pack_id, envValues.DEFAULT_STYLE_PACK_ID, 'founder_explainer');
+  const allowedStylePackIds = normalizePolicyStringArray(rawStyle.allowed_style_pack_ids, [preferredStylePackId]);
+  if (!allowedStylePackIds.includes(preferredStylePackId)) {
+    allowedStylePackIds.unshift(preferredStylePackId);
+  }
+  const allowedMusicLicenseStatuses = normalizePolicyStringArray(rawMusic.allowed_music_license_statuses, ['documented', 'licensed', 'public_domain', 'cc0'])
+    .filter((status) => ['documented', 'licensed', 'public_domain', 'cc0'].includes(status));
+  const publishingPackageTypes = normalizePolicyStringArray(rawPublishing.package_types, ['instagram_reel'])
+    .filter((packageType) => ['instagram_reel', 'instagram_image_post'].includes(packageType));
+
+  return {
+    client_account_context_version: '1.0',
+    source_stage: 'client_account_context',
+    account_context_key: accountContextKey,
+    client: {
+      client_id: firstNonEmptyString(rawClient.client_id, envValues.STUDIO_CLIENT_ID, 'default-client'),
+      display_name: firstNonEmptyString(rawClient.display_name, envValues.STUDIO_CLIENT_NAME, 'Default Client'),
+      industry: nullableString(rawClient.industry),
+      notes: nullableString(rawClient.notes),
+    },
+    platform_account: {
+      platform: 'instagram',
+      platform_account_id: platformAccountId,
+      platform_account_username: platformAccountUsername,
+      region: nullableString(rawPlatformAccount.region ?? envValues.STUDIO_ACCOUNT_REGION),
+    },
+    brand_policy: {
+      brand_profile: brandProfile,
+      brand_tone: brandTone,
+      audience: firstNonEmptyString(rawBrand.audience, envValues.STUDIO_BRAND_AUDIENCE, 'general Instagram audience'),
+      value_props: normalizePolicyStringArray(rawBrand.value_props),
+      forbidden_claims: normalizePolicyStringArray(rawBrand.forbidden_claims),
+      required_disclosures: normalizePolicyStringArray(rawBrand.required_disclosures),
+    },
+    style_policy: {
+      preferred_style_pack_id: preferredStylePackId,
+      allowed_style_pack_ids: allowedStylePackIds,
+      disallowed_style_pack_ids: normalizePolicyStringArray(rawStyle.disallowed_style_pack_ids),
+      visual_style_notes: firstNonEmptyString(rawStyle.visual_style_notes, envValues.STORYBOARD_VISUAL_STYLE_RULES, 'documentary-realistic, cinematic, strong focal point, no visible text'),
+      color_or_brand_asset_notes: nullableString(rawStyle.color_or_brand_asset_notes),
+      text_policy: firstNonEmptyString(rawStyle.text_policy, 'Generated image/video assets should stay text-free; renderer-owned overlays may contain approved short titles.'),
+    },
+    voice_policy: {
+      narrator_style: firstNonEmptyString(rawVoice.narrator_style, envValues.RESEARCH_NARRATOR_STYLE, envValues.NARRATION_STYLE, 'calm, human, emotionally grounded, clear'),
+      allowed_voice_roles: normalizePolicyStringArray(rawVoice.allowed_voice_roles),
+      pronunciation_notes: normalizePolicyStringArray(rawVoice.pronunciation_notes),
+      language_policy: firstNonEmptyString(rawVoice.language_policy, 'Use natural spoken English.'),
+    },
+    music_policy: {
+      music_mood: firstNonEmptyString(rawMusic.music_mood, 'subtle instrumental bed, no vocals'),
+      allowed_music_license_statuses: allowedMusicLicenseStatuses.length
+        ? allowedMusicLicenseStatuses
+        : ['documented', 'licensed', 'public_domain', 'cc0'],
+      publish_allowed_required: rawMusic.publish_allowed_required !== false,
+      vocals_policy: firstNonEmptyString(rawMusic.vocals_policy, 'No vocals under narration.'),
+      disallowed_music: normalizePolicyStringArray(rawMusic.disallowed_music),
+    },
+    avatar_policy: {
+      avatar_allowed: rawAvatar.avatar_allowed === true,
+      requires_consent: rawAvatar.requires_consent !== false,
+      default_avatar_mode: ['none', 'synthetic', 'real_person_with_consent'].includes(rawAvatar.default_avatar_mode)
+        ? rawAvatar.default_avatar_mode
+        : 'none',
+      consent_record_uri: nullableString(rawAvatar.consent_record_uri),
+      disallowed_uses: normalizePolicyStringArray(rawAvatar.disallowed_uses, ['real-person likeness without consent metadata']),
+    },
+    publishing_policy: {
+      platform: 'instagram',
+      package_types: publishingPackageTypes.length ? publishingPackageTypes : ['instagram_reel'],
+      platform_account_id: platformAccountId,
+      platform_account_username: platformAccountUsername,
+      approval_required: rawPublishing.approval_required !== false,
+      default_caption_tone: firstNonEmptyString(rawPublishing.default_caption_tone, brandTone),
+      hashtag_policy: firstNonEmptyString(rawPublishing.hashtag_policy, 'Use relevant, non-spammy hashtags.'),
+      restricted_topics: normalizePolicyStringArray(rawPublishing.restricted_topics),
+    },
+    safety_policy: {
+      global_rules_override_allowed: false,
+      legal_review_required_topics: normalizePolicyStringArray(rawSafety.legal_review_required_topics),
+      notes: firstNonEmptyString(rawSafety.notes, 'Client preferences never override global safety, license, consent, or platform rules.'),
+    },
+    context_notes: nullableString(raw.context_notes),
+  };
+}
+
+function buildClientAccountContextRef(context = {}) {
+  return {
+    account_context_key: normalizeHostedString(context.account_context_key),
+    snapshot_version: normalizeHostedString(context.client_account_context_version || '1.0') || '1.0',
+    platform: normalizeHostedString(context.platform_account?.platform || 'instagram') || 'instagram',
+    platform_account_id: nullableString(context.platform_account?.platform_account_id ?? context.publishing_policy?.platform_account_id),
+    platform_account_username: nullableString(context.platform_account?.platform_account_username ?? context.publishing_policy?.platform_account_username),
+  };
+}
+
+async function upsertClientAccountContextSnapshot(client, contentId, context) {
+  const normalizedContext = normalizeClientAccountContext(context);
+  const contextRef = buildClientAccountContextRef(normalizedContext);
+  const accountContextResult = await client.query(
+    `insert into client_account_contexts (
+      account_context_key,
+      client_name,
+      brand_profile,
+      platform,
+      platform_account_id,
+      platform_account_username,
+      context_json,
+      context_status,
+      updated_at
+    )
+    values ($1,$2,$3,$4,$5,$6,$7::jsonb,'active',now())
+    on conflict (account_context_key) do update set
+      client_name = excluded.client_name,
+      brand_profile = excluded.brand_profile,
+      platform = excluded.platform,
+      platform_account_id = excluded.platform_account_id,
+      platform_account_username = excluded.platform_account_username,
+      context_json = excluded.context_json,
+      context_status = excluded.context_status,
+      updated_at = now()
+    returning account_context_id`,
+    [
+      contextRef.account_context_key,
+      normalizedContext.client.display_name,
+      normalizedContext.brand_policy.brand_profile,
+      contextRef.platform,
+      contextRef.platform_account_id,
+      contextRef.platform_account_username,
+      JSON.stringify(normalizedContext),
+    ],
+  );
+  await client.query(
+    `insert into content_account_contexts (
+      content_id,
+      account_context_id,
+      account_context_key,
+      context_snapshot_json,
+      snapshot_version,
+      updated_at
+    )
+    values ($1,$2,$3,$4::jsonb,$5,now())
+    on conflict (content_id) do update set
+      account_context_id = excluded.account_context_id,
+      account_context_key = excluded.account_context_key,
+      context_snapshot_json = excluded.context_snapshot_json,
+      snapshot_version = excluded.snapshot_version,
+      updated_at = now()`,
+    [
+      contentId,
+      accountContextResult.rows[0]?.account_context_id ?? null,
+      contextRef.account_context_key,
+      JSON.stringify(normalizedContext),
+      contextRef.snapshot_version,
+    ],
+  );
+  return { context: normalizedContext, ref: contextRef };
 }
 
 function componentForAssetRole(assetRole) {
@@ -1482,20 +1756,33 @@ async function updateEnvConfig(updates) {
 }
 
 async function listTopics(limit = 25) {
+  await ensurePublishApprovalSchema();
+  await ensureClientAccountContextSchema();
   const result = await pool.query(
     `select
       ci.content_id,
       ci.slug,
       ci.title,
       coalesce(ci.category, '') as category,
+      coalesce(ci.brand_profile, '') as brand_profile,
       ci.status,
       coalesce(ci.confidence_label, '') as confidence_label,
       ci.target_duration_seconds,
       ci.created_at,
       ci.updated_at,
+      coalesce(cac.account_context_key, '') as account_context_key,
+      coalesce(cac.context_snapshot_json->'brand_policy'->>'brand_tone', '') as account_brand_tone,
+      coalesce(cac.context_snapshot_json->'style_policy'->>'preferred_style_pack_id', '') as account_style_pack_id,
+      coalesce(cac.context_snapshot_json->'publishing_policy'->>'platform_account_id', '') as account_platform_account_id,
       coalesce(p.publish_status, '') as publish_status,
       coalesce(r.render_status, '') as render_status,
+      r.render_id as selected_video_id,
       coalesce(r.output_video_url, '') as output_video_url,
+      coalesce(pa.approval_status, '') as approval_status,
+      coalesce(pa.qa_status, '') as approval_qa_status,
+      coalesce(pa.approved_by, '') as approved_by,
+      pa.approved_at,
+      coalesce(pa.platform_account_id, '') as approval_platform_account_id,
       coalesce(failed_run.workflow_name, '') as latest_failed_workflow_name,
       coalesce(failed_run.error_message, '') as latest_failed_error_message,
       failed_run.ended_at as latest_failed_at,
@@ -1506,8 +1793,12 @@ async function listTopics(limit = 25) {
           and wr.details_json->'cost' is not null
       ) as total_cost_usd
     from content_items ci
+    left join content_account_contexts cac on cac.content_id = ci.content_id
     left join publishes p on p.content_id = ci.content_id
     left join renders r on r.content_id = ci.content_id
+    left join publish_approvals pa on pa.content_id = ci.content_id
+      and pa.platform = 'instagram'
+      and pa.package_type = 'instagram_reel'
     left join lateral (
       select
         wr.workflow_name,
@@ -1530,6 +1821,203 @@ async function listTopics(limit = 25) {
     row.total_cost_usd = derived.total_usd;
   }));
   return rows;
+}
+
+async function approveTopicForPublish(contentId, body = {}) {
+  const normalizedContentId = normalizeHostedString(contentId);
+  if (!UUID_PATTERN.test(normalizedContentId)) {
+    fail(400, 'content_id must be a valid UUID.');
+  }
+
+  const approvedBy = normalizeHostedString(body.approved_by || process.env.STUDIO_APPROVER_NAME);
+  if (!approvedBy) {
+    fail(400, 'approved_by is required.');
+  }
+
+  const platformAccountId = normalizeHostedString(
+    body.platform_account_id
+    || process.env.INSTAGRAM_IG_USER_ID
+    || process.env.INSTAGRAM_TARGET_IG_USER_ID,
+  );
+  if (!platformAccountId) {
+    fail(400, 'platform_account_id is required. Set INSTAGRAM_IG_USER_ID or pass platform_account_id when approving.');
+  }
+
+  const platformAccountUsername = normalizeHostedString(body.platform_account_username || process.env.INSTAGRAM_USERNAME);
+  const approvalNote = normalizeHostedString(body.approval_note || 'Selected render approved from Studio UI.');
+  const qaResult = parseJsonObject(body.qa_result);
+  const qaDecision = normalizeHostedString(qaResult.publish_decision || 'approved');
+  const qaBlocksPublish = qaResult.summary?.blocks_publish === true
+    || qaResult.publish_requirements?.blocks_publish === true
+    || qaResult.blocks_publish === true;
+  if (qaDecision !== 'approved' || qaBlocksPublish) {
+    fail(400, 'Final QA must be approved and non-blocking before publish approval can be recorded.');
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await ensurePublishApprovalSchema(client);
+    await ensureClientAccountContextSchema(client);
+
+    const candidateResult = await client.query(
+      `select
+        ci.content_id,
+        ci.title,
+        ci.status as content_status,
+        r.render_id,
+        r.render_status,
+        coalesce(r.output_video_url, '') as output_video_url,
+        coalesce(p.caption_final, '') as caption_final,
+        coalesce(p.publish_status, '') as publish_status,
+        p.published_at,
+        coalesce(cac.context_snapshot_json, '{}'::jsonb) as client_account_context
+      from content_items ci
+      join renders r on r.content_id = ci.content_id
+      join publishes p on p.content_id = ci.content_id and p.platform = 'instagram'
+      left join content_account_contexts cac on cac.content_id = ci.content_id
+      where ci.content_id = $1
+      for update of ci`,
+      [normalizedContentId],
+    );
+    const candidate = candidateResult.rows[0];
+    if (!candidate) {
+      fail(404, `No rendered Instagram Reel package was found for content_id '${normalizedContentId}'.`);
+    }
+    if (normalizeHostedString(candidate.content_status) !== 'render_complete') {
+      fail(409, `Content status must be render_complete before approval. Current status: ${candidate.content_status || '<empty>'}.`);
+    }
+    if (normalizeHostedString(candidate.render_status) !== 'success') {
+      fail(409, `Render status must be success before approval. Current render_status: ${candidate.render_status || '<empty>'}.`);
+    }
+    if (!UUID_PATTERN.test(normalizeHostedString(candidate.render_id))) {
+      fail(409, 'Selected render_id is missing or invalid.');
+    }
+    if (!normalizeHostedString(candidate.output_video_url)) {
+      fail(409, 'Rendered output_video_url is required before approval.');
+    }
+    if (!normalizeHostedString(candidate.caption_final)) {
+      fail(409, 'caption_final is required before approval. Run caption generation first.');
+    }
+    if (normalizeHostedString(candidate.publish_status) === 'published' || candidate.published_at) {
+      fail(409, 'This content item has already been published.');
+    }
+    const clientAccountContext = parseJsonObject(candidate.client_account_context);
+    const expectedPlatformAccountId = normalizeHostedString(
+      clientAccountContext.publishing_policy?.platform_account_id
+      || clientAccountContext.platform_account?.platform_account_id,
+    );
+    if (expectedPlatformAccountId && expectedPlatformAccountId !== platformAccountId) {
+      fail(409, `Approval platform_account_id must match the content account context (${expectedPlatformAccountId}).`);
+    }
+
+    const qaResultJson = {
+      source: normalizeHostedString(qaResult.source_stage || 'manual_review') || 'manual_review',
+      publish_decision: 'approved',
+      blocks_publish: false,
+      checked_at: normalizeHostedString(qaResult.evaluated_at || qaResult.checked_at) || new Date().toISOString(),
+      summary: normalizeHostedString(qaResult.summary?.notes || body.qa_summary || 'Reviewer confirmed final QA pass.'),
+    };
+
+    const approvalResult = await client.query(
+      `insert into publish_approvals (
+        content_id,
+        platform,
+        platform_account_id,
+        platform_account_username,
+        package_type,
+        selected_video_id,
+        selected_asset_id,
+        qa_status,
+        qa_result_json,
+        approval_status,
+        approved_by,
+        approved_at,
+        approval_note,
+        updated_at
+      )
+      values (
+        $1,
+        'instagram',
+        $2,
+        nullif($3, ''),
+        'instagram_reel',
+        $4,
+        null,
+        'passed',
+        $5::jsonb,
+        'approved',
+        $6,
+        now(),
+        nullif($7, ''),
+        now()
+      )
+      on conflict (content_id, platform, package_type) do update set
+        platform_account_id = excluded.platform_account_id,
+        platform_account_username = excluded.platform_account_username,
+        selected_video_id = excluded.selected_video_id,
+        selected_asset_id = excluded.selected_asset_id,
+        qa_status = excluded.qa_status,
+        qa_result_json = excluded.qa_result_json,
+        approval_status = excluded.approval_status,
+        approved_by = excluded.approved_by,
+        approved_at = excluded.approved_at,
+        approval_note = excluded.approval_note,
+        updated_at = now()
+      returning approval_id, content_id, platform, platform_account_id, platform_account_username, package_type,
+        selected_video_id, qa_status, approval_status, approved_by, approved_at, approval_note`,
+      [
+        normalizedContentId,
+        platformAccountId,
+        platformAccountUsername,
+        candidate.render_id,
+        JSON.stringify(qaResultJson),
+        approvedBy,
+        approvalNote,
+      ],
+    );
+
+    await client.query(
+      `insert into workflow_runs (
+        content_id,
+        workflow_name,
+        run_status,
+        ended_at,
+        details_json
+      )
+      values (
+        $1,
+        'studio_publish_approval',
+        'success',
+        now(),
+        $2::jsonb
+      )`,
+      [
+        normalizedContentId,
+        JSON.stringify({
+          approval: approvalResult.rows[0],
+          selected_video_id: candidate.render_id,
+          account_context_key: normalizeHostedString(clientAccountContext.account_context_key),
+          approval_note: approvalNote,
+        }),
+      ],
+    );
+
+    await client.query('commit');
+    return {
+      approval: approvalResult.rows[0],
+      selected_video: {
+        render_id: candidate.render_id,
+        output_video_url: candidate.output_video_url,
+        render_status: candidate.render_status,
+      },
+    };
+  } catch (error) {
+    await client.query('rollback').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function getStoredWorkflowRunCosts(contentId) {
@@ -1746,12 +2234,21 @@ async function createTopic(payload) {
       `target_duration_seconds must be between ${topicDurationConfig.min} and ${topicDurationConfig.max} seconds.`,
     );
   }
+  const clientAccountContext = normalizeClientAccountContext(
+    payload.client_account_context
+      ?? payload.source_payload_json?.client_account_context
+      ?? {},
+    parsedEnv.values,
+  );
+  const clientAccountContextRef = buildClientAccountContextRef(clientAccountContext);
 
   const sourcePayloadJson = {
     source_urls: Array.isArray(payload.source_urls) ? payload.source_urls.filter(Boolean) : parseTextareaLines(payload.source_urls),
     summary: String(payload.summary || '').trim(),
     notes: Array.isArray(payload.notes) ? payload.notes.filter(Boolean) : parseTextareaLines(payload.notes),
     context: String(payload.context || '').trim(),
+    client_account_context: clientAccountContext,
+    client_account_context_ref: clientAccountContextRef,
   };
   const creativeDefaults = normalizeCreativeDefaults(payload.creative_defaults ?? payload.source_payload_json?.creative_defaults);
   if (Object.keys(creativeDefaults).length > 0) {
@@ -1784,37 +2281,57 @@ async function createTopic(payload) {
   }
 
   const slug = buildIdeaSlug(title);
-  const result = await pool.query(
-    `insert into content_items (
-      title,
-      slug,
-      category,
-      confidence_label,
-      target_duration_seconds,
-      source_payload_json,
-      status,
-      updated_at
-    ) values (
-      $1,
-      $2,
-      $3,
-      $4,
-      $5,
-      $6::jsonb,
-      'idea_approved',
-      now()
-    )
-    returning content_id, title, slug, category, confidence_label, target_duration_seconds, status, created_at, updated_at`,
-    [
-      title,
-      slug,
-      category,
-      confidenceLabel,
-      targetDurationSeconds,
-      JSON.stringify(sourcePayloadJson),
-    ],
-  );
-  return result.rows[0];
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await ensureClientAccountContextSchema(client);
+    const result = await client.query(
+      `insert into content_items (
+        title,
+        slug,
+        category,
+        confidence_label,
+        target_duration_seconds,
+        brand_profile,
+        source_payload_json,
+        status,
+        updated_at
+      ) values (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7::jsonb,
+        'idea_approved',
+        now()
+      )
+      returning content_id, title, slug, category, confidence_label, target_duration_seconds, brand_profile, status, created_at, updated_at`,
+      [
+        title,
+        slug,
+        category,
+        confidenceLabel,
+        targetDurationSeconds,
+        clientAccountContext.brand_policy.brand_profile,
+        JSON.stringify(sourcePayloadJson),
+      ],
+    );
+    await upsertClientAccountContextSnapshot(client, result.rows[0].content_id, clientAccountContext);
+    await client.query('commit');
+    return {
+      ...result.rows[0],
+      account_context_key: clientAccountContextRef.account_context_key,
+      client_account_context: clientAccountContext,
+      client_account_context_ref: clientAccountContextRef,
+    };
+  } catch (error) {
+    await client.query('rollback').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function deleteTopic(contentId) {
@@ -2117,6 +2634,13 @@ async function handleApi(request, response, url) {
 
   if (request.method === 'GET' && url.pathname === '/api/topics') {
     sendJson(response, 200, { topics: await listTopics(url.searchParams.get('limit')) });
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname.startsWith('/api/topics/') && url.pathname.endsWith('/approval')) {
+    const contentId = decodeURIComponent(url.pathname.slice('/api/topics/'.length).replace(/\/approval$/, '').trim());
+    const body = await parseJsonBody(request);
+    sendJson(response, 200, await approveTopicForPublish(contentId, body));
     return;
   }
 

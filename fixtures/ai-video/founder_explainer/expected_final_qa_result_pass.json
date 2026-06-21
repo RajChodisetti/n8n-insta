@@ -1,0 +1,120 @@
+{
+  "qa_result_version": "1.0",
+  "source_stage": "final_qa_validator",
+  "scenario_id": "founder_explainer",
+  "package_type": "instagram_reel",
+  "evaluated_at": "2026-06-21T00:00:00.000Z",
+  "selected_style_pack": "founder_explainer",
+  "publish_decision": "approved",
+  "summary": {
+    "blocks_publish": false,
+    "approved_for_publish": true,
+    "overall_risk": "low",
+    "human_review_required": false,
+    "notes": "All required package artifacts are present, publish-safe, and internally consistent."
+  },
+  "input_artifacts": [
+    {
+      "artifact": "story_package",
+      "status": "pass",
+      "blocks_publish": false,
+      "evidence": "Script package has hook, clean narration, scene guidance, and no unresolved factual risk.",
+      "upstream_fix_stage": "none"
+    },
+    {
+      "artifact": "director_contract",
+      "status": "pass",
+      "blocks_publish": false,
+      "evidence": "Director contract selects founder_explainer and avoids avatar or presenter routes.",
+      "upstream_fix_stage": "none"
+    },
+    {
+      "artifact": "music_sfx_plan",
+      "status": "pass",
+      "blocks_publish": false,
+      "evidence": "Referenced music candidate has documented license metadata and publish_allowed true.",
+      "upstream_fix_stage": "none"
+    },
+    {
+      "artifact": "render_output",
+      "status": "pass",
+      "blocks_publish": false,
+      "evidence": "Render output is a public HTTPS MP4 URL with successful render status.",
+      "upstream_fix_stage": "none"
+    },
+    {
+      "artifact": "caption_package",
+      "status": "pass",
+      "blocks_publish": false,
+      "evidence": "Caption final is present, in English, and aligned with the narrated lesson.",
+      "upstream_fix_stage": "none"
+    },
+    {
+      "artifact": "avatar_consent_context",
+      "status": "not_applicable",
+      "blocks_publish": false,
+      "evidence": "No avatar, presenter clone, likeness route, or voice clone is requested.",
+      "upstream_fix_stage": "none"
+    }
+  ],
+  "checklist": [
+    {
+      "check_id": "qa-package-integrity",
+      "category": "package_integrity",
+      "status": "pass",
+      "blocks_publish": false,
+      "upstream_fix_stage": "none",
+      "evidence": "Required story, visual, voice, audio, render, caption, and publish-context artifacts are present.",
+      "recommended_fix": "No fix required."
+    },
+    {
+      "check_id": "qa-license-clearance",
+      "category": "license",
+      "status": "pass",
+      "blocks_publish": false,
+      "upstream_fix_stage": "none",
+      "evidence": "Music/SFX plan has no unknown-license or non-publishable selected assets.",
+      "recommended_fix": "No fix required."
+    },
+    {
+      "check_id": "qa-caption-ready",
+      "category": "caption",
+      "status": "pass",
+      "blocks_publish": false,
+      "upstream_fix_stage": "none",
+      "evidence": "caption_final is present and platform-safe.",
+      "recommended_fix": "No fix required."
+    },
+    {
+      "check_id": "qa-export-ready",
+      "category": "export",
+      "status": "pass",
+      "blocks_publish": false,
+      "upstream_fix_stage": "none",
+      "evidence": "Rendered Reel export is public, MP4, and render_status success.",
+      "recommended_fix": "No fix required."
+    },
+    {
+      "check_id": "qa-approval-ready",
+      "category": "approval",
+      "status": "pass",
+      "blocks_publish": false,
+      "upstream_fix_stage": "none",
+      "evidence": "Selected video approval is marked ready in the reviewed package.",
+      "recommended_fix": "No fix required."
+    }
+  ],
+  "blocking_issues": [],
+  "non_blocking_issues": [],
+  "stage_fix_references": [],
+  "publish_requirements": {
+    "selected_video_approved": true,
+    "caption_ready": true,
+    "export_public_url_ready": true,
+    "license_clearance_ready": true,
+    "avatar_consent_ready": true,
+    "platform_context_ready": true,
+    "blocks_publish": false
+  },
+  "final_recommendation": "Package is ready for the later approval gate to consider publish."
+}

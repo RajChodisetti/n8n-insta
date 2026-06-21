@@ -1,0 +1,279 @@
+{
+  "storyboard_version": "1.0",
+  "source_stage": "storyboard_and_shot_plan",
+  "target_duration_seconds": 40,
+  "selected_style_pack": "founder_explainer",
+  "plan_summary": "Four-beat founder explainer: hook on repeated complaints, support overload, pattern recognition, and a practical roadmap lesson.",
+  "visual_prompt_boundary": "This contract defines shot intent only. Session 9 visual prompt builder creates final image/video prompts later.",
+  "continuity_plan": {
+    "visual_continuity_rules": [
+      "Keep one calm founder workspace across all scenes.",
+      "Use anonymized cards, notes, and roadmap shapes with no readable details.",
+      "Maintain soft daylight, warm neutral palette, and practical documentary realism."
+    ],
+    "character_continuity": "If the founder appears, keep the person generic and non-identifiable; hands-only continuity is preferred.",
+    "text_policy": "Generated assets remain text-free; any opening title belongs to renderer metadata later.",
+    "factual_boundary": "The founder, company, customers, and support details are fictional; do not imply real customer data or proven metrics."
+  },
+  "caption_plan": {
+    "overall_caption_intent": "Frame the Reel as a practical founder habit: repeated support pain can reveal roadmap priorities.",
+    "cta_intent": "Invite saving the idea before a roadmap review.",
+    "hashtag_intent": "Later caption work can use founder, startup, product, feedback, and roadmap discovery tags.",
+    "do_not_include": [
+      "Revenue or growth claims",
+      "Real customer names",
+      "Hashtags in this storyboard contract"
+    ]
+  },
+  "asset_plan": {
+    "asset_sequence": [
+      {
+        "scene_number": 1,
+        "asset_need": "image"
+      },
+      {
+        "scene_number": 2,
+        "asset_need": "video"
+      },
+      {
+        "scene_number": 3,
+        "asset_need": "video"
+      },
+      {
+        "scene_number": 4,
+        "asset_need": "video"
+      }
+    ],
+    "image_video_policy": "Scene 1 is an opening still/title-card background; later scenes need motion-friendly video beats.",
+    "provider_selection_policy": "Leave final image, video, host, and render provider selection to downstream adapters.",
+    "handoff_notes": [
+      "Give Session 9 concrete subject, action, setting, and text policy for each scene.",
+      "Do not create final production prompts in this contract.",
+      "Carry customer-data and music-license risks into review."
+    ]
+  },
+  "voice_line_map": [
+    {
+      "voice_line_id": "v01",
+      "scene_number": 1,
+      "line_text": "The roadmap was hiding in the same customer complaint, repeated again and again.",
+      "delivery_intent": "Open with curious confidence and let the repeated complaint idea land."
+    },
+    {
+      "voice_line_id": "v02",
+      "scene_number": 2,
+      "line_text": "At first, every support ticket felt like a distraction from building.",
+      "delivery_intent": "Reflect on the early overwhelm without sounding frantic."
+    },
+    {
+      "voice_line_id": "v03",
+      "scene_number": 2,
+      "line_text": "Then patterns started to show up.",
+      "delivery_intent": "Shift from overload to recognition."
+    },
+    {
+      "voice_line_id": "v04",
+      "scene_number": 3,
+      "line_text": "Three different customers were asking for the same fix in different words.",
+      "delivery_intent": "Emphasize that repeated pain became the decision signal."
+    },
+    {
+      "voice_line_id": "v05",
+      "scene_number": 4,
+      "line_text": "Support is not just where problems arrive.",
+      "delivery_intent": "Begin the lesson with calm authority."
+    },
+    {
+      "voice_line_id": "v06",
+      "scene_number": 4,
+      "line_text": "It is where priorities become visible.",
+      "delivery_intent": "Close clearly and practically."
+    }
+  ],
+  "scenes": [
+    {
+      "scene_number": 1,
+      "beat_id": "beat_01_hook",
+      "beat_label": "hook",
+      "start_time_seconds": 0,
+      "end_time_seconds": 4,
+      "duration_seconds": 4,
+      "narration_text": "The roadmap was hiding in the same customer complaint, repeated again and again.",
+      "dialogue_lines": [
+        "The roadmap was hiding in the same customer complaint, repeated again and again."
+      ],
+      "voice_line_ids": ["v01"],
+      "asset_need": "image",
+      "shot_intent": {
+        "framing": "Clean opening frame with one clear desk focal point.",
+        "subject": "A generic founder workspace with laptop, notes, and calm work artifacts.",
+        "action": "Hold a still setup that introduces the roadmap/support theme without readable artifacts.",
+        "environment": "Soft daylight desk or small office with warm neutral colors.",
+        "camera_motion": "No required motion; downstream may use a subtle hold or push if needed.",
+        "emotional_distance": "Close and reflective, not promotional.",
+        "visual_evidence": "The workspace and clustered notes imply support signals becoming roadmap focus."
+      },
+      "transition_intent": "Simple cut into the support-overload scene.",
+      "caption_intent": "Set up the practical founder insight in one short idea.",
+      "music_sfx_intent": "Warm piano or soft pulse begins quietly.",
+      "tts_delivery_intent": "(curious) (confident) Open with measured intrigue.",
+      "qa_focus": [
+        "No generated title text appears inside the asset.",
+        "No readable notes, UI, logo, or customer data."
+      ],
+      "constraints": {
+        "text_policy": "No visible generated text; title is renderer metadata later.",
+        "factual_boundary": "Only imply a fictional founder workspace and repeated customer pain.",
+        "avoid": [
+          "Readable notes",
+          "Product screenshots",
+          "Real founder likeness"
+        ]
+      }
+    },
+    {
+      "scene_number": 2,
+      "beat_id": "beat_02_problem",
+      "beat_label": "problem",
+      "start_time_seconds": 4,
+      "end_time_seconds": 16,
+      "duration_seconds": 12,
+      "narration_text": "At first, every support ticket felt like a distraction from building. Then patterns started to show up.",
+      "dialogue_lines": [
+        "At first, every support ticket felt like a distraction from building.",
+        "Then patterns started to show up."
+      ],
+      "voice_line_ids": ["v02", "v03"],
+      "asset_need": "video",
+      "shot_intent": {
+        "framing": "Medium-close desk detail that can move from scattered to more organized cards.",
+        "subject": "Anonymized support cards and founder hands or workspace artifacts.",
+        "action": "Show the support volume first feeling messy, then beginning to reveal repeated patterns.",
+        "environment": "Same founder workspace, slightly busier than scene 1.",
+        "camera_motion": "Gentle lateral move or small push that follows the card grouping.",
+        "emotional_distance": "Operational and relatable, not panicked.",
+        "visual_evidence": "Repeated abstract cards represent repeated support pain without exposing data."
+      },
+      "transition_intent": "Match cut from scattered support cards into grouped notes.",
+      "caption_intent": "Show that repeated pain is more useful than isolated requests.",
+      "music_sfx_intent": "Soft ticking or desk texture under the warm bed.",
+      "tts_delivery_intent": "(worried) Reflective, then slightly more focused on the pattern line.",
+      "qa_focus": [
+        "Cards stay unreadable.",
+        "The scene does not imply real customer data."
+      ],
+      "constraints": {
+        "text_policy": "All ticket-like artifacts must be abstract or blurred.",
+        "factual_boundary": "No specific customer, product, or metric details are supplied.",
+        "avoid": [
+          "Customer names",
+          "Readable support tickets",
+          "Private dashboard UI"
+        ]
+      }
+    },
+    {
+      "scene_number": 3,
+      "beat_id": "beat_03_turn",
+      "beat_label": "turn",
+      "start_time_seconds": 16,
+      "end_time_seconds": 28,
+      "duration_seconds": 12,
+      "narration_text": "Three different customers were asking for the same fix in different words.",
+      "dialogue_lines": [
+        "Three different customers were asking for the same fix in different words."
+      ],
+      "voice_line_ids": ["v04"],
+      "asset_need": "video",
+      "shot_intent": {
+        "framing": "Hands and grouped note clusters framed tightly enough to show the pattern.",
+        "subject": "Color-coded notes or abstract cards grouped into one clear cluster.",
+        "action": "The founder groups separate cards into one shared pain point.",
+        "environment": "Same desk or board area with consistent light and palette.",
+        "camera_motion": "Subtle push-in as separate notes become one pattern.",
+        "emotional_distance": "Clarifying and practical.",
+        "visual_evidence": "Three separate abstract inputs become one repeated issue without readable text."
+      },
+      "transition_intent": "Push-in or clean cut to the roadmap planning beat.",
+      "caption_intent": "Connect repeated wording to product priority.",
+      "music_sfx_intent": "Pulse becomes clearer but remains low under narration.",
+      "tts_delivery_intent": "(determined) Slight emphasis on the same fix.",
+      "qa_focus": [
+        "No fake counts, charts, or metrics appear.",
+        "The pattern is visual without readable labels."
+      ],
+      "constraints": {
+        "text_policy": "No legible labels, numbers, or card text.",
+        "factual_boundary": "Do not turn the repeated-pain lesson into a measurable result claim.",
+        "avoid": [
+          "Fake metrics",
+          "Legible labels",
+          "Overstated proof"
+        ]
+      }
+    },
+    {
+      "scene_number": 4,
+      "beat_id": "beat_04_lesson",
+      "beat_label": "lesson",
+      "start_time_seconds": 28,
+      "end_time_seconds": 40,
+      "duration_seconds": 12,
+      "narration_text": "Support is not just where problems arrive. It is where priorities become visible.",
+      "dialogue_lines": [
+        "Support is not just where problems arrive.",
+        "It is where priorities become visible."
+      ],
+      "voice_line_ids": ["v05", "v06"],
+      "asset_need": "video",
+      "shot_intent": {
+        "framing": "Calmer final workspace frame with roadmap shapes arranged cleanly.",
+        "subject": "Founder hands or generic planning board with abstract roadmap shapes.",
+        "action": "Show the roadmap becoming organized from the earlier support pattern.",
+        "environment": "Same founder workspace, less cluttered and more resolved.",
+        "camera_motion": "Slow settling move or final hold.",
+        "emotional_distance": "Calm, useful, and resolved.",
+        "visual_evidence": "The organized abstract roadmap shows priorities becoming visible."
+      },
+      "transition_intent": "Soft cut to final hold.",
+      "caption_intent": "Invite the viewer to save the lesson for roadmap planning.",
+      "music_sfx_intent": "Gentle musical resolution with no dramatic hit.",
+      "tts_delivery_intent": "(calm) (confident) Close with practical resolve.",
+      "qa_focus": [
+        "Roadmap remains abstract and unreadable.",
+        "Ending stays educational rather than salesy."
+      ],
+      "constraints": {
+        "text_policy": "No readable roadmap items or UI elements.",
+        "factual_boundary": "Only state the practical lesson supported by the fixture.",
+        "avoid": [
+          "Company logos",
+          "Guaranteed outcomes",
+          "Readable roadmap text"
+        ]
+      }
+    }
+  ],
+  "risk_flags": [
+    {
+      "risk_id": "risk_private_customer_data",
+      "severity": "review",
+      "description": "Support-ticket visuals could accidentally imply private customer details.",
+      "mitigation": "Use abstract cards and unreadable artifacts only.",
+      "blocks_publish": false
+    },
+    {
+      "risk_id": "risk_prompt_stage_boundary",
+      "severity": "watch",
+      "description": "This stage could drift into final visual prompt writing if over-specified.",
+      "mitigation": "Keep shot intent descriptive and leave prompt construction to Session 9.",
+      "blocks_publish": false
+    }
+  ],
+  "qa_focus": [
+    "Scene durations sum to 40 seconds.",
+    "No final visual prompts or render manifest fields are present.",
+    "Every scene has a concrete subject, action, environment, and voice line mapping.",
+    "All text-like artifacts stay unreadable."
+  ]
+}

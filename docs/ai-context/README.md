@@ -19,6 +19,7 @@ Always-relevant docs:
 Task-specific docs:
 
 - [architecture-summary.md](architecture-summary.md) for cross-system changes.
+- [ai-video-workflow-inventory.md](ai-video-workflow-inventory.md) before changing AI video workflow contracts, status transitions, render manifests, provider routing, or publish gates.
 - [glossary.md](glossary.md) when stage names or provider terms are unclear.
 - [current-focus.md](current-focus.md) before continuing active pipeline work.
 - Folder cards such as [prompts/AGENTS.md](../../prompts/AGENTS.md), [workflows/AGENTS.md](../../workflows/AGENTS.md), [infra/AGENTS.md](../../infra/AGENTS.md), [studio-ui/AGENTS.md](../../studio-ui/AGENTS.md), [scripts/CONTEXT.md](../../scripts/CONTEXT.md), and [delivery-testing/CONTEXT.md](../../delivery-testing/CONTEXT.md).

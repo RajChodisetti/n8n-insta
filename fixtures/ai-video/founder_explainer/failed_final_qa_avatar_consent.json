@@ -1,0 +1,101 @@
+{
+  "qa_result_version": "1.0",
+  "source_stage": "final_qa_validator",
+  "scenario_id": "founder_explainer_failed_avatar_consent",
+  "package_type": "instagram_reel",
+  "evaluated_at": "2026-06-21T00:00:00.000Z",
+  "selected_style_pack": "founder_explainer",
+  "publish_decision": "blocked",
+  "summary": {
+    "blocks_publish": true,
+    "approved_for_publish": false,
+    "overall_risk": "critical",
+    "human_review_required": true,
+    "notes": "Publish is blocked because the package requests a presenter or likeness route without explicit consent metadata."
+  },
+  "input_artifacts": [
+    {
+      "artifact": "director_contract",
+      "status": "needs_review",
+      "blocks_publish": true,
+      "evidence": "Director route references a presenter/avatar treatment but no consent artifact is attached.",
+      "upstream_fix_stage": "director_contract"
+    },
+    {
+      "artifact": "avatar_consent_context",
+      "status": "missing",
+      "blocks_publish": true,
+      "evidence": "No consent record, source media permission, or likeness approval is present.",
+      "upstream_fix_stage": "avatar_presenter_selector"
+    },
+    {
+      "artifact": "caption_package",
+      "status": "pass",
+      "blocks_publish": false,
+      "evidence": "Caption final is present and does not create the consent defect.",
+      "upstream_fix_stage": "none"
+    }
+  ],
+  "checklist": [
+    {
+      "check_id": "qa-avatar-consent",
+      "category": "avatar_consent",
+      "status": "fail",
+      "blocks_publish": true,
+      "upstream_fix_stage": "avatar_presenter_selector",
+      "evidence": "Avatar/presenter route has no explicit consent metadata.",
+      "recommended_fix": "Disable the avatar/presenter route or attach valid consent metadata before rerunning QA."
+    },
+    {
+      "check_id": "qa-license-clearance",
+      "category": "license",
+      "status": "pass",
+      "blocks_publish": false,
+      "upstream_fix_stage": "none",
+      "evidence": "Music/SFX plan has no unknown-license selected asset.",
+      "recommended_fix": "No fix required."
+    },
+    {
+      "check_id": "qa-export-ready",
+      "category": "export",
+      "status": "pass",
+      "blocks_publish": false,
+      "upstream_fix_stage": "none",
+      "evidence": "Render output exists and is a public MP4.",
+      "recommended_fix": "No fix required."
+    }
+  ],
+  "blocking_issues": [
+    {
+      "issue_id": "qa-avatar-consent-missing",
+      "category": "avatar_consent",
+      "severity": "blocking",
+      "blocks_publish": true,
+      "related_artifact": "avatar_consent_context",
+      "upstream_fix_stage": "avatar_presenter_selector",
+      "evidence": "The package requests a likeness or presenter route without explicit approval metadata.",
+      "recommended_fix": "Route the package back to avatar_presenter_selector to either remove the route or attach consent metadata."
+    }
+  ],
+  "non_blocking_issues": [],
+  "stage_fix_references": [
+    {
+      "issue_id": "qa-avatar-consent-missing",
+      "upstream_fix_stage": "avatar_presenter_selector",
+      "fix_summary": "Resolve presenter/avatar consent before any publish approval.",
+      "validation_after_fix": [
+        "node scripts/validate_final_qa_fixture.mjs fixtures/ai-video/founder_explainer/expected_final_qa_result_pass.json"
+      ]
+    }
+  ],
+  "publish_requirements": {
+    "selected_video_approved": true,
+    "caption_ready": true,
+    "export_public_url_ready": true,
+    "license_clearance_ready": true,
+    "avatar_consent_ready": false,
+    "platform_context_ready": true,
+    "blocks_publish": true
+  },
+  "final_recommendation": "Do not publish. Remove the presenter/avatar route or attach explicit consent metadata first."
+}

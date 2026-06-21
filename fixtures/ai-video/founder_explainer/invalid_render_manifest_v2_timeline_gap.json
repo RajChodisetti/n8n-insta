@@ -1,0 +1,303 @@
+{
+  "render_manifest_v2_version": "1.0",
+  "source_stage": "render_manifest_v2",
+  "manifest_id": "invalid_timeline_gap",
+  "content_id": "11111111-1111-4111-8111-111111111111",
+  "title": "Invalid Timeline Gap",
+  "created_at": "2026-06-21T00:00:00.000Z",
+  "selected_style_pack": "founder_explainer",
+  "target_renderer_policy": {
+    "renderer_neutral": true,
+    "active_runtime_renderer": "local_ffmpeg",
+    "future_renderer_targets": ["remotion"],
+    "replaces_current_renderer": false,
+    "notes": "Invalid fixture: renderer policy is fine, but scene timing has a gap."
+  },
+  "source_contracts": [
+    {
+      "source_stage": "storyboard_and_shot_plan",
+      "source_version": "1.0",
+      "used_for": ["scene order"]
+    }
+  ],
+  "output": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "format": "mp4",
+    "aspect_ratio": "9:16",
+    "duration_seconds": 8
+  },
+  "safe_areas": {
+    "platform": "instagram_reel",
+    "areas": [
+      {
+        "safe_area_id": "safe_general",
+        "purpose": "general",
+        "top_px": 240,
+        "bottom_px": 360,
+        "left_px": 96,
+        "right_px": 96
+      }
+    ],
+    "notes": "Basic safe area."
+  },
+  "assets": [
+    {
+      "asset_id": "visual_scene_01",
+      "asset_type": "image",
+      "asset_role": "scene_image",
+      "scene_number": 1,
+      "storage_url": "https://cdn.example.com/n8n-insta/fixtures/founder_explainer/scene-01.jpg",
+      "mime_type": "image/jpeg",
+      "duration_seconds": 0,
+      "width": 1080,
+      "height": 1920,
+      "license_status": "not_applicable",
+      "publish_allowed": true
+    },
+    {
+      "asset_id": "visual_scene_02",
+      "asset_type": "video",
+      "asset_role": "scene_video",
+      "scene_number": 2,
+      "storage_url": "https://cdn.example.com/n8n-insta/fixtures/founder_explainer/scene-02.mp4",
+      "mime_type": "video/mp4",
+      "duration_seconds": 3,
+      "width": 1080,
+      "height": 1920,
+      "license_status": "not_applicable",
+      "publish_allowed": true
+    },
+    {
+      "asset_id": "narration_scene_01",
+      "asset_type": "narration_audio",
+      "asset_role": "scene_narration",
+      "scene_number": 1,
+      "storage_url": "https://cdn.example.com/n8n-insta/fixtures/founder_explainer/narration-01.mp3",
+      "mime_type": "audio/mpeg",
+      "duration_seconds": 4,
+      "width": 0,
+      "height": 0,
+      "license_status": "not_applicable",
+      "publish_allowed": true
+    },
+    {
+      "asset_id": "narration_scene_02",
+      "asset_type": "narration_audio",
+      "asset_role": "scene_narration",
+      "scene_number": 2,
+      "storage_url": "https://cdn.example.com/n8n-insta/fixtures/founder_explainer/narration-02.mp3",
+      "mime_type": "audio/mpeg",
+      "duration_seconds": 3,
+      "width": 0,
+      "height": 0,
+      "license_status": "not_applicable",
+      "publish_allowed": true
+    }
+  ],
+  "scenes": [
+    {
+      "scene_number": 1,
+      "beat_id": "beat_01",
+      "start_time_seconds": 0,
+      "end_time_seconds": 4,
+      "duration_seconds": 4,
+      "visual_asset_id": "visual_scene_01",
+      "narration_asset_id": "narration_scene_01",
+      "narration_text": "Scene one narration.",
+      "caption_text": "Scene one.",
+      "overlay_ids": [],
+      "audio_cue_ids": [],
+      "transition_id": "transition_01_02",
+      "render_notes": "Scene one."
+    },
+    {
+      "scene_number": 2,
+      "beat_id": "beat_02",
+      "start_time_seconds": 5,
+      "end_time_seconds": 8,
+      "duration_seconds": 3,
+      "visual_asset_id": "visual_scene_02",
+      "narration_asset_id": "narration_scene_02",
+      "narration_text": "Scene two starts after an invalid one-second gap.",
+      "caption_text": "Scene two.",
+      "overlay_ids": [],
+      "audio_cue_ids": [],
+      "transition_id": null,
+      "render_notes": "Invalid one-second gap before this scene."
+    }
+  ],
+  "timeline": [
+    {
+      "timeline_id": "visual_01",
+      "track_type": "visual",
+      "scene_number": 1,
+      "asset_id": "visual_scene_01",
+      "overlay_id": null,
+      "caption_track_id": null,
+      "start_time_seconds": 0,
+      "end_time_seconds": 4,
+      "duration_seconds": 4,
+      "z_index": 0,
+      "renderer_behavior": "Hold image."
+    },
+    {
+      "timeline_id": "visual_02",
+      "track_type": "visual",
+      "scene_number": 2,
+      "asset_id": "visual_scene_02",
+      "overlay_id": null,
+      "caption_track_id": null,
+      "start_time_seconds": 5,
+      "end_time_seconds": 8,
+      "duration_seconds": 3,
+      "z_index": 0,
+      "renderer_behavior": "Trim video."
+    },
+    {
+      "timeline_id": "narration_01",
+      "track_type": "narration",
+      "scene_number": 1,
+      "asset_id": "narration_scene_01",
+      "overlay_id": null,
+      "caption_track_id": null,
+      "start_time_seconds": 0,
+      "end_time_seconds": 4,
+      "duration_seconds": 4,
+      "z_index": 0,
+      "renderer_behavior": "Play narration."
+    },
+    {
+      "timeline_id": "narration_02",
+      "track_type": "narration",
+      "scene_number": 2,
+      "asset_id": "narration_scene_02",
+      "overlay_id": null,
+      "caption_track_id": null,
+      "start_time_seconds": 5,
+      "end_time_seconds": 8,
+      "duration_seconds": 3,
+      "z_index": 0,
+      "renderer_behavior": "Play narration."
+    }
+  ],
+  "audio_tracks": [
+    {
+      "track_id": "voice_per_scene",
+      "track_type": "narration",
+      "mode": "per_scene",
+      "asset_ids": ["narration_scene_01", "narration_scene_02"],
+      "volume": 1,
+      "ducking": {
+        "duck_against": [],
+        "strategy": "Narration first.",
+        "target_volume": 1,
+        "fade_in_seconds": 0,
+        "fade_out_seconds": 0
+      },
+      "license_status": "not_applicable",
+      "publish_allowed": true
+    }
+  ],
+  "caption_tracks": [],
+  "overlays": [],
+  "transitions": [
+    {
+      "transition_id": "transition_01_02",
+      "from_scene_number": 1,
+      "to_scene_number": 2,
+      "type": "cut",
+      "duration_seconds": 0
+    }
+  ],
+  "brand_elements": [],
+  "export_settings": {
+    "format": "mp4",
+    "video_codec": "h264",
+    "audio_codec": "aac",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "aspect_ratio": "9:16",
+    "max_duration_seconds": 30
+  },
+  "storage": {
+    "output_path": "reels/11111111-1111-4111-8111-111111111111/final.mp4",
+    "cover_asset_id": "visual_scene_01",
+    "public_url_required": true
+  },
+  "ffmpeg_compatibility": {
+    "can_map_to_current_ffmpeg": true,
+    "compatibility_mode": "lower_to_current_render_request",
+    "required_current_fields": ["output", "timeline[].asset_url", "timeline[].narration_url"],
+    "unsupported_v2_features": [],
+    "mapping_notes": ["Invalid fixture: timeline has a gap even though FFmpeg compatibility is otherwise declared."],
+    "render_request_preview": {
+      "render_provider": "local_ffmpeg",
+      "output": {
+        "width": 1080,
+        "height": 1920,
+        "fps": 30,
+        "format": "mp4"
+      },
+      "timeline": [
+        {
+          "scene_number": 1,
+          "asset_url": "https://cdn.example.com/n8n-insta/fixtures/founder_explainer/scene-01.jpg",
+          "asset_type": "image",
+          "start_time": 0,
+          "duration_seconds": 4,
+          "narration_url": "https://cdn.example.com/n8n-insta/fixtures/founder_explainer/narration-01.mp3",
+          "transition": "cut"
+        },
+        {
+          "scene_number": 2,
+          "asset_url": "https://cdn.example.com/n8n-insta/fixtures/founder_explainer/scene-02.mp4",
+          "asset_type": "video",
+          "start_time": 5,
+          "duration_seconds": 3,
+          "narration_url": "https://cdn.example.com/n8n-insta/fixtures/founder_explainer/narration-02.mp3",
+          "transition": ""
+        }
+      ],
+      "audio": {
+        "narration_url": null,
+        "narration": {
+          "mode": "per_scene",
+          "storage_url": null
+        }
+      },
+      "subtitles": {
+        "enabled": false,
+        "subtitle_lines": [],
+        "style": "cinematic_center_safe"
+      },
+      "cover": {
+        "enabled": true,
+        "cover_asset_url": "https://cdn.example.com/n8n-insta/fixtures/founder_explainer/scene-01.jpg"
+      },
+      "storage": {
+        "output_path": "reels/11111111-1111-4111-8111-111111111111/final.mp4"
+      },
+      "title_overlay": {
+        "enabled": false
+      }
+    }
+  },
+  "quality_gates": [
+    {
+      "gate_id": "timeline_contiguous",
+      "severity": "blocking",
+      "check": "Scene timing is contiguous from 0 to output.duration_seconds.",
+      "expected_result": "No gaps or overlaps.",
+      "status": "pass"
+    }
+  ],
+  "implementation_notes": {
+    "runtime_behavior_changed": false,
+    "requires_renderer_replacement": false,
+    "active_workflow_consumes_this": false,
+    "notes": "Invalid fixture: the timeline contains a one-second gap."
+  }
+}

@@ -31,18 +31,26 @@ Prompt-backed workflow notes:
 - `wf_asset_generation`, `wf_narration_generation`, and `wf_simple_post_image_asset` load prompt files through their helper scripts plus [prompt_utils.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/prompt_utils.mjs)
 - image, narration, and hosting choices are now routed through [image_generation_adapters.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/image_generation_adapters.mjs), [tts_adapters.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/tts_adapters.mjs), [asset_host_adapters.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/asset_host_adapters.mjs), and [adapter_config.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/adapter_config.mjs)
 - current asset-host implementations are `google_cloud_storage` and `object_storage`
+- `prompts/workflow/model_provider_router.md` is a planning-only contract; active provider selection still comes from the adapter files above
 - `wf_end_to_end_reel_generate_and_publish` is the one-click wrapper that activates the render callback, resumes from the single unfinished Reel checkpoint when possible, waits for render completion when needed, then publishes the Reel
+- `wf_instagram_reel_publish` now requires a matching `publish_approvals` row for the exact `renders.render_id` before it can claim a rendered Reel for publish; if a `content_account_contexts` snapshot names a publish account, that account must match the approval account
+- `wf_instagram_simple_post_publish` now requires `qa_approved`; it no longer publishes simple posts directly from `assets_ready`
+- `prompts/workflow/render_manifest_v2.md` is a renderer-neutral contract only; active render manifest construction and dispatch still use the current n8n workflow exports and local FFmpeg worker request shape
+- `prompts/workflow/remotion_edit_plan.md` is a contract-only planning asset; no Remotion app, dependency, Studio command, workflow export, or FFmpeg replacement is active
+- `prompts/workflow/avatar_video_selector.md` is a contract-only avatar/presenter decision asset; no avatar provider, account setup, video generation, publish route, or workflow export is active
 
 Operational references:
 
-- [21-prompt-reference-and-model-call-map.md](/Users/rajchodisetti/n8n-insta/21-prompt-reference-and-model-call-map.md)
-- [22-one-click-reel-generate-and-publish-runbook.md](/Users/rajchodisetti/n8n-insta/22-one-click-reel-generate-and-publish-runbook.md)
-- [24-adapter-architecture-and-provider-switching.md](/Users/rajchodisetti/n8n-insta/24-adapter-architecture-and-provider-switching.md)
-- [27-google-cloud-storage-asset-host-runbook.md](/Users/rajchodisetti/n8n-insta/27-google-cloud-storage-asset-host-runbook.md)
-- [25-studio-ui-runbook.md](/Users/rajchodisetti/n8n-insta/25-studio-ui-runbook.md)
+- [docs/prompts/prompt-reference-and-model-call-map.md](/Users/rajchodisetti/n8n-insta/docs/prompts/prompt-reference-and-model-call-map.md)
+- [docs/runbooks/one-click-reel-generate-and-publish.md](/Users/rajchodisetti/n8n-insta/docs/runbooks/one-click-reel-generate-and-publish.md)
+- [docs/architecture/adapter-architecture-and-provider-switching.md](/Users/rajchodisetti/n8n-insta/docs/architecture/adapter-architecture-and-provider-switching.md)
+- [docs/runbooks/google-cloud-storage-asset-host.md](/Users/rajchodisetti/n8n-insta/docs/runbooks/google-cloud-storage-asset-host.md)
+- [docs/runbooks/studio-ui.md](/Users/rajchodisetti/n8n-insta/docs/runbooks/studio-ui.md)
 
 Studio UI:
 
 - the local browser control panel lives under [studio-ui/](/Users/rajchodisetti/n8n-insta/studio-ui/server.mjs)
 - it can inject topics, edit prompt files, edit curated `.env` settings, run workflow exports, and inspect recent content rows
+- it writes client/account context snapshots for new topic rows
+- it can record explicit selected-render approval records used by the Reel publish gate
 - env-backed setting changes require recreating `n8n`, `render-worker`, and `studio-ui`

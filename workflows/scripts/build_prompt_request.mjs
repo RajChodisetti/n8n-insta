@@ -13,9 +13,9 @@ import { fileURLToPath } from 'node:url';
 
 const STAGES = {
   director_contract: {
-    system: 'director/system.md',
-    user: 'director/user.md',
-    schema: 'director/response-schema.json',
+    system: 'workflow/director_contract.md',
+    user: 'workflow/director_contract_user.md',
+    schema: 'schemas/director_contract.schema.json',
     outputKey: 'openai_request_director_contract',
     modelEnvKeys: ['DIRECTOR_CONTRACT_MODEL', 'DIRECTOR_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
     fallbackModel: 'gpt-4.1-mini',
@@ -58,6 +58,14 @@ const STAGES = {
     schema: 'story_package_generation/response-schema.json',
     outputKey: 'openai_request_story_package_generation',
     modelEnvKeys: ['STORY_PACKAGE_MODEL', 'PREMIUM_TEXT_MODEL', 'OPENAI_STORY_PACKAGE_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
+    fallbackModel: 'gpt-4.1',
+  },
+  story_package_generation_v2: {
+    system: 'workflow/story_package_generation_v2.md',
+    user: 'workflow/story_package_generation_v2_user.md',
+    schema: 'schemas/story_package.schema.json',
+    outputKey: 'openai_request_story_package_generation_v2',
+    modelEnvKeys: ['STORY_PACKAGE_V2_MODEL', 'STORY_PACKAGE_MODEL', 'PREMIUM_TEXT_MODEL', 'OPENAI_STORY_PACKAGE_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
     fallbackModel: 'gpt-4.1',
   },
   storyboard_and_prompts: {

@@ -16,12 +16,12 @@ Status: `complete` ✅
 - [workflows/n8n/wf_instagram_publish_readiness.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_instagram_publish_readiness.json)
 - [scripts/check_instagram_permissions.sh](/Users/rajchodisetti/n8n-insta/scripts/check_instagram_permissions.sh)
 - [workflows/README.md](/Users/rajchodisetti/n8n-insta/workflows/README.md)
-- [14-instagram-professional-account-runbook.md](/Users/rajchodisetti/n8n-insta/14-instagram-professional-account-runbook.md)
+- [docs/runbooks/instagram-professional-account.md](/Users/rajchodisetti/n8n-insta/docs/runbooks/instagram-professional-account.md)
 - [infra/.env.example](/Users/rajchodisetti/n8n-insta/infra/.env.example)
 - [infra/README.md](/Users/rajchodisetti/n8n-insta/infra/README.md)
 - [.env.example](/Users/rajchodisetti/n8n-insta/.env.example)
-- [11-setup-checklist.md](/Users/rajchodisetti/n8n-insta/11-setup-checklist.md)
-- [16-engineering-backlog.md](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
+- [docs/delivery/setup-checklist.md](/Users/rajchodisetti/n8n-insta/docs/delivery/setup-checklist.md)
+- [docs/delivery/engineering-backlog.md](/Users/rajchodisetti/n8n-insta/docs/delivery/engineering-backlog.md)
 
 ## How It Was Tested
 

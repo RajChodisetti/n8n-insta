@@ -178,6 +178,10 @@ def normalize_music_catalog_entry(entry: dict) -> dict | None:
         return None
     if parse_bool(entry.get("enabled"), True) is False:
         return None
+    license_status = str(entry.get("license_status") or "unknown").strip().lower()
+    publish_allowed = parse_bool(entry.get("publish_allowed"), False)
+    if license_status == "unknown" or not publish_allowed:
+        return None
     track_id = str(entry.get("id") or "").strip()
     if not track_id:
         return None
@@ -194,6 +198,10 @@ def normalize_music_catalog_entry(entry: dict) -> dict | None:
         "moods": [str(value).strip().lower() for value in entry.get("moods", []) if str(value).strip()],
         "vocals": parse_bool(entry.get("vocals"), False),
         "default": parse_bool(entry.get("default"), False),
+        "license": str(entry.get("license") or "").strip(),
+        "license_status": license_status,
+        "publish_allowed": publish_allowed,
+        "license_scope": str(entry.get("license_scope") or "").strip(),
         "volume": max(0.0, min(parse_float(entry.get("volume"), parse_float(os.environ.get("BACKGROUND_MUSIC_DEFAULT_VOLUME"), 0.12)), 1.0)),
         "fade_in_seconds": max(0.0, parse_float(entry.get("fade_in_seconds"), parse_float(os.environ.get("BACKGROUND_MUSIC_FADE_IN_SECONDS"), 0.8))),
         "fade_out_seconds": max(0.0, parse_float(entry.get("fade_out_seconds"), parse_float(os.environ.get("BACKGROUND_MUSIC_FADE_OUT_SECONDS"), 2.5))),

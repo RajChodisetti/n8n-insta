@@ -1,0 +1,107 @@
+{
+  "client_account_context_version": "1.0",
+  "source_stage": "client_account_context",
+  "account_context_key": "default_instagram_storytelling",
+  "client": {
+    "client_id": "default-client",
+    "display_name": "Default Storytelling Account",
+    "industry": "creator_media",
+    "notes": "Synthetic fixture account for offline workflow validation."
+  },
+  "platform_account": {
+    "platform": "instagram",
+    "platform_account_id": "17841400000000000",
+    "platform_account_username": "default_storytelling",
+    "region": "US"
+  },
+  "brand_policy": {
+    "brand_profile": "default",
+    "brand_tone": "calm, useful, credible",
+    "audience": "founders and operators who want practical storytelling lessons",
+    "value_props": [
+      "practical lessons",
+      "clear founder perspective"
+    ],
+    "forbidden_claims": [
+      "unverified revenue claims",
+      "private customer details"
+    ],
+    "required_disclosures": [
+      "Synthetic examples must stay clearly non-identifying."
+    ]
+  },
+  "style_policy": {
+    "preferred_style_pack_id": "founder_explainer",
+    "allowed_style_pack_ids": [
+      "founder_explainer",
+      "educational_mini_lesson",
+      "product_demo_walkthrough"
+    ],
+    "disallowed_style_pack_ids": [
+      "meme_relatable_pain_point"
+    ],
+    "visual_style_notes": "Documentary-realistic workspace visuals with no visible private customer data.",
+    "color_or_brand_asset_notes": "Neutral workspace palette; no hardcoded logo requirement.",
+    "text_policy": "Generated image/video assets should stay text-free; renderer-owned overlays may contain short approved titles."
+  },
+  "voice_policy": {
+    "narrator_style": "thoughtful founder voiceover",
+    "allowed_voice_roles": [
+      "founder narrator",
+      "operator narrator"
+    ],
+    "pronunciation_notes": [
+      "Say SaaS as sass only if the script explicitly uses the term."
+    ],
+    "language_policy": "Use natural spoken English."
+  },
+  "music_policy": {
+    "music_mood": "quiet momentum",
+    "allowed_music_license_statuses": [
+      "documented",
+      "licensed",
+      "public_domain",
+      "cc0"
+    ],
+    "publish_allowed_required": true,
+    "vocals_policy": "No vocals under narration.",
+    "disallowed_music": [
+      "triumphant hype music",
+      "lyrics that compete with narration"
+    ]
+  },
+  "avatar_policy": {
+    "avatar_allowed": false,
+    "requires_consent": true,
+    "default_avatar_mode": "none",
+    "consent_record_uri": null,
+    "disallowed_uses": [
+      "real customer likeness",
+      "founder likeness without written consent"
+    ]
+  },
+  "publishing_policy": {
+    "platform": "instagram",
+    "package_types": [
+      "instagram_reel"
+    ],
+    "platform_account_id": "17841400000000000",
+    "platform_account_username": "default_storytelling",
+    "approval_required": true,
+    "default_caption_tone": "practical and concise",
+    "hashtag_policy": "Use relevant, non-spammy founder/operator hashtags.",
+    "restricted_topics": [
+      "private customer stories",
+      "unverified business performance claims"
+    ]
+  },
+  "safety_policy": {
+    "global_rules_override_allowed": false,
+    "legal_review_required_topics": [
+      "customer testimonials",
+      "financial claims"
+    ],
+    "notes": "Client preferences never override global safety, license, consent, or platform rules."
+  },
+  "context_notes": "Fixture context used by Session 14 client/account policy validation."
+}

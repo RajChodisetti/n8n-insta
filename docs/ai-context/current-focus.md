@@ -1,8 +1,8 @@
 # Current Focus
 
-Last reviewed: 2026-06-21 at git commit `0d0515b`.
+Last reviewed: 2026-06-21 at git commit `d1e1bd0`.
 
-This summary is inferred from README/runbooks, `16-engineering-backlog.md`, current workflow files, and the dirty working tree. Treat uncertain items as leads to verify, not guaranteed roadmap.
+This summary is inferred from README/runbooks, `docs/delivery/engineering-backlog.md`, current workflow files, and the dirty working tree. Treat uncertain items as leads to verify, not guaranteed roadmap.
 
 ## Clear current workflow areas
 
@@ -15,8 +15,9 @@ This summary is inferred from README/runbooks, `16-engineering-backlog.md`, curr
 ## Prominent active areas
 
 - The active IDE file is `workflows/scripts/generate_and_rehost_scene_assets_v3.mjs`.
-- The working tree includes untracked/newer v3 and v2 files such as `wf_asset_generation_v3.json`, `wf_render_worker_dispatch_v2.json`, `wf_render_sync_completion_v2.json`, `wf_validation_check.json`, `run_resume_aware_reel_pipeline_v3.mjs`, and `generate_and_rehost_scene_video.mjs`.
-- Newer prompt groups/docs include `director/`, `story_package_generation/`, Face Image docs, and Fish Audio docs.
+- Current v2/v3 workflow files include `wf_asset_generation_v3.json`, `wf_render_worker_dispatch_v2.json`, `wf_render_sync_completion_v2.json`, `wf_validation_check.json`, `run_resume_aware_reel_pipeline_v3.mjs`, and `generate_and_rehost_scene_video.mjs`.
+- Newer prompt groups/docs include `director/`, `story_package_generation/`, `rules/`, `style_packs/`, consolidated [Face Image](../features/face-image.md), consolidated [Fish Audio](../integrations/fish-audio.md), and the [AI video workflow session plan](../roadmaps/ai-video-workflow-session-plan.md).
+- Sessions 1-20 of the AI video workflow plan added workflow inventory, fixtures, rule/style pack contracts, story package v2 contracts, a style-pack-constrained director contract, a prompt-free storyboard/shot-plan contract, a separate visual prompt builder contract, a clean-script-preserving voice performance contract, music/SFX license metadata, a contract-only final QA result, a selected-render approval gate, per-content client/account context snapshots, a planning-only model provider router contract, a renderer-neutral render manifest v2 bridge, a contract-only Remotion-compatible edit plan, a consent-gated avatar/presenter selector contract, an offline AI video contract regression suite, and a stabilization/push pass. Read [AI video workflow inventory](ai-video-workflow-inventory.md) before changing prompt contracts, status transitions, render manifests, provider routing, client/account policy, Remotion edit plans, avatar/presenter decisions, tests, or publish gates.
 - This suggests current work is expanding from image-only scenes toward director-guided, character-aware, image/video generation with richer TTS. This is inferred from file names and code, not from a single authoritative roadmap line.
 
 ## Likely upcoming integration areas
@@ -28,7 +29,7 @@ This summary is inferred from README/runbooks, `16-engineering-backlog.md`, curr
 
 ## Known TODOs or awaiting-test items
 
-From `16-engineering-backlog.md`:
+From `docs/delivery/engineering-backlog.md`:
 
 - `P3-06 Live reel publish path`: `implemented_awaiting_test`
 - `P3-07 Prompt externalization and one-click Reel orchestration`: `implemented_awaiting_test`
@@ -38,5 +39,5 @@ From `16-engineering-backlog.md`:
 ## Ambiguities
 
 - Some docs say OpenAI is the implemented provider for text/image/narration, but current code supports more providers for image and TTS.
-- Several v2/v3 files are untracked, so future agents should check `git status` before treating them as committed baseline.
-- The repo has many root runbooks. Prefer task routing over reading them all.
+- Local-only runtime files may appear in `git status`; future agents should avoid staging env backups, logs, `sa-key.json`, `.claude/`, or `__pycache__/`.
+- The repo has many runbooks under `docs/runbooks/`. Prefer task routing over reading them all.

@@ -1,0 +1,355 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://n8n-insta.local/prompts/schemas/story_package.schema.json",
+  "title": "Story Package V2 Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "story_package_version",
+    "research_brief",
+    "claim_registry",
+    "narrative_strategy",
+    "clean_script",
+    "caption_seed",
+    "downstream_constraints",
+    "risk_flags"
+  ],
+  "properties": {
+    "story_package_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "research_brief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "topic",
+        "category",
+        "audience_language",
+        "target_duration_seconds",
+        "source_summary",
+        "confidence_label",
+        "source_boundaries",
+        "open_questions",
+        "do_not_claim"
+      ],
+      "properties": {
+        "topic": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "minLength": 1 },
+        "audience_language": { "type": "string", "minLength": 1 },
+        "target_duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
+        "source_summary": { "type": "string", "minLength": 1 },
+        "confidence_label": { "type": "string", "minLength": 1 },
+        "source_boundaries": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "open_questions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "do_not_claim": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "claim_registry": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_id",
+          "claim",
+          "supporting_source",
+          "confidence",
+          "allowed_uses",
+          "risk_level"
+        ],
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "pattern": "^claim_[0-9]{2,}$"
+          },
+          "claim": { "type": "string", "minLength": 1 },
+          "supporting_source": { "type": "string", "minLength": 1 },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low", "uncertain"]
+          },
+          "allowed_uses": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": ["narration", "caption", "visual_context", "risk_note", "do_not_use"]
+            }
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": ["none", "watch", "review", "blocking"]
+          }
+        }
+      }
+    },
+    "narrative_strategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "core_angle",
+        "point_of_view",
+        "audience_promise",
+        "emotional_arc",
+        "hook_strategy",
+        "ending_strategy",
+        "suggested_style_pack_ids",
+        "rejected_style_pack_ids",
+        "visual_strategy",
+        "voice_strategy",
+        "music_strategy"
+      ],
+      "properties": {
+        "core_angle": { "type": "string", "minLength": 1 },
+        "point_of_view": { "type": "string", "minLength": 1 },
+        "audience_promise": { "type": "string", "minLength": 1 },
+        "emotional_arc": { "type": "string", "minLength": 1 },
+        "hook_strategy": { "type": "string", "minLength": 1 },
+        "ending_strategy": { "type": "string", "minLength": 1 },
+        "suggested_style_pack_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9_]+$" }
+        },
+        "rejected_style_pack_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9_]+$" }
+        },
+        "visual_strategy": { "type": "string", "minLength": 1 },
+        "voice_strategy": { "type": "string", "minLength": 1 },
+        "music_strategy": { "type": "string", "minLength": 1 }
+      }
+    },
+    "clean_script": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hook_options",
+        "selected_hook",
+        "narration_script",
+        "scene_dialogue_lines",
+        "short_script",
+        "estimated_duration_seconds",
+        "word_count"
+      ],
+      "properties": {
+        "hook_options": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "selected_hook": { "type": "string", "minLength": 1 },
+        "narration_script": { "type": "string", "minLength": 1 },
+        "scene_dialogue_lines": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "scene_number",
+              "beat_label",
+              "start_time_seconds",
+              "end_time_seconds",
+              "duration_seconds",
+              "narration_text",
+              "dialogue_lines"
+            ],
+            "properties": {
+              "scene_number": { "type": "integer", "minimum": 1 },
+              "beat_label": { "type": "string", "minLength": 1 },
+              "start_time_seconds": { "type": "number", "minimum": 0 },
+              "end_time_seconds": { "type": "number", "exclusiveMinimum": 0 },
+              "duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
+              "narration_text": { "type": "string", "minLength": 1 },
+              "dialogue_lines": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        },
+        "short_script": { "type": "string", "minLength": 1 },
+        "estimated_duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
+        "word_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "caption_seed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caption_draft",
+        "cta_line",
+        "caption_angle",
+        "hashtag_notes",
+        "do_not_include"
+      ],
+      "properties": {
+        "caption_draft": { "type": "string", "minLength": 1 },
+        "cta_line": { "type": "string", "minLength": 1 },
+        "caption_angle": { "type": "string", "minLength": 1 },
+        "hashtag_notes": { "type": "string", "minLength": 1 },
+        "do_not_include": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "downstream_constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "global_rules",
+        "visual_constraints",
+        "voice_constraints",
+        "music_sfx_constraints",
+        "editing_constraints",
+        "approval_constraints",
+        "provider_constraints"
+      ],
+      "properties": {
+        "global_rules": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "visual_constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "text_policy",
+            "face_image_title_guidance",
+            "character_continuity",
+            "prohibited_visuals"
+          ],
+          "properties": {
+            "text_policy": { "type": "string", "minLength": 1 },
+            "face_image_title_guidance": { "type": "string", "minLength": 1 },
+            "character_continuity": { "type": "string", "minLength": 1 },
+            "prohibited_visuals": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "voice_constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "clean_script_policy",
+            "delivery_notes",
+            "provider_specific_handling"
+          ],
+          "properties": {
+            "clean_script_policy": { "type": "string", "minLength": 1 },
+            "delivery_notes": { "type": "string", "minLength": 1 },
+            "provider_specific_handling": { "type": "string", "minLength": 1 }
+          }
+        },
+        "music_sfx_constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "music_brief",
+            "sfx_brief",
+            "license_requirements"
+          ],
+          "properties": {
+            "music_brief": { "type": "string", "minLength": 1 },
+            "sfx_brief": { "type": "string", "minLength": 1 },
+            "license_requirements": { "type": "string", "minLength": 1 }
+          }
+        },
+        "editing_constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target_duration_seconds",
+            "scene_count",
+            "timing_notes",
+            "subtitles_enabled"
+          ],
+          "properties": {
+            "target_duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
+            "scene_count": { "type": "integer", "minimum": 1 },
+            "timing_notes": { "type": "string", "minLength": 1 },
+            "subtitles_enabled": { "type": "boolean", "const": false }
+          }
+        },
+        "approval_constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "publish_blockers",
+            "review_focus"
+          ],
+          "properties": {
+            "publish_blockers": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "review_focus": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "provider_constraints": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "provider_selection_policy",
+            "avatar_policy",
+            "render_policy"
+          ],
+          "properties": {
+            "provider_selection_policy": { "type": "string", "minLength": 1 },
+            "avatar_policy": { "type": "string", "minLength": 1 },
+            "render_policy": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "risk_flags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "risk_id",
+          "severity",
+          "description",
+          "mitigation",
+          "blocks_publish"
+        ],
+        "properties": {
+          "risk_id": {
+            "type": "string",
+            "pattern": "^risk_[a-z0-9_]+$"
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["blocking", "review", "watch"]
+          },
+          "description": { "type": "string", "minLength": 1 },
+          "mitigation": { "type": "string", "minLength": 1 },
+          "blocks_publish": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

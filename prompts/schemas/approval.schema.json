@@ -1,0 +1,97 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approval_schema_version",
+    "source_stage",
+    "content_id",
+    "platform",
+    "platform_account_id",
+    "package_type",
+    "selected_video_id",
+    "selected_asset_id",
+    "qa_status",
+    "qa_result_reference",
+    "approval_status",
+    "approved_by",
+    "approved_at",
+    "approval_note"
+  ],
+  "properties": {
+    "approval_schema_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "source_stage": {
+      "type": "string",
+      "enum": ["approval_queue"]
+    },
+    "content_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "platform": {
+      "type": "string",
+      "enum": ["instagram"]
+    },
+    "platform_account_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "platform_account_username": {
+      "type": ["string", "null"]
+    },
+    "package_type": {
+      "type": "string",
+      "enum": ["instagram_reel", "instagram_image_post"]
+    },
+    "selected_video_id": {
+      "type": ["string", "null"]
+    },
+    "selected_asset_id": {
+      "type": ["string", "null"]
+    },
+    "qa_status": {
+      "type": "string",
+      "enum": ["passed", "blocked", "needs_review", "unknown"]
+    },
+    "qa_result_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "publish_decision", "blocks_publish", "checked_at"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["final_qa_validator", "manual_review"]
+        },
+        "publish_decision": {
+          "type": "string",
+          "enum": ["approved", "blocked", "needs_review"]
+        },
+        "blocks_publish": {
+          "type": "boolean"
+        },
+        "checked_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": ["pending", "approved", "rejected", "revoked"]
+    },
+    "approved_by": {
+      "type": ["string", "null"]
+    },
+    "approved_at": {
+      "type": ["string", "null"]
+    },
+    "approval_note": {
+      "type": ["string", "null"]
+    }
+  }
+}

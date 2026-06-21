@@ -1,0 +1,38 @@
+{
+  "fixture_version": 1,
+  "stage": "story_package_generation",
+  "scenario": "founder_explainer",
+  "content_item": {
+    "title": "How a Solo Founder Turned Support Tickets Into a Product Roadmap",
+    "slug": "fixture-founder-explainer",
+    "category": "founder_story",
+    "confidence_label": "internal_case_study",
+    "target_duration_seconds": 40,
+    "brand_profile": "default",
+    "source_payload_json": {
+      "abstract_idea": "A fictional founder explains how repeated customer support patterns shaped a product roadmap.",
+      "source_notes": [
+        "The company and founder are synthetic.",
+        "The core lesson is to listen for repeated customer pain rather than isolated feature requests.",
+        "Avoid naming real customers, revenue numbers, or proprietary support details."
+      ],
+      "creative_defaults": {
+        "tone": "calm, useful, credible",
+        "narrative_perspective": "first-person founder reflection",
+        "visual_strategy": "desk, product sketches, anonymized support queue, roadmap board",
+        "music_mood": "quiet momentum"
+      }
+    }
+  },
+  "prompt_template_data": {
+    "topic": "How a Solo Founder Turned Support Tickets Into a Product Roadmap",
+    "category": "founder_story",
+    "target_duration_seconds": "40",
+    "brand_tone": "calm, useful, credible",
+    "narrator_style": "thoughtful founder voiceover",
+    "ending_signature_family": "practical reflection",
+    "visual_style_rules": "documentary-realistic, clean workspace, no visible text",
+    "character_reference_context": "No real person reference. Use a generic founder silhouette if needed."
+  },
+  "expected_status_after_success": "storyboard_complete"
+}

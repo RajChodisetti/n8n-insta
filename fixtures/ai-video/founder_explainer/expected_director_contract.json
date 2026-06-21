@@ -1,0 +1,194 @@
+{
+  "contract_version": "1.0",
+  "selected_style_pack": "founder_explainer",
+  "style_pack_rationale": "The story is a first-person founder reflection about turning repeated support pain into roadmap focus.",
+  "secondary_influence": {
+    "style_pack_id": "product_demo_walkthrough",
+    "compatibility_note": "Use only its workflow clarity; avoid feature-heavy demo pacing."
+  },
+  "rejected_styles": [
+    "fast_reel_hook",
+    "meme_relatable_pain_point",
+    "premium_brand_film"
+  ],
+  "voice_role": "documentary_narrator",
+  "tts_delivery": "Grounded founder reflection with calm confidence, opening with focused urgency and closing on practical resolve.",
+  "global_visual_style": "Documentary-realistic founder workspace, soft daylight, close hands, anonymized support cards, and clean roadmap sketches with no readable UI text.",
+  "visual_strategy": "Follow one consistent workspace and show the shift from scattered support noise to grouped patterns and a focused roadmap.",
+  "global_pacing": "Four steady beats: immediate hook, support overload, pattern recognition, and practical lesson.",
+  "energy_curve": "Medium at the hook, medium-low during overwhelm, medium during the turn, and calm medium at the close.",
+  "mood_curve": "Focused, overwhelmed, clarifying, resolved.",
+  "global_music_direction": "Warm minimal piano with a soft pulse that becomes slightly clearer after the pattern recognition turn.",
+  "global_rules": {
+    "tone": "credible, practical, calm, and useful",
+    "avoid": [
+      "text inside generated images except renderer-managed scene 1 title metadata",
+      "readable customer tickets or product UI",
+      "revenue, growth, or proprietary roadmap claims",
+      "hype or guaranteed-result language"
+    ]
+  },
+  "visual_contract": {
+    "style_summary": "Founder workspace realism with anonymized work artifacts and restrained camera movement.",
+    "continuity_rules": [
+      "Keep the same desk, light quality, and color palette across scenes.",
+      "Represent tickets as unreadable abstract cards.",
+      "Use hands, notes, and roadmap shapes instead of legible interfaces."
+    ],
+    "text_policy": "Generated visuals must be text-free; all labels, tickets, UI, and notes stay blurred or abstract.",
+    "face_image_guidance": "Scene 1 may carry only renderer-managed title metadata, not generated text in the image.",
+    "visual_prompt_boundary": "Downstream prompt builders create production prompts; this contract only sets intent and constraints."
+  },
+  "voice_contract": {
+    "voice_role": "documentary_narrator",
+    "delivery_summary": "Measured voiceover that feels like a founder explaining a lesson after the fact.",
+    "scene_delivery_policy": "Each scene should preserve the spoken line and match its emotional beat without adding words.",
+    "clean_script_boundary": "Do not add provider tags or rewrite the narration script."
+  },
+  "music_sfx_contract": {
+    "music_direction": "Warm minimal piano or soft pulse under narration, lifting slightly when the pattern becomes clear.",
+    "sfx_direction": "Sparse desk, paper, soft keyboard, or subtle notification textures only.",
+    "license_note": "Music and SFX require known usage rights before publish."
+  },
+  "caption_contract": {
+    "caption_angle": "A practical founder habit: repeated support pain can reveal roadmap priorities.",
+    "cta_guidance": "Invite saving or reviewing before the next roadmap meeting.",
+    "hashtag_guidance": "Use founder, startup, product, customer feedback, and roadmap tags later; do not rank here.",
+    "copy_constraints": [
+      "Do not include hashtags in the contract.",
+      "Do not claim real customer data or measurable business results.",
+      "Keep the caption practical and non-hype."
+    ]
+  },
+  "edit_contract": {
+    "pacing_summary": "Keep scene 1 short, then let scenes 2-4 breathe around one idea each.",
+    "transition_language": "Use simple cuts, match cuts, and one soft push-in around the pattern recognition turn.",
+    "scene_count": 4,
+    "subtitles_enabled": false,
+    "render_handoff_notes": [
+      "Keep vertical 9:16 framing clean and mobile readable.",
+      "Subtitle burn-in remains disabled unless a later render contract changes it.",
+      "Scene 1 title belongs to renderer metadata, not generated image text."
+    ]
+  },
+  "avatar_contract": {
+    "avatar_required": false,
+    "avatar_policy": "No avatar is needed; use workspace and hands-first visuals.",
+    "consent_boundary": "Do not imply a real founder likeness or customer identity without explicit consent metadata.",
+    "disclosure_required": false
+  },
+  "routing_hints": {
+    "asset_sequence": ["image", "video", "video", "video"],
+    "image_video_policy": "Scene 1 is an image/title-card background; later scenes should use motion-friendly video beats.",
+    "provider_selection_policy": "Leave final provider, model, host, and render selection to downstream adapters.",
+    "handoff_notes": [
+      "Prioritize text-free visuals with clear focal action.",
+      "Pass consent and customer-data risks into asset review.",
+      "Preserve the selected style pack as creative guidance only."
+    ]
+  },
+  "risk_flags": [
+    {
+      "risk_id": "risk_private_customer_data",
+      "severity": "review",
+      "description": "The support-ticket concept could lead to visible private customer information.",
+      "mitigation": "Use unreadable cards, abstract notes, and generic workspace visuals.",
+      "blocks_publish": false
+    },
+    {
+      "risk_id": "risk_music_license",
+      "severity": "review",
+      "description": "Music direction is useful but no licensed track is selected at this stage.",
+      "mitigation": "Confirm usage rights before publish.",
+      "blocks_publish": false
+    }
+  ],
+  "qa_focus": [
+    "No readable ticket, UI, note, logo, or customer data appears in visuals.",
+    "No revenue, traction, or real-customer claim is implied.",
+    "Scene 1 title is renderer metadata only.",
+    "Music usage rights are known before publish."
+  ],
+  "scenes": [
+    {
+      "scene_number": 1,
+      "scene_objective": "Hook the viewer with the idea that roadmap clarity came from repeated support pain.",
+      "mood": "focused",
+      "energy": "medium",
+      "tts_instructions": "(curious) (confident) Open with measured intrigue; let the repeated complaint idea land.",
+      "visual_strategy": "Use a clean founder desk with unreadable notes and a single clear focal subject.",
+      "transition_hint": "Hard cut into the support overload beat.",
+      "music_sfx_cue": "Single warm piano note with a soft pulse entering.",
+      "caption_intent": "Set up the practical lesson without overexplaining.",
+      "qa_focus": [
+        "No generated title text in the image.",
+        "No readable notes or UI."
+      ],
+      "avoid": [
+        "Visible text",
+        "Fake product screenshots",
+        "Overdramatic founder portrait"
+      ]
+    },
+    {
+      "scene_number": 2,
+      "scene_objective": "Show support work feeling distracting before patterns become visible.",
+      "mood": "overwhelmed",
+      "energy": "medium-low",
+      "tts_instructions": "(worried) Keep the read reflective, not frantic.",
+      "visual_strategy": "Show abstract support-card volume and desk clutter without readable ticket content.",
+      "transition_hint": "Match cut from scattered cards to grouped cards.",
+      "music_sfx_cue": "Soft ticking rhythm under the piano bed.",
+      "caption_intent": "Reinforce that repeated pain beats isolated requests.",
+      "qa_focus": [
+        "Customer details remain anonymous.",
+        "No private or proprietary data is visible."
+      ],
+      "avoid": [
+        "Readable support tickets",
+        "Customer names",
+        "Sensational stress imagery"
+      ]
+    },
+    {
+      "scene_number": 3,
+      "scene_objective": "Make the pattern recognition turn clear.",
+      "mood": "clarifying",
+      "energy": "medium",
+      "tts_instructions": "(determined) Slightly emphasize the repeated pain turning into a decision.",
+      "visual_strategy": "Use hands grouping color-coded notes and a clear physical pattern without text.",
+      "transition_hint": "Subtle push-in as notes form one cluster.",
+      "music_sfx_cue": "Pulse becomes more confident but stays under narration.",
+      "caption_intent": "Connect support patterns to roadmap focus.",
+      "qa_focus": [
+        "Pattern is visible without text.",
+        "No unsupported metric is implied."
+      ],
+      "avoid": [
+        "Legible labels",
+        "Charts with fake numbers",
+        "Claims of proven impact"
+      ]
+    },
+    {
+      "scene_number": 4,
+      "scene_objective": "Close with the lesson that support can reveal priorities.",
+      "mood": "resolved",
+      "energy": "medium-low",
+      "tts_instructions": "(calm) (confident) Use a clean closing cadence with practical confidence.",
+      "visual_strategy": "Show a clean roadmap board made of abstract shapes and calm daylight continuity.",
+      "transition_hint": "Soft cut to final hold.",
+      "music_sfx_cue": "Gentle resolution with no dramatic hit.",
+      "caption_intent": "Invite the viewer to save the lesson for planning.",
+      "qa_focus": [
+        "Roadmap is abstract and unreadable.",
+        "Ending stays practical, not salesy."
+      ],
+      "avoid": [
+        "Readable roadmap items",
+        "Company logos",
+        "Guaranteed outcome language"
+      ]
+    }
+  ]
+}

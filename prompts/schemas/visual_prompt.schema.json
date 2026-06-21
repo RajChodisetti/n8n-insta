@@ -1,0 +1,199 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "visual_prompt_version",
+    "source_stage",
+    "selected_style_pack",
+    "global_continuity",
+    "text_policy",
+    "prompts",
+    "qa_focus"
+  ],
+  "properties": {
+    "visual_prompt_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "source_stage": {
+      "type": "string",
+      "enum": ["visual_prompt_builder"]
+    },
+    "selected_style_pack": {
+      "type": "string",
+      "minLength": 1
+    },
+    "global_continuity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["style_summary", "continuity_requirements", "character_continuity", "environment_continuity"],
+      "properties": {
+        "style_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "continuity_requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "character_continuity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "environment_continuity": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "text_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generated_asset_policy", "renderer_text_policy", "forbidden_text_elements"],
+      "properties": {
+        "generated_asset_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "renderer_text_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "forbidden_text_elements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "prompts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scene_number",
+          "asset_type",
+          "duration_seconds",
+          "aspect_ratio",
+          "subject",
+          "environment",
+          "composition",
+          "camera",
+          "motion",
+          "lighting",
+          "style",
+          "continuity_requirements",
+          "text_policy",
+          "visual_prompt",
+          "negative_prompt",
+          "fallback_prompt",
+          "safety_notes",
+          "qa_checks"
+        ],
+        "properties": {
+          "scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "asset_type": {
+            "type": "string",
+            "enum": ["image", "video", "mixed"]
+          },
+          "duration_seconds": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "aspect_ratio": {
+            "type": "string",
+            "enum": ["9:16"]
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1
+          },
+          "environment": {
+            "type": "string",
+            "minLength": 1
+          },
+          "composition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "camera": {
+            "type": "string",
+            "minLength": 1
+          },
+          "motion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lighting": {
+            "type": "string",
+            "minLength": 1
+          },
+          "style": {
+            "type": "string",
+            "minLength": 1
+          },
+          "continuity_requirements": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "text_policy": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visual_prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "negative_prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fallback_prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "safety_notes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "qa_checks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "qa_focus": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

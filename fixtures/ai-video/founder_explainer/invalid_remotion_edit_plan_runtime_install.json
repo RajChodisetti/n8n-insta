@@ -1,0 +1,120 @@
+{
+  "remotion_edit_plan_version": "1.0",
+  "source_stage": "remotion_edit_plan",
+  "plan_id": "invalid_remotion_runtime_install",
+  "source_render_manifest_id": "render_manifest_v2_founder_explainer_001",
+  "content_id": "11111111-1111-4111-8111-111111111111",
+  "title": "Invalid Runtime Install",
+  "created_at": "2026-06-21T00:00:00.000Z",
+  "selected_style_pack": "founder_explainer",
+  "runtime_policy": {
+    "plan_only": false,
+    "install_remotion_now": true,
+    "replaces_ffmpeg": true,
+    "requires_package_install": true,
+    "active_runtime_renderer": "local_ffmpeg",
+    "notes": "Invalid fixture: attempts to install Remotion and replace FFmpeg during the contract session."
+  },
+  "composition": {
+    "id": "InvalidRuntimeInstall",
+    "component_name": "InvalidComposition",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "duration_in_frames": 30,
+    "duration_seconds": 1,
+    "default_props": {
+      "title": "Invalid Runtime Install"
+    }
+  },
+  "render_environment": {
+    "status": "planned",
+    "expected_runtime": "local_remotion_project_future",
+    "required_packages": ["remotion", "@remotion/cli", "react", "react-dom"],
+    "commands_for_future_runtime_only": ["npx create-video@latest --yes --blank --no-tailwind remotion-renderer"],
+    "notes": "Invalid fixture: records install as current behavior."
+  },
+  "input_props_contract": {
+    "schema_style": "zod_future",
+    "required_props": ["title", "scenes"],
+    "optional_props": [],
+    "notes": "Minimal invalid fixture."
+  },
+  "sequences": [
+    {
+      "sequence_id": "scene_sequence_01",
+      "scene_number": 1,
+      "from_frame": 0,
+      "duration_in_frames": 30,
+      "start_time_seconds": 0,
+      "duration_seconds": 1,
+      "visual_asset_url": "https://cdn.example.com/n8n-insta/fixtures/founder_explainer/scene-01.jpg",
+      "asset_type": "image",
+      "component_hint": "SceneImage",
+      "props": {
+        "fit": "cover"
+      }
+    }
+  ],
+  "captions": {
+    "enabled": false,
+    "track_id": "captions_main",
+    "style": "cinematic_center_safe",
+    "safe_area_id": "safe_caption_lower",
+    "lines": []
+  },
+  "overlays": [],
+  "lower_thirds": [],
+  "audio_tracks": [
+    {
+      "track_id": "voice_per_scene",
+      "track_type": "narration",
+      "mode": "per_scene",
+      "from_frame": 0,
+      "duration_in_frames": 30,
+      "asset_urls": ["https://cdn.example.com/n8n-insta/fixtures/founder_explainer/narration-01.mp3"],
+      "volume": 1,
+      "ducking_strategy": "Primary narration track.",
+      "license_status": "not_applicable",
+      "publish_allowed": true
+    }
+  ],
+  "transitions": [],
+  "brand_elements": [],
+  "export_settings": {
+    "format": "mp4",
+    "codec": "h264",
+    "audio_codec": "aac",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "duration_in_frames": 30,
+    "duration_seconds": 1,
+    "quality": "draft",
+    "still_frame_check": {
+      "enabled": true,
+      "frame": 0
+    }
+  },
+  "fallback_plan": {
+    "active_fallback": false,
+    "fallback_renderer": "local_ffmpeg",
+    "fallback_reason": "Invalid fixture: fallback was disabled.",
+    "ffmpeg_contract_path": "fixtures/ai-video/founder_explainer/expected_render_manifest_v2.json"
+  },
+  "quality_gates": [
+    {
+      "gate_id": "runtime_not_installed",
+      "severity": "blocking",
+      "check": "Plan does not install Remotion or replace FFmpeg.",
+      "expected_result": "Runtime policy remains plan-only.",
+      "status": "blocked"
+    }
+  ],
+  "implementation_notes": {
+    "runtime_behavior_changed": true,
+    "dependencies_added": true,
+    "active_workflow_consumes_this": true,
+    "notes": "Invalid fixture: contract tries to change runtime behavior."
+  }
+}

@@ -1,0 +1,482 @@
+{
+  "model_route_version": "1.0",
+  "source_stage": "model_provider_router",
+  "scenario_id": "founder_explainer",
+  "created_at": "2026-06-21T00:00:00.000Z",
+  "package_type": "instagram_reel",
+  "creative_direction_policy": "preserve_upstream_contracts",
+  "router_inputs": {
+    "selected_style_pack": "founder_explainer",
+    "client_account_context_key": "default_instagram_storytelling",
+    "target_duration_seconds": 40,
+    "route_objective": "Recommend existing provider candidates for a founder explainer Reel without changing active adapter behavior.",
+    "constraints": [
+      "Use only providers already represented by adapter code.",
+      "Preserve the existing director, storyboard, visual prompt, voice, music, render, approval, and publish contracts.",
+      "Keep all recommendations planning-only until a later implementation session explicitly changes adapter selection."
+    ]
+  },
+  "provider_boundaries": [
+    {
+      "boundary_id": "text_generation",
+      "purpose": "Structured prompt contracts for story package, director, storyboard, caption, and planning stages.",
+      "current_selector": {
+        "env_keys": ["TEXT_LLM_PROVIDER", "STORY_PACKAGE_LLM_PROVIDER", "DIRECTOR_LLM_PROVIDER"],
+        "default_provider": "openai",
+        "current_behavior_notes": "Only the OpenAI structured text adapter is implemented; other text providers fail through providerNotImplemented."
+      },
+      "candidates": [
+        {
+          "candidate_id": "text_openai_gpt_4_1",
+          "provider": "openai",
+          "model": "gpt-4.1",
+          "adapter_status": "implemented",
+          "fit_score": 0.9,
+          "fit_rationale": "Best fit for high-structure story package and director contracts where schema reliability matters.",
+          "strengths": ["Structured JSON support", "Existing adapter path", "Known pricing in cost calculator"],
+          "tradeoffs": ["Higher cost than mini models", "Still requires configured OpenAI credentials"],
+          "constraints": ["Do not switch providers inside workflow JSON", "Use only through existing text adapter"],
+          "required_env_vars": ["OPENAI_API_KEY"],
+          "cost_assumption": {
+            "tier": "medium",
+            "priced_in_cost_calculator": true,
+            "notes": "Cost calculator contains OpenAI text model pricing rows for gpt-4.1-class models."
+          },
+          "speed_assumption": {
+            "tier": "medium",
+            "notes": "Expected to be slower than mini models but acceptable for planning and high-value package generation."
+          },
+          "quality_assumption": {
+            "tier": "high",
+            "notes": "Useful for complex structured prompt contracts with many constraints."
+          },
+          "availability_notes": "Available only when OpenAI credentials are configured in local env or runtime credentials.",
+          "changes_runtime_behavior": false
+        },
+        {
+          "candidate_id": "text_openai_gpt_4_1_mini",
+          "provider": "openai",
+          "model": "gpt-4.1-mini",
+          "adapter_status": "implemented",
+          "fit_score": 0.78,
+          "fit_rationale": "Good fallback for lower-cost structured generation where the contract is already well constrained.",
+          "strengths": ["Existing adapter path", "Lower cost", "Good fit for narrow validators and draft stages"],
+          "tradeoffs": ["May require more validator retries for dense contracts", "Lower ceiling than the primary text candidate"],
+          "constraints": ["Keep fallback use explicit in env recommendations only"],
+          "required_env_vars": ["OPENAI_API_KEY"],
+          "cost_assumption": {
+            "tier": "low",
+            "priced_in_cost_calculator": true,
+            "notes": "Cost calculator contains pricing rows for gpt-4.1-mini."
+          },
+          "speed_assumption": {
+            "tier": "fast",
+            "notes": "Expected to be faster than the primary text candidate."
+          },
+          "quality_assumption": {
+            "tier": "good",
+            "notes": "Appropriate for lower-risk structured text stages and fallbacks."
+          },
+          "availability_notes": "Same OpenAI credential boundary as the primary text route.",
+          "changes_runtime_behavior": false
+        }
+      ],
+      "selected_candidate_id": "text_openai_gpt_4_1",
+      "fallback_candidate_id": "text_openai_gpt_4_1_mini",
+      "boundary_decision": {
+        "decision_status": "recommend_current",
+        "rationale": "OpenAI is the only implemented structured text provider, so this route preserves current behavior."
+      }
+    },
+    {
+      "boundary_id": "image_generation",
+      "purpose": "Scene one still image and static post image generation.",
+      "current_selector": {
+        "env_keys": ["SCENE_IMAGE_PROVIDER", "POST_IMAGE_PROVIDER", "IMAGE_GENERATION_PROVIDER"],
+        "default_provider": "openai",
+        "current_behavior_notes": "Image generation currently supports OpenAI image generation and Fal image aliases."
+      },
+      "candidates": [
+        {
+          "candidate_id": "image_openai_gpt_image_1",
+          "provider": "openai",
+          "model": "gpt-image-1",
+          "adapter_status": "implemented",
+          "fit_score": 0.82,
+          "fit_rationale": "Strong option for title-card and reference-aware still images when OpenAI image credentials are available.",
+          "strengths": ["Existing adapter path", "Can use reference images", "Known cost table entry"],
+          "tradeoffs": ["Requires OpenAI image model access", "Can be more expensive than fast Fal routes"],
+          "constraints": ["Generated assets must remain text-free", "Critical readable text belongs to renderer overlays"],
+          "required_env_vars": ["OPENAI_API_KEY"],
+          "cost_assumption": {
+            "tier": "medium",
+            "priced_in_cost_calculator": true,
+            "notes": "Cost calculator contains gpt-image-1 pricing."
+          },
+          "speed_assumption": {
+            "tier": "medium",
+            "notes": "Expected to be slower than Fal Schnell but acceptable for one still image."
+          },
+          "quality_assumption": {
+            "tier": "high",
+            "notes": "Good fit for controlled hero/title-card stills."
+          },
+          "availability_notes": "Requires OpenAI image generation access and configured API key.",
+          "changes_runtime_behavior": false
+        },
+        {
+          "candidate_id": "image_fal_flux_schnell",
+          "provider": "fal_ai",
+          "model": "fal-ai/flux/schnell",
+          "adapter_status": "implemented",
+          "fit_score": 0.72,
+          "fit_rationale": "Fast lower-cost fallback for text-free scene stills.",
+          "strengths": ["Existing Fal adapter path", "Fast generation", "Low cost in cost calculator"],
+          "tradeoffs": ["Less controlled for reference identity than OpenAI edits", "Requires Fal credentials"],
+          "constraints": ["Prompt must remain specific and text-free", "No provider call should happen during router planning"],
+          "required_env_vars": ["FAL_AI_API_KEY"],
+          "cost_assumption": {
+            "tier": "very_low",
+            "priced_in_cost_calculator": true,
+            "notes": "Cost calculator contains fal-ai/flux/schnell pricing."
+          },
+          "speed_assumption": {
+            "tier": "fast",
+            "notes": "Good fallback for quick scene stills."
+          },
+          "quality_assumption": {
+            "tier": "good",
+            "notes": "Useful for fast drafts and lower-risk stills."
+          },
+          "availability_notes": "Requires Fal API credentials and model availability.",
+          "changes_runtime_behavior": false
+        }
+      ],
+      "selected_candidate_id": "image_openai_gpt_image_1",
+      "fallback_candidate_id": "image_fal_flux_schnell",
+      "boundary_decision": {
+        "decision_status": "needs_human_review",
+        "rationale": "Both routes are implemented; final choice should consider credential availability and reference-image needs."
+      }
+    },
+    {
+      "boundary_id": "video_generation",
+      "purpose": "Scene video generation for v3 scene assets.",
+      "current_selector": {
+        "env_keys": ["WAN_VIDEO_MODEL", "WAN_REFERENCE_VIDEO_MODEL", "FAL_AI_API_KEY"],
+        "default_provider": "fal_ai_wan",
+        "current_behavior_notes": "The v3 scene asset helper uses Fal/Wan text-to-video and reference-to-video paths directly."
+      },
+      "candidates": [
+        {
+          "candidate_id": "video_fal_wan_t2v",
+          "provider": "fal_ai_wan",
+          "model": "fal-ai/wan-t2v",
+          "adapter_status": "implemented",
+          "fit_score": 0.8,
+          "fit_rationale": "Current default for non-reference scene videos in the v3 helper.",
+          "strengths": ["Existing helper path", "Known video pricing entry", "Suitable for text-free scene motion"],
+          "tradeoffs": ["Requires public download/rehost step", "Motion quality depends heavily on specific prompt quality"],
+          "constraints": ["Scene prompts must avoid readable text", "No live generation during router planning"],
+          "required_env_vars": ["FAL_AI_API_KEY"],
+          "cost_assumption": {
+            "tier": "medium",
+            "priced_in_cost_calculator": true,
+            "notes": "Cost calculator contains fal-ai/wan-t2v pricing."
+          },
+          "speed_assumption": {
+            "tier": "slow",
+            "notes": "Video generation is slower than still image generation."
+          },
+          "quality_assumption": {
+            "tier": "good",
+            "notes": "Good enough for scene motion if prompt specificity is high."
+          },
+          "availability_notes": "Depends on Fal queue availability and configured credentials.",
+          "changes_runtime_behavior": false
+        },
+        {
+          "candidate_id": "video_fal_wan_reference",
+          "provider": "fal_ai_wan_reference",
+          "model": "fal-ai/wan/v2.7/reference-to-video",
+          "adapter_status": "implemented",
+          "fit_score": 0.76,
+          "fit_rationale": "Useful only for scenes that require a primary-character reference image.",
+          "strengths": ["Existing reference-to-video helper path", "Better continuity when reference metadata exists"],
+          "tradeoffs": ["Higher cost assumption", "Requires valid hosted reference image"],
+          "constraints": ["Use only when consent and character reference metadata are present", "Fail closed without reference URL"],
+          "required_env_vars": ["FAL_AI_API_KEY"],
+          "cost_assumption": {
+            "tier": "high",
+            "priced_in_cost_calculator": true,
+            "notes": "Cost calculator contains reference-to-video pricing rows."
+          },
+          "speed_assumption": {
+            "tier": "slow",
+            "notes": "Queued reference video generation should be treated as a slower path."
+          },
+          "quality_assumption": {
+            "tier": "high",
+            "notes": "Better fit for continuity-sensitive recurring character scenes."
+          },
+          "availability_notes": "Requires Fal credentials and a publish-safe reference image with consent metadata where applicable.",
+          "changes_runtime_behavior": false
+        }
+      ],
+      "selected_candidate_id": "video_fal_wan_t2v",
+      "fallback_candidate_id": "video_fal_wan_reference",
+      "boundary_decision": {
+        "decision_status": "recommend_current",
+        "rationale": "Keep the current v3 default for normal scenes; reference route remains conditional."
+      }
+    },
+    {
+      "boundary_id": "narration_tts",
+      "purpose": "Narration audio generation.",
+      "current_selector": {
+        "env_keys": ["NARRATION_PROVIDER", "TTS_PROVIDER"],
+        "default_provider": "fish_audio",
+        "current_behavior_notes": "Narration supports Fish Audio, OpenAI speech, and Smallest AI aliases through the TTS adapter."
+      },
+      "candidates": [
+        {
+          "candidate_id": "tts_fish_audio_s2_pro",
+          "provider": "fish_audio",
+          "model": "s2-pro",
+          "adapter_status": "implemented",
+          "fit_score": 0.86,
+          "fit_rationale": "Current default and good fit for expressive narration when credentials and voice references are configured.",
+          "strengths": ["Existing default", "Supports expressive narration style", "Cost calculator has Fish Audio pricing"],
+          "tradeoffs": ["Requires Fish Audio credentials", "Voice-reference setup can be provider-specific"],
+          "constraints": ["Clean script must remain separate from provider control tags", "Consent rules apply to cloned or likeness voices"],
+          "required_env_vars": ["FISH_AUDIO_API_KEY"],
+          "cost_assumption": {
+            "tier": "medium",
+            "priced_in_cost_calculator": true,
+            "notes": "Cost calculator has Fish Audio TTS pricing by UTF-8 bytes."
+          },
+          "speed_assumption": {
+            "tier": "medium",
+            "notes": "Appropriate for production narration when configured."
+          },
+          "quality_assumption": {
+            "tier": "high",
+            "notes": "Strong fit for emotionally guided voiceover."
+          },
+          "availability_notes": "Requires Fish Audio API key and any optional voice reference configuration.",
+          "changes_runtime_behavior": false
+        },
+        {
+          "candidate_id": "tts_openai_speech",
+          "provider": "openai",
+          "model": "gpt-4o-mini-tts",
+          "adapter_status": "implemented",
+          "fit_score": 0.72,
+          "fit_rationale": "Reasonable fallback when OpenAI credentials are already available and provider consistency matters.",
+          "strengths": ["Existing adapter path", "Simple credential boundary when OpenAI is already configured"],
+          "tradeoffs": ["May not match Fish Audio emotional controls", "Voice selection differs by provider"],
+          "constraints": ["Do not insert provider-specific tags into clean spoken text"],
+          "required_env_vars": ["OPENAI_API_KEY"],
+          "cost_assumption": {
+            "tier": "medium",
+            "priced_in_cost_calculator": true,
+            "notes": "Cost calculator has OpenAI TTS provider pricing."
+          },
+          "speed_assumption": {
+            "tier": "medium",
+            "notes": "Expected to be acceptable for narration fallback."
+          },
+          "quality_assumption": {
+            "tier": "good",
+            "notes": "Good fallback, but final delivery style may differ from Fish Audio."
+          },
+          "availability_notes": "Requires OpenAI API key and selected OpenAI TTS model access.",
+          "changes_runtime_behavior": false
+        }
+      ],
+      "selected_candidate_id": "tts_fish_audio_s2_pro",
+      "fallback_candidate_id": "tts_openai_speech",
+      "boundary_decision": {
+        "decision_status": "recommend_current",
+        "rationale": "Fish Audio is the current default and should remain the planned primary route unless credentials are missing."
+      }
+    },
+    {
+      "boundary_id": "asset_hosting",
+      "purpose": "Public hosting for generated assets and render outputs.",
+      "current_selector": {
+        "env_keys": ["ASSET_HOST_PROVIDER", "IMAGE_HOST_PROVIDER", "RENDER_OUTPUT_HOST_PROVIDER"],
+        "default_provider": "object_storage",
+        "current_behavior_notes": "Asset hosting supports object storage and Google Cloud Storage aliases."
+      },
+      "candidates": [
+        {
+          "candidate_id": "host_object_storage",
+          "provider": "object_storage",
+          "model": "s3-compatible-object-storage",
+          "adapter_status": "implemented",
+          "fit_score": 0.74,
+          "fit_rationale": "Local-friendly default for MinIO/S3-compatible storage.",
+          "strengths": ["Existing default", "Works with local MinIO", "No service-account key required"],
+          "tradeoffs": ["Published assets still need public non-local URLs for Instagram", "Local URLs block live publish"],
+          "constraints": ["Do not publish localhost or private network URLs", "Keep secrets in env only"],
+          "required_env_vars": ["REELS_STORAGE_BUCKET", "REELS_STORAGE_ACCESS_KEY_ID", "REELS_STORAGE_SECRET_ACCESS_KEY"],
+          "cost_assumption": {
+            "tier": "unknown",
+            "priced_in_cost_calculator": false,
+            "notes": "Storage cost is environment-specific and not priced by the local cost calculator."
+          },
+          "speed_assumption": {
+            "tier": "fast",
+            "notes": "Local/object storage upload is usually fast compared with generation."
+          },
+          "quality_assumption": {
+            "tier": "baseline",
+            "notes": "Hosting does not alter asset quality."
+          },
+          "availability_notes": "Use for local tests; live Instagram publish still needs public HTTPS delivery.",
+          "changes_runtime_behavior": false
+        },
+        {
+          "candidate_id": "host_google_cloud_storage",
+          "provider": "google_cloud_storage",
+          "model": "google-cloud-storage",
+          "adapter_status": "implemented",
+          "fit_score": 0.84,
+          "fit_rationale": "Better fit for public hosted assets when service-account configuration is available.",
+          "strengths": ["Existing adapter path", "Public HTTPS storage URL shape", "Good fit for live publish assets"],
+          "tradeoffs": ["Requires service-account file and bucket configuration", "Credential handling is more sensitive"],
+          "constraints": ["Never commit or print service-account material", "Use configured bucket and public base URL only"],
+          "required_env_vars": ["GOOGLE_CLOUD_STORAGE_BUCKET", "GOOGLE_CLOUD_STORAGE_SERVICE_ACCOUNT_KEY_PATH"],
+          "cost_assumption": {
+            "tier": "unknown",
+            "priced_in_cost_calculator": false,
+            "notes": "Cloud storage cost is not modeled by the repo cost calculator."
+          },
+          "speed_assumption": {
+            "tier": "fast",
+            "notes": "Upload speed depends on network and bucket region."
+          },
+          "quality_assumption": {
+            "tier": "baseline",
+            "notes": "Hosting preserves binary quality."
+          },
+          "availability_notes": "Requires local service-account mount and publish-safe public object URL configuration.",
+          "changes_runtime_behavior": false
+        }
+      ],
+      "selected_candidate_id": "host_google_cloud_storage",
+      "fallback_candidate_id": "host_object_storage",
+      "boundary_decision": {
+        "decision_status": "needs_human_review",
+        "rationale": "GCS is preferable for live publish URLs, while object storage remains the safer local fallback."
+      }
+    },
+    {
+      "boundary_id": "rendering",
+      "purpose": "Final MP4 composition and export.",
+      "current_selector": {
+        "env_keys": ["RENDER_PROVIDER"],
+        "default_provider": "local_ffmpeg",
+        "current_behavior_notes": "Render selector falls back to local_ffmpeg; no Remotion runtime is installed yet."
+      },
+      "candidates": [
+        {
+          "candidate_id": "render_local_ffmpeg",
+          "provider": "local_ffmpeg",
+          "model": "ffmpeg-render-worker",
+          "adapter_status": "implemented",
+          "fit_score": 0.88,
+          "fit_rationale": "Only implemented render path and current production-compatible export route.",
+          "strengths": ["Existing render worker", "Smoke-tested by Phase 3 scripts", "No new dependency required"],
+          "tradeoffs": ["Less template-rich than future Remotion route", "Complex timeline features may require later contract work"],
+          "constraints": ["Do not replace renderer in this session", "Maintain MP4 public URL output for publish gate"],
+          "required_env_vars": ["RENDER_PROVIDER"],
+          "cost_assumption": {
+            "tier": "low",
+            "priced_in_cost_calculator": false,
+            "notes": "Local render cost is not priced by the cost calculator."
+          },
+          "speed_assumption": {
+            "tier": "medium",
+            "notes": "Render time depends on asset count and FFmpeg workload."
+          },
+          "quality_assumption": {
+            "tier": "good",
+            "notes": "Current path produces platform-ready MP4 when assets and manifests are valid."
+          },
+          "availability_notes": "Requires render-worker container with FFmpeg/ffprobe available.",
+          "changes_runtime_behavior": false
+        }
+      ],
+      "selected_candidate_id": "render_local_ffmpeg",
+      "fallback_candidate_id": null,
+      "boundary_decision": {
+        "decision_status": "recommend_current",
+        "rationale": "No other renderer is implemented; keep local FFmpeg as the only selected render route."
+      }
+    }
+  ],
+  "selected_route_summary": {
+    "planning_only": true,
+    "changes_runtime_behavior": false,
+    "recommended_env_settings": [
+      {
+        "env_key": "STORY_PACKAGE_LLM_PROVIDER",
+        "recommended_value": "openai",
+        "reason": "OpenAI is the only implemented structured text provider.",
+        "apply_now": false
+      },
+      {
+        "env_key": "RENDER_OUTPUT_HOST_PROVIDER",
+        "recommended_value": "google_cloud_storage",
+        "reason": "Public HTTPS output hosting is better aligned with live Instagram Reel publishing.",
+        "apply_now": false
+      }
+    ],
+    "human_review_required": true,
+    "summary": "Use existing adapters only. Keep OpenAI for text, current image/video/TTS selectors as configured, GCS for live-hosted output when available, and local FFmpeg for rendering."
+  },
+  "fallback_plan": [
+    {
+      "boundary_id": "text_generation",
+      "fallback_order": ["text_openai_gpt_4_1", "text_openai_gpt_4_1_mini"],
+      "fail_closed_conditions": ["OpenAI API key missing", "Structured JSON output fails validation"]
+    },
+    {
+      "boundary_id": "image_generation",
+      "fallback_order": ["image_openai_gpt_image_1", "image_fal_flux_schnell"],
+      "fail_closed_conditions": ["Selected image provider credentials missing", "Prompt requests readable text in generated assets"]
+    },
+    {
+      "boundary_id": "video_generation",
+      "fallback_order": ["video_fal_wan_t2v", "video_fal_wan_reference"],
+      "fail_closed_conditions": ["Fal credentials missing", "Reference route requested without consent-safe hosted reference image"]
+    },
+    {
+      "boundary_id": "narration_tts",
+      "fallback_order": ["tts_fish_audio_s2_pro", "tts_openai_speech"],
+      "fail_closed_conditions": ["TTS provider credentials missing", "Voice clone or likeness route lacks consent metadata"]
+    },
+    {
+      "boundary_id": "asset_hosting",
+      "fallback_order": ["host_google_cloud_storage", "host_object_storage"],
+      "fail_closed_conditions": ["Hosted URL is local-only", "Service-account or storage secret is missing"]
+    },
+    {
+      "boundary_id": "rendering",
+      "fallback_order": ["render_local_ffmpeg"],
+      "fail_closed_conditions": ["Render worker unavailable", "Rendered output is not a public MP4 URL"]
+    }
+  ],
+  "implementation_notes": {
+    "do_not_change": [
+      "Do not edit adapter_config.mjs provider selector behavior in this session.",
+      "Do not add provider SDKs or dependencies.",
+      "Do not replace local FFmpeg rendering.",
+      "Do not bypass final QA, selected-render approval, or client/account publish-account matching."
+    ],
+    "adapter_changes_required": false,
+    "notes": "This route is a planning artifact for future provider decisions. Applying any env recommendation belongs in a separate approved implementation session."
+  }
+}
