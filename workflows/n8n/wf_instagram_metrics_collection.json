@@ -1,0 +1,172 @@
+{
+  "name": "wf_instagram_metrics_collection",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with published_candidates as materialized (\n  select\n    ci.content_id,\n    ci.title,\n    ci.category,\n    ci.status as content_status,\n    p.instagram_media_id,\n    p.published_at,\n    p.caption_final,\n    p.hashtags_final,\n    case\n      when p.published_at <= now() - interval '24 hours'\n        and not exists (\n          select 1\n          from insight_snapshots s\n          where s.content_id = ci.content_id\n            and s.platform = 'instagram'\n            and s.snapshot_window = '24h'\n        ) then '24h'\n      when p.published_at <= now() - interval '72 hours'\n        and not exists (\n          select 1\n          from insight_snapshots s\n          where s.content_id = ci.content_id\n            and s.platform = 'instagram'\n            and s.snapshot_window = '72h'\n        ) then '72h'\n      when p.published_at <= now() - interval '7 days'\n        and not exists (\n          select 1\n          from insight_snapshots s\n          where s.content_id = ci.content_id\n            and s.platform = 'instagram'\n            and s.snapshot_window = '7d'\n        ) then '7d'\n      else null\n    end as snapshot_window\n  from content_items ci\n  join publishes p on p.content_id = ci.content_id\n  where p.platform = 'instagram'\n    and p.publish_status = 'published'\n    and p.published_at is not null\n    and coalesce(nullif(btrim(p.instagram_media_id), ''), '') <> ''\n)\nselect\n  content_id,\n  title,\n  category,\n  content_status,\n  instagram_media_id,\n  published_at,\n  caption_final,\n  hashtags_final,\n  snapshot_window\nfrom published_candidates\nwhere snapshot_window is not null\norder by published_at asc, content_id asc\nlimit 1;",
+        "options": {}
+      },
+      "id": "fetch_next_published_item_for_metrics",
+      "name": "Fetch Next Published Item For Metrics",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const workflowName = 'wf_instagram_metrics_collection';\nconst startedAt = new Date();\nconst env = typeof $env === 'object' && $env ? $env : {};\nconst mode = String(env.INSTAGRAM_INSIGHTS_COLLECTION_MODE || 'stub').trim().toLowerCase() || 'stub';\nconst graphApiVersion = String(env.GRAPH_API_VERSION || 'v25.0').trim();\nconst accessToken = String(env.INSTAGRAM_GRAPH_API_TOKEN || '').trim();\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nconst category = String($json.category ?? '').trim();\nconst contentStatus = String($json.content_status ?? '').trim();\nconst mediaId = String($json.instagram_media_id ?? '').trim();\nconst snapshotWindow = String($json.snapshot_window ?? '').trim();\nconst publishedAt = String($json.published_at ?? '').trim();\nconst uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Published Item For Metrics did not return a valid content_id.');\n}\nif (!mediaId) {\n  throw new Error('Fetch Next Published Item For Metrics did not return instagram_media_id.');\n}\nif (!['24h', '72h', '7d'].includes(snapshotWindow)) {\n  throw new Error('Fetch Next Published Item For Metrics did not return a supported snapshot_window.');\n}\nconst normalizeNumber = (value) => {\n  if (value === null || value === undefined || value === '') return null;\n  const numeric = Number(value);\n  return Number.isFinite(numeric) ? numeric : null;\n};\nconst extractMetricValue = (entry) => {\n  const candidates = [\n    entry?.values?.[0]?.value,\n    entry?.total_value,\n    entry?.value,\n    entry?.values?.[0]?.total_value,\n    entry?.values?.[0]\n  ];\n  for (const candidate of candidates) {\n    if (candidate === null || candidate === undefined || candidate === '') continue;\n    if (typeof candidate === 'number') return candidate;\n    if (typeof candidate === 'string' && candidate.trim() !== '' && Number.isFinite(Number(candidate))) {\n      return Number(candidate);\n    }\n    if (typeof candidate === 'object') {\n      const nestedCandidates = [candidate.value, candidate.total_value, candidate.count];\n      for (const nested of nestedCandidates) {\n        if (nested === null || nested === undefined || nested === '') continue;\n        if (typeof nested === 'number') return nested;\n        if (typeof nested === 'string' && nested.trim() !== '' && Number.isFinite(Number(nested))) {\n          return Number(nested);\n        }\n      }\n      for (const nested of Object.values(candidate)) {\n        if (typeof nested === 'number') return nested;\n        if (typeof nested === 'string' && nested.trim() !== '' && Number.isFinite(Number(nested))) {\n          return Number(nested);\n        }\n      }\n    }\n  }\n  return null;\n};\nconst buildStubMetrics = () => {\n  const seed = Array.from(`${contentId}:${snapshotWindow}`).reduce((sum, char, index) => sum + (char.charCodeAt(0) * (index + 3)), 0);\n  const windowMultiplier = snapshotWindow === '24h' ? 1 : snapshotWindow === '72h' ? 1.45 : 1.9;\n  const views = Math.max(600, Math.round((900 + (seed % 1200)) * windowMultiplier));\n  const reach = Math.max(300, Math.round(views * 0.74));\n  const likes = Math.max(40, Math.round(reach * 0.065));\n  const comments = Math.max(4, Math.round(likes * 0.08));\n  const shares = Math.max(3, Math.round(reach * 0.018));\n  const saves = Math.max(5, Math.round(reach * 0.024));\n  const plays = views;\n  const completionRate = Math.min(96, Number((58 + (seed % 18) + (snapshotWindow === '7d' ? 4 : 0)).toFixed(2)));\n  const denominator = reach || views || plays || 1;\n  const engagementRate = Number((((likes + comments + shares + saves) / denominator) * 100).toFixed(4));\n  return {\n    metrics: {\n      views,\n      plays,\n      reach,\n      likes,\n      comments,\n      shares,\n      saves,\n      engagement_rate: engagementRate,\n      completion_rate: completionRate\n    },\n    raw_payload_json: {\n      collection_mode: 'stub',\n      generated_at: new Date().toISOString(),\n      media_id: mediaId,\n      snapshot_window: snapshotWindow,\n      synthetic_seed: seed\n    },\n    details_json: {\n      collection_mode: 'stub',\n      graph_api_version: graphApiVersion,\n      media_id: mediaId,\n      snapshot_window: snapshotWindow,\n      collected_metrics: {\n        views,\n        plays,\n        reach,\n        likes,\n        comments,\n        shares,\n        saves,\n        engagement_rate: engagementRate,\n        completion_rate: completionRate\n      }\n    }\n  };\n};\nconst buildResult = ({ metrics, raw_payload_json, details_json, run_status = 'success', error_message = '' }) => [{\n  json: {\n    workflow_name: workflowName,\n    content_id: contentId,\n    title,\n    category,\n    content_status: contentStatus,\n    instagram_media_id: mediaId,\n    published_at: publishedAt,\n    snapshot_window: snapshotWindow,\n    collection_mode: mode,\n    run_started_at: startedAt.toISOString(),\n    run_status,\n    error_message,\n    metrics,\n    raw_payload_json,\n    details_json,\n    duration_ms: Math.max(0, Date.now() - startedAt.getTime())\n  }\n}];\nif (mode === 'stub') {\n  const stubPayload = buildStubMetrics();\n  return buildResult(stubPayload);\n}\nif (mode !== 'live') {\n  throw new Error('Unsupported INSTAGRAM_INSIGHTS_COLLECTION_MODE: ' + mode);\n}\nif (!accessToken) {\n  return buildResult({\n    metrics: {},\n    raw_payload_json: {\n      collection_mode: 'live',\n      media_id: mediaId,\n      snapshot_window: snapshotWindow\n    },\n    details_json: {\n      collection_mode: 'live',\n      graph_api_version: graphApiVersion,\n      media_id: mediaId,\n      snapshot_window: snapshotWindow,\n      validation_errors: ['INSTAGRAM_GRAPH_API_TOKEN is empty in the running n8n container env.']\n    },\n    run_status: 'failed',\n    error_message: 'INSTAGRAM_GRAPH_API_TOKEN is empty in the running n8n container env.'\n  });\n}\nconst graphRequest = async ({ path, qs }) => {\n  try {\n    const response = await helpers.httpRequest({\n      method: 'GET',\n      url: `https://graph.facebook.com/${graphApiVersion}/${path}`,\n      qs: {\n        access_token: accessToken,\n        ...(qs || {})\n      },\n      json: true,\n      returnFullResponse: true,\n      ignoreHttpStatusErrors: true\n    });\n    const statusCode = Number(response.statusCode ?? 0);\n    const body = response.body ?? {};\n    return {\n      ok: statusCode >= 200 && statusCode < 300 && !body.error,\n      status: statusCode,\n      body\n    };\n  } catch (error) {\n    return {\n      ok: false,\n      status: Number(error?.statusCode ?? 0),\n      body: error?.response?.body ?? {\n        error: {\n          message: error.message\n        }\n      }\n    };\n  }\n};\nconst mediaResponse = await graphRequest({\n  path: mediaId,\n  qs: {\n    fields: 'id,caption,media_product_type,media_type,permalink,timestamp,like_count,comments_count'\n  }\n});\nconst configuredMetrics = String(env.INSTAGRAM_INSIGHTS_MEDIA_METRICS || 'views,reach,saved,shares,plays').trim();\nconst requestedMetrics = configuredMetrics\n  .split(',')\n  .map((value) => value.trim())\n  .filter(Boolean);\nconst insightResults = {};\nconst insightErrors = [];\nfor (const metric of requestedMetrics) {\n  const insightResponse = await graphRequest({\n    path: `${mediaId}/insights`,\n    qs: {\n      metric\n    }\n  });\n  if (insightResponse.ok && Array.isArray(insightResponse.body?.data) && insightResponse.body.data.length > 0) {\n    insightResults[metric] = insightResponse.body.data[0];\n  } else {\n    insightErrors.push({\n      metric,\n      status: insightResponse.status,\n      error: insightResponse.body?.error?.message ?? 'unknown error',\n      body: insightResponse.body\n    });\n  }\n}\nconst views = normalizeNumber(extractMetricValue(insightResults.views)) ?? normalizeNumber(extractMetricValue(insightResults.plays));\nconst plays = normalizeNumber(extractMetricValue(insightResults.plays)) ?? views;\nconst reach = normalizeNumber(extractMetricValue(insightResults.reach));\nconst saves = normalizeNumber(extractMetricValue(insightResults.saved));\nconst shares = normalizeNumber(extractMetricValue(insightResults.shares));\nconst likes = normalizeNumber(mediaResponse.body?.like_count) ?? normalizeNumber(extractMetricValue(insightResults.likes));\nconst comments = normalizeNumber(mediaResponse.body?.comments_count) ?? normalizeNumber(extractMetricValue(insightResults.comments));\nconst completionRate = normalizeNumber(extractMetricValue(insightResults.completion_rate)) ?? normalizeNumber(extractMetricValue(insightResults.average_watch_time));\nconst denominator = reach || views || plays || 0;\nconst engagementInputs = [likes, comments, shares, saves].map((value) => normalizeNumber(value) ?? 0);\nconst engagementRate = denominator > 0 ? Number((((engagementInputs[0] + engagementInputs[1] + engagementInputs[2] + engagementInputs[3]) / denominator) * 100).toFixed(4)) : null;\nif (!mediaResponse.ok && !views && !reach && !likes && !comments) {\n  return buildResult({\n    metrics: {},\n    raw_payload_json: {\n      collection_mode: 'live',\n      media_response: mediaResponse.body,\n      insight_errors: insightErrors,\n      requested_metrics: requestedMetrics,\n      media_id: mediaId,\n      snapshot_window: snapshotWindow\n    },\n    details_json: {\n      collection_mode: 'live',\n      graph_api_version: graphApiVersion,\n      media_id: mediaId,\n      snapshot_window: snapshotWindow,\n      media_lookup_status: mediaResponse.status,\n      insight_errors: insightErrors\n    },\n    run_status: 'failed',\n    error_message: `Instagram metrics lookup failed: ${mediaResponse.body?.error?.message ?? insightErrors[0]?.error ?? 'no metrics were returned'}`\n  });\n}\nconst normalizedMetrics = {\n  views,\n  plays,\n  reach,\n  likes,\n  comments,\n  shares,\n  saves,\n  engagement_rate: engagementRate,\n  completion_rate: completionRate\n};\nreturn buildResult({\n  metrics: normalizedMetrics,\n  raw_payload_json: {\n    collection_mode: 'live',\n    media_response: mediaResponse.body,\n    insight_results: insightResults,\n    insight_errors: insightErrors,\n    requested_metrics: requestedMetrics,\n    media_id: mediaId,\n    snapshot_window: snapshotWindow\n  },\n  details_json: {\n    collection_mode: 'live',\n    graph_api_version: graphApiVersion,\n    media_id: mediaId,\n    snapshot_window: snapshotWindow,\n    media_lookup_status: mediaResponse.status,\n    requested_metrics: requestedMetrics,\n    collected_metrics: normalizedMetrics,\n    insight_error_count: insightErrors.length\n  }\n});"
+      },
+      "id": "collect_instagram_insight_snapshot",
+      "name": "Collect Instagram Insight Snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Prepare Insight Snapshot SQL Values received an invalid content_id: ' + (contentId || '<empty>') + '.');\n}\nconst metrics = $json.metrics ?? {};\nconst toSqlNumber = (value, { integer = false } = {}) => {\n  if (value === null || value === undefined || value === '') return 'null';\n  const numeric = Number(value);\n  if (!Number.isFinite(numeric)) return 'null';\n  return integer ? String(Math.round(numeric)) : String(Number(numeric.toFixed(4)));\n};\nconst metricsSummary = {\n  snapshot_window: String($json.snapshot_window ?? '').trim(),\n  collection_mode: String($json.collection_mode ?? '').trim(),\n  media_id: String($json.instagram_media_id ?? '').trim(),\n  views: metrics.views ?? null,\n  plays: metrics.plays ?? null,\n  reach: metrics.reach ?? null,\n  likes: metrics.likes ?? null,\n  comments: metrics.comments ?? null,\n  shares: metrics.shares ?? null,\n  saves: metrics.saves ?? null,\n  engagement_rate: metrics.engagement_rate ?? null,\n  completion_rate: metrics.completion_rate ?? null\n};\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    workflow_name_sql: String($json.workflow_name ?? 'wf_instagram_metrics_collection').replaceAll(\"'\", \"''\"),\n    run_status_sql: String($json.run_status ?? 'failed').replaceAll(\"'\", \"''\"),\n    error_message_sql: String($json.error_message ?? '').replaceAll(\"'\", \"''\"),\n    snapshot_window_sql: String($json.snapshot_window ?? '').replaceAll(\"'\", \"''\"),\n    views_sql: toSqlNumber(metrics.views, { integer: true }),\n    plays_sql: toSqlNumber(metrics.plays, { integer: true }),\n    reach_sql: toSqlNumber(metrics.reach, { integer: true }),\n    likes_sql: toSqlNumber(metrics.likes, { integer: true }),\n    comments_sql: toSqlNumber(metrics.comments, { integer: true }),\n    shares_sql: toSqlNumber(metrics.shares, { integer: true }),\n    saves_sql: toSqlNumber(metrics.saves, { integer: true }),\n    engagement_rate_sql: toSqlNumber(metrics.engagement_rate),\n    completion_rate_sql: toSqlNumber(metrics.completion_rate),\n    raw_payload_json_sql: JSON.stringify($json.raw_payload_json ?? {}).replaceAll(\"'\", \"''\"),\n    details_json_sql: JSON.stringify($json.details_json ?? {}).replaceAll(\"'\", \"''\"),\n    metrics_summary_json_sql: JSON.stringify(metricsSummary).replaceAll(\"'\", \"''\"),\n    duration_ms_sql: Number.isFinite(Number($json.duration_ms)) ? Math.max(0, Math.round(Number($json.duration_ms))) : 0\n  }\n}];"
+      },
+      "id": "prepare_insight_snapshot_sql_values",
+      "name": "Prepare Insight Snapshot SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into insight_snapshots (\n  content_id,\n  platform,\n  snapshot_window,\n  views,\n  plays,\n  reach,\n  likes,\n  comments,\n  shares,\n  saves,\n  engagement_rate,\n  completion_rate,\n  raw_payload_json,\n  snapshot_taken_at\n)\nvalues (\n  '{{$json.content_id_sql}}'::uuid,\n  'instagram',\n  '{{$json.snapshot_window_sql}}',\n  {{$json.views_sql}},\n  {{$json.plays_sql}},\n  {{$json.reach_sql}},\n  {{$json.likes_sql}},\n  {{$json.comments_sql}},\n  {{$json.shares_sql}},\n  {{$json.saves_sql}},\n  {{$json.engagement_rate_sql}},\n  {{$json.completion_rate_sql}},\n  '{{$json.raw_payload_json_sql}}'::jsonb,\n  now()\n)\nreturning snapshot_id, content_id, snapshot_window, views, reach, likes, comments, shares, saves, snapshot_taken_at;",
+        "options": {}
+      },
+      "id": "insert_insight_snapshot",
+      "name": "Insert Insight Snapshot",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1180,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Insight Snapshot SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  '{{$item(0).$node[\"Prepare Insight Snapshot SQL Values\"].json[\"workflow_name_sql\"]}}',\n  '{{$item(0).$node[\"Prepare Insight Snapshot SQL Values\"].json[\"run_status_sql\"]}}',\n  '{{$item(0).$node[\"Collect Instagram Insight Snapshot\"].json[\"run_started_at\"]}}'::timestamptz,\n  now(),\n  {{$item(0).$node[\"Prepare Insight Snapshot SQL Values\"].json[\"duration_ms_sql\"]}},\n  nullif('{{$item(0).$node[\"Prepare Insight Snapshot SQL Values\"].json[\"error_message_sql\"]}}', ''),\n  jsonb_build_object(\n    'metrics_collection', '{{$item(0).$node[\"Prepare Insight Snapshot SQL Values\"].json[\"metrics_summary_json_sql\"]}}'::jsonb,\n    'details', '{{$item(0).$node[\"Prepare Insight Snapshot SQL Values\"].json[\"details_json_sql\"]}}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, started_at, ended_at;",
+        "options": {}
+      },
+      "id": "log_metrics_collection_run",
+      "name": "Log Metrics Collection Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1420,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Next Published Item For Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Published Item For Metrics": {
+      "main": [
+        [
+          {
+            "node": "Collect Instagram Insight Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Instagram Insight Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Prepare Insight Snapshot SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Insight Snapshot SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Insert Insight Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Insight Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Log Metrics Collection Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5f0ad59e-c4b4-4a71-a466-85d2a6df9a3d",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

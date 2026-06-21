@@ -1,0 +1,253 @@
+{
+  "name": "wf_asset_generation",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with candidate as materialized (\n  select\n    ci.content_id,\n    ci.title,\n    ci.category,\n    ci.status,\n    ci.source_payload_json,\n    sb.storyboard_json,\n    coalesce(sb.style_notes, '') as style_notes,\n    coalesce(s.selected_hook, '') as selected_hook,\n    coalesce(s.narration_script, '') as narration_script,\n    coalesce(d.director_json, '{}'::jsonb) as director_json\n  from content_items ci\n  join storyboards sb on sb.content_id = ci.content_id\n  join scripts s on s.content_id = ci.content_id\n  left join directors d on d.content_id = ci.content_id\n  where ci.status in ('validation_complete', 'storyboard_complete')\n  order by ci.updated_at asc\n  limit 1\n), claim as (\n  update content_items ci\n  set status = 'generating_assets',\n      updated_at = now()\n  where ci.content_id = (select content_id from candidate)\n    and ci.status in ('validation_complete', 'storyboard_complete')\n  returning ci.content_id\n)\nselect\n  c.content_id,\n  c.title,\n  c.category,\n  c.status,\n  c.source_payload_json,\n  c.storyboard_json,\n  c.style_notes,\n  c.selected_hook,\n  c.narration_script,\n  c.director_json\nfrom candidate c\njoin claim cl on cl.content_id = c.content_id;",
+        "options": {}
+      },
+      "id": "fetch_next_storyboard_complete_item",
+      "name": "Fetch Next Validated Storyboard Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst env = typeof $env === 'object' && $env ? $env : {};\nconst sourcePayload = $json.source_payload_json ?? {};\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nconst storyboard = Array.isArray($json.storyboard_json) ? $json.storyboard_json : [];\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Validated Storyboard Item did not atomically claim a valid content_id.');\n}\nif (!title) {\n  throw new Error('Fetch Next Validated Storyboard Item did not return title.');\n}\nif (storyboard.length < 4) {\n  throw new Error('Fetch Next Validated Storyboard Item did not return at least 4 storyboard scenes.');\n}\nconst sceneProvider = String(env.SCENE_IMAGE_PROVIDER || env.IMAGE_GENERATION_PROVIDER || 'openai').trim().toLowerCase() || 'openai';\nconst sceneModel = String(env.SCENE_IMAGE_MODEL || env.OPENAI_SCENE_IMAGE_MODEL || env.IMAGE_MODEL || env.OPENAI_IMAGE_MODEL || 'gpt-image-1').trim() || 'gpt-image-1';\nconst sceneSize = String(env.SCENE_IMAGE_SIZE || env.OPENAI_SCENE_IMAGE_SIZE || env.IMAGE_SIZE || env.OPENAI_IMAGE_SIZE || '1024x1536').trim() || '1024x1536';\nconst sceneQuality = String(env.SCENE_IMAGE_QUALITY || env.OPENAI_SCENE_IMAGE_QUALITY || env.IMAGE_QUALITY || env.OPENAI_IMAGE_QUALITY || 'medium').trim().toLowerCase() || 'medium';\nconst compressionRaw = Number.parseInt(String(env.SCENE_IMAGE_COMPRESSION || env.OPENAI_SCENE_IMAGE_COMPRESSION || env.IMAGE_COMPRESSION || env.OPENAI_IMAGE_COMPRESSION || '90').trim(), 10);\nconst outputCompression = Number.isFinite(compressionRaw) ? Math.max(0, Math.min(100, compressionRaw)) : 90;\nconst defaultSceneStyleNotes = String(env.SCENE_STYLE_NOTES_DEFAULT || 'cinematic, moody, realistic, vertical-frame storytelling').trim() || 'cinematic, moody, realistic, vertical-frame storytelling';\nconst directorJson = $json.director_json && typeof $json.director_json === 'object' ? $json.director_json : {};\nconst directorGlobalVisualStyle = String(directorJson.global_visual_style ?? '').trim();\nconst directorAvoidRulesArr = Array.isArray(directorJson.global_rules?.avoid) ? directorJson.global_rules.avoid : [];\nconst directorAvoidRules = directorAvoidRulesArr.filter(Boolean).join('; ');\nconst rawCharacterReference = sourcePayload.character_reference && typeof sourcePayload.character_reference === 'object' ? sourcePayload.character_reference : null;\nconst characterReference = rawCharacterReference && String(rawCharacterReference.storage_url || rawCharacterReference.source_url || '').trim()\n  ? {\n      role: 'primary_character',\n      character_name: String(rawCharacterReference.character_name || '').trim(),\n      character_description: String(rawCharacterReference.character_description || '').trim(),\n      storage_url: String(rawCharacterReference.storage_url || rawCharacterReference.source_url || '').trim(),\n      mime_type: String(rawCharacterReference.mime_type || '').trim()\n    }\n  : null;\nfunction extractReferenceImageUrls(payload, primaryReference) {\n  const urls = [];\n  const addUrl = (value) => {\n    const normalized = String(value || '').trim();\n    if (normalized && !urls.includes(normalized)) {\n      urls.push(normalized);\n    }\n  };\n  const addEntry = (entry) => {\n    if (typeof entry === 'string') {\n      addUrl(entry);\n      return;\n    }\n    if (entry && typeof entry === 'object') {\n      addUrl(entry.storage_url || entry.source_url || entry.image_url || entry.url);\n    }\n  };\n  if (primaryReference?.storage_url) {\n    addUrl(primaryReference.storage_url);\n  }\n  for (const key of ['reference_images', 'image_references', 'reference_image_urls']) {\n    const entries = Array.isArray(payload?.[key]) ? payload[key] : [];\n    for (const entry of entries) {\n      addEntry(entry);\n    }\n  }\n  return urls.slice(0, 16);\n}\nconst referenceImageUrls = extractReferenceImageUrls(sourcePayload, characterReference);\nconst referenceImageProvider = String(env.SCENE_REFERENCE_IMAGE_PROVIDER || env.REFERENCE_IMAGE_PROVIDER || 'openai').trim().toLowerCase() || 'openai';\nconst referenceImageModel = String(env.SCENE_REFERENCE_IMAGE_MODEL || env.REFERENCE_IMAGE_MODEL || env.OPENAI_SCENE_IMAGE_MODEL || env.OPENAI_IMAGE_MODEL || 'gpt-image-1').trim() || 'gpt-image-1';\nconst effectiveSceneProvider = referenceImageUrls.length ? referenceImageProvider : sceneProvider;\nconst effectiveSceneModel = referenceImageUrls.length ? referenceImageModel : sceneModel;\nconst scenes = storyboard.map((scene, index) => {\n  const sceneNumber = Number(scene?.scene_number ?? index + 1);\n  const durationSeconds = Number(scene?.duration_seconds ?? 0);\n  const narrationText = String(scene?.narration_text ?? '').trim();\n  const visualPrompt = String(scene?.visual_prompt ?? '').trim();\n  const mood = String(scene?.mood ?? '').trim();\n  const transition = String(scene?.transition ?? '').trim();\n  if (!Number.isInteger(sceneNumber) || sceneNumber < 1) {\n    throw new Error('storyboard_json contains an invalid scene_number.');\n  }\n  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {\n    throw new Error('storyboard_json contains an invalid duration_seconds.');\n  }\n  if (!visualPrompt) {\n    throw new Error('storyboard_json contains an empty visual_prompt.');\n  }\n  return {\n    scene_number: sceneNumber,\n    duration_seconds: durationSeconds,\n    narration_text: narrationText,\n    visual_prompt: visualPrompt,\n    mood,\n    transition,\n  };\n});\nconst imageRequest = {\n  provider: effectiveSceneProvider,\n  model: effectiveSceneModel,\n  quality: sceneQuality,\n  size: sceneSize,\n  output_compression: outputCompression,\n  reference_images: referenceImageUrls.map((imageUrl) => ({ image_url: imageUrl })),\n  reference_prompt: 'Use the uploaded reference image(s) as visual guidance for creating similar scene images while still following each scene prompt.',\n};\nconst payload = {\n  content_id: contentId,\n  title,\n  category: String($json.category ?? 'general').trim() || 'general',\n  selected_hook: String($json.selected_hook ?? '').trim(),\n  narration_script: String($json.narration_script ?? '').trim(),\n  style_notes: String($json.style_notes ?? '').trim() || defaultSceneStyleNotes,\n  director_global_visual_style: directorGlobalVisualStyle,\n  director_avoid_rules: directorAvoidRules,\n  character_reference: characterReference,\n  workflow_name: 'wf_asset_generation',\n  run_started_at: new Date().toISOString(),\n  image_provider: effectiveSceneProvider,\n  image_request: imageRequest,\n  openai_image_request: imageRequest,\n  scenes,\n};\nreturn [{\n  json: {\n    ...payload,\n    rehost_payload_base64: Buffer.from(JSON.stringify(payload), 'utf8').toString('base64')\n  }\n}];"
+      },
+      "id": "prepare_scene_asset_payload",
+      "name": "Prepare Scene Asset Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "executeOnce": true,
+        "command": "={{'node /workflows/scripts/generate_and_rehost_scene_assets.mjs ' + JSON.stringify($json.rehost_payload_base64)}}"
+      },
+      "id": "generate_and_rehost_scene_assets",
+      "name": "Generate and Rehost Scene Assets",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        940,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const stdout = String($json.stdout ?? '').trim();\nif (!stdout) {\n  throw new Error('Generate and Rehost Scene Assets produced no stdout.');\n}\nlet parsed;\ntry {\n  parsed = JSON.parse(stdout);\n} catch (error) {\n  throw new Error('Generate and Rehost Scene Assets returned invalid JSON: ' + error.message + '. Raw stdout: ' + stdout.slice(0, 500));\n}\nif (!Array.isArray(parsed.scene_assets) || parsed.scene_assets.length === 0) {\n  throw new Error('The scene asset helper did not return any scene_assets.');\n}\nreturn [{ json: parsed }];"
+      },
+      "id": "parse_scene_asset_result",
+      "name": "Parse Scene Asset Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const _cost = $json.cost ?? {};\nconst cost_json_sql = JSON.stringify(_cost).replaceAll(\"'\", \"''\");\nconst uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Prepare Scene Asset SQL Values received an invalid content_id: ' + (contentId || '<empty>') + '.');\n}\nconst sceneAssets = Array.isArray($json.scene_assets) ? $json.scene_assets : [];\nif (sceneAssets.length === 0) {\n  throw new Error('Prepare Scene Asset SQL Values expected scene_assets.');\n}\nconst startedAt = new Date(String($json.run_started_at ?? new Date().toISOString()));\nconst durationMs = Math.max(0, Date.now() - startedAt.getTime());\nconst valuesSql = sceneAssets.map((asset) => {\n  const metadataJsonSql = JSON.stringify(asset.metadata_json ?? {}).replaceAll(\"'\", \"''\");\n  const providerSql = String(asset.provider ?? '').replaceAll(\"'\", \"''\");\n  const sourceUrlSql = String(asset.source_url ?? '').replaceAll(\"'\", \"''\");\n  const storageUrlSql = String(asset.storage_url ?? '').replaceAll(\"'\", \"''\");\n  const mimeTypeSql = String(asset.mime_type ?? 'image/jpeg').replaceAll(\"'\", \"''\");\n  const assetRoleSql = String(asset.asset_role ?? 'scene_image').replaceAll(\"'\", \"''\");\n  const sceneNumber = Number(asset.scene_number);\n  const durationSeconds = Number(asset.duration_seconds);\n  const width = Number(asset.width);\n  const height = Number(asset.height);\n  if (!Number.isInteger(sceneNumber) || sceneNumber < 1) {\n    throw new Error('scene_assets contains an invalid scene_number.');\n  }\n  if (!String(asset.storage_url ?? '').trim()) {\n    throw new Error('scene_assets contains an empty storage_url.');\n  }\n  return `('${contentId}'::uuid, ${sceneNumber}, '${assetRoleSql}', '${providerSql}', '${sourceUrlSql}', '${storageUrlSql}', '${mimeTypeSql}', ${durationSeconds}, ${width}, ${height}, 'ready', '${metadataJsonSql}'::jsonb)`;\n}).join(',\\n');\nconst summary = {\n  scene_count: sceneAssets.length,\n  generation_model: String($json.generation_model ?? ''),\n  rehost_provider: String($json.rehost_provider ?? ''),\n  scenes: sceneAssets.map((asset) => ({\n    scene_number: asset.scene_number,\n    provider: asset.provider,\n    storage_url: asset.storage_url,\n    duration_seconds: asset.duration_seconds,\n    width: asset.width,\n    height: asset.height\n  }))\n};\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    asset_values_sql: valuesSql,\n    workflow_name_sql: String($json.workflow_name ?? 'wf_asset_generation').replaceAll(\"'\", \"''\"),\n    scene_asset_summary_json_sql: JSON.stringify(summary).replaceAll(\"'\", \"''\"),\n    duration_ms_sql: Number.isFinite(durationMs) ? durationMs : 0,\n    cost_json_sql\n  }\n}];"
+      },
+      "id": "prepare_scene_asset_sql_values",
+      "name": "Prepare Scene Asset SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with deleted as (\n  delete from assets\n  where content_id = '{{$json.content_id_sql}}'::uuid\n    and asset_role = 'scene_image'\n), inserted as (\n  insert into assets (\n    content_id,\n    scene_number,\n    asset_role,\n    provider,\n    source_url,\n    storage_url,\n    mime_type,\n    duration_seconds,\n    width,\n    height,\n    status,\n    metadata_json\n  )\n  values\n  {{$json.asset_values_sql}}\n  returning 1\n)\nselect\n  '{{$json.content_id_sql}}'::uuid as content_id,\n  'scene_image' as asset_role,\n  count(*)::int as asset_count\nfrom inserted;",
+        "options": {}
+      },
+      "id": "replace_scene_assets",
+      "name": "Replace Scene Assets",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1660,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update content_items\nset status = 'assets_ready',\n    updated_at = now()\nwhere content_id = '{{$item(0).$node[\"Prepare Scene Asset SQL Values\"].json[\"content_id_sql\"]}}'::uuid\nreturning content_id, title, status, updated_at;",
+        "options": {}
+      },
+      "id": "mark_assets_ready",
+      "name": "Mark Assets Ready",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1900,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Scene Asset SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  '{{$item(0).$node[\"Prepare Scene Asset SQL Values\"].json[\"workflow_name_sql\"]}}',\n  'success',\n  '{{$item(0).$node[\"Parse Scene Asset Result\"].json[\"run_started_at\"]}}'::timestamptz,\n  now(),\n  {{$item(0).$node[\"Prepare Scene Asset SQL Values\"].json[\"duration_ms_sql\"]}},\n  null,\n  jsonb_build_object(\n    'generation_model', nullif('{{$item(0).$node[\"Parse Scene Asset Result\"].json[\"generation_model\"]}}', ''),\n    'rehost_provider', nullif('{{$item(0).$node[\"Parse Scene Asset Result\"].json[\"rehost_provider\"]}}', ''),\n    'scene_asset_generation', '{{$item(0).$node[\"Prepare Scene Asset SQL Values\"].json[\"scene_asset_summary_json_sql\"]}}'::jsonb,\n    'cost', '{{$item(0).$node[\"Prepare Scene Asset SQL Values\"].json[\"cost_json_sql\"]}}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, ended_at;",
+        "options": {}
+      },
+      "id": "log_scene_asset_generation_run",
+      "name": "Log Scene Asset Generation Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2140,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Next Validated Storyboard Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Scene Asset Payload": {
+      "main": [
+        [
+          {
+            "node": "Generate and Rehost Scene Assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate and Rehost Scene Assets": {
+      "main": [
+        [
+          {
+            "node": "Parse Scene Asset Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Scene Asset Result": {
+      "main": [
+        [
+          {
+            "node": "Prepare Scene Asset SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Scene Asset SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Replace Scene Assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Scene Assets": {
+      "main": [
+        [
+          {
+            "node": "Mark Assets Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Assets Ready": {
+      "main": [
+        [
+          {
+            "node": "Log Scene Asset Generation Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Validated Storyboard Item": {
+      "main": [
+        [
+          {
+            "node": "Prepare Scene Asset Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "phase3-scene-asset-generation-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

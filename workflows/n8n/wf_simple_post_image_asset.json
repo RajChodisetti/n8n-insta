@@ -15,7 +15,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "select\n  ci.content_id,\n  ci.title,\n  ci.status,\n  p.caption_final,\n  p.hashtags_final\nfrom content_items ci\njoin publishes p on p.content_id = ci.content_id\nwhere p.publish_status = 'draft'\norder by ci.updated_at asc\nlimit 1;",
+        "query": "with candidate as materialized (\n  select\n    ci.content_id,\n    ci.title,\n    ci.category,\n    ci.status,\n    ci.source_payload_json,\n    s.selected_hook,\n    s.narration_script,\n    s.cta_line,\n    p.caption_final,\n    p.hashtags_final,\n    coalesce(sb.cover_prompt, '') as cover_prompt,\n    coalesce(sb.style_notes, '') as style_notes\n  from content_items ci\n  join scripts s on s.content_id = ci.content_id\n  join publishes p on p.content_id = ci.content_id\n  left join storyboards sb on sb.content_id = ci.content_id\n  where ci.status in ('storyboard_complete', 'approval_rejected', 'qa_approved')\n    and p.platform = 'instagram'\n    and p.publish_status in ('draft', 'failed')\n    and p.published_at is null\n    and coalesce(nullif(btrim(p.instagram_media_id), ''), '') = ''\n  order by ci.updated_at asc\n  limit 1\n), claim as (\n  update content_items ci\n  set status = 'generating_assets',\n      updated_at = now()\n  where ci.content_id = (select content_id from candidate)\n    and ci.status in ('storyboard_complete', 'approval_rejected', 'qa_approved')\n  returning ci.content_id\n)\nselect\n  c.content_id,\n  c.title,\n  c.category,\n  c.status,\n  c.source_payload_json,\n  c.selected_hook,\n  c.narration_script,\n  c.cta_line,\n  c.caption_final,\n  c.hashtags_final,\n  c.cover_prompt,\n  c.style_notes\nfrom candidate c\njoin claim cl on cl.content_id = c.content_id;",
         "options": {}
       },
       "id": "fetch_next_post_asset_item",
@@ -35,7 +35,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst env = typeof $env === 'object' && $env ? $env : {};\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nconst publicImageUrl = String(env.MVP_SIMPLE_POST_IMAGE_URL || '').trim();\nconst usePublicJpeg = /^https?:\\/\\//i.test(publicImageUrl) && /\\.jpe?g(?:[?#].*)?$/i.test(publicImageUrl);\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Post Asset Item did not produce a valid content_id.');\n}\nif (!title) {\n  throw new Error('Fetch Next Post Asset Item did not produce a title.');\n}\nreturn [{\n  json: {\n    content_id: contentId,\n    title,\n    current_status: String($json.status ?? 'script_complete'),\n    caption_final: String($json.caption_final ?? ''),\n    hashtags_final: String($json.hashtags_final ?? ''),\n    asset_role: 'post_image',\n    provider: usePublicJpeg ? 'public_image_url' : 'repo_static_asset',\n    source_url: usePublicJpeg ? publicImageUrl : '/workflows/assets/mvp_simple_post.svg',\n    storage_url: usePublicJpeg ? publicImageUrl : '/workflows/assets/mvp_simple_post.svg',\n    mime_type: usePublicJpeg ? 'image/jpeg' : 'image/svg+xml',\n    width: 1080,\n    height: 1080,\n    status_after_asset: 'assets_ready',\n    asset_validation_note: usePublicJpeg\n      ? 'Using MVP_SIMPLE_POST_IMAGE_URL as the public JPEG source for Instagram publish testing.'\n      : 'Using the repo-local SVG fallback. This is valid for local asset smoke tests but not for Instagram API publishing.'\n  }\n}];"
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst env = typeof $env === 'object' && $env ? $env : {};\nconst sourcePayload = $json.source_payload_json ?? {};\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nconst selectedHook = String($json.selected_hook ?? '').trim();\nconst captionFinal = String($json.caption_final ?? '').trim();\nconst narrationScript = String($json.narration_script ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Post Asset Item did not produce a valid content_id.');\n}\nif (!title) {\n  throw new Error('Fetch Next Post Asset Item did not produce a title.');\n}\nif (!selectedHook) {\n  throw new Error('Fetch Next Post Asset Item did not produce a selected_hook.');\n}\nif (!captionFinal) {\n  throw new Error('Fetch Next Post Asset Item did not produce caption_final. Run wf_caption_and_hashtags before generating an image.');\n}\nif (!narrationScript) {\n  throw new Error('Fetch Next Post Asset Item did not produce narration_script.');\n}\nconst imageProvider = String(env.POST_IMAGE_PROVIDER || env.IMAGE_GENERATION_PROVIDER || 'openai').trim().toLowerCase() || 'openai';\nconst imageModel = String(env.POST_IMAGE_MODEL || env.IMAGE_MODEL || env.OPENAI_IMAGE_MODEL || 'gpt-image-1').trim() || 'gpt-image-1';\nconst imageQuality = String(env.POST_IMAGE_QUALITY || env.IMAGE_QUALITY || env.OPENAI_IMAGE_QUALITY || 'medium').trim().toLowerCase() || 'medium';\nconst imageSize = String(env.POST_IMAGE_SIZE || env.IMAGE_SIZE || env.OPENAI_IMAGE_SIZE || '1024x1024').trim() || '1024x1024';\nconst imageStyle = String(env.POST_IMAGE_STYLE || env.IMAGE_STYLE || env.OPENAI_IMAGE_STYLE || 'natural').trim().toLowerCase() || 'natural';\nconst compressionRaw = Number.parseInt(String(env.POST_IMAGE_COMPRESSION || env.IMAGE_COMPRESSION || env.OPENAI_IMAGE_COMPRESSION || '92').trim(), 10);\nconst outputCompression = Number.isFinite(compressionRaw) ? Math.max(0, Math.min(100, compressionRaw)) : 92;\nconst defaultCoverPrompt = String(env.POST_IMAGE_COVER_PROMPT_DIRECTION_DEFAULT || 'Use a cinematic mystery-documentary composition.').trim() || 'Use a cinematic mystery-documentary composition.';\nconst defaultStyleNotes = String(env.POST_IMAGE_STYLE_NOTES_DEFAULT || 'dark, atmospheric, realistic, cinematic lighting, deep blues, blacks, shadows, mystery and intrigue.').trim() || 'dark, atmospheric, realistic, cinematic lighting, deep blues, blacks, shadows, mystery and intrigue.';\nconst imageRequest = {\n  provider: imageProvider,\n  model: imageModel,\n  quality: imageQuality,\n  size: imageSize,\n  style: imageStyle,\n  output_format: 'jpeg',\n  output_compression: outputCompression,\n  n: 1,\n};\nconst rehostPayload = {\n  content_id: contentId,\n  title,\n  category: String($json.category ?? 'general').trim() || 'general',\n  selected_hook: selectedHook,\n  narration_script: narrationScript,\n  cover_prompt: String($json.cover_prompt ?? '').trim() || defaultCoverPrompt,\n  style_notes: String($json.style_notes ?? '').trim() || defaultStyleNotes,\n  prompt_profile: sourcePayload.prompt_profile ?? {},\n  current_status: String($json.status ?? 'storyboard_complete').trim() || 'storyboard_complete',\n  caption_final: captionFinal,\n  hashtags_final: String($json.hashtags_final ?? '').trim(),\n  asset_role: 'post_image',\n  workflow_name: 'wf_simple_post_image_asset',\n  run_started_at: new Date().toISOString(),\n  image_provider: imageProvider,\n  image_request: imageRequest,\n  openai_image_request: imageRequest,\n  storage_public_base_url: String(env.REELS_STORAGE_PUBLIC_BASE_URL || '').trim()\n};\nreturn [{\n  json: {\n    ...rehostPayload,\n    rehost_payload_base64: Buffer.from(JSON.stringify(rehostPayload), 'utf8').toString('base64')\n  }\n}];"
       },
       "id": "prepare_post_asset_payload",
       "name": "Prepare Post Asset Payload",
@@ -48,12 +48,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error(`Prepare Asset SQL Values received an invalid content_id: ${contentId || '<empty>'}.`);\n}\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    asset_role_sql: String($json.asset_role ?? 'post_image').replaceAll(\"'\", \"''\"),\n    provider_sql: String($json.provider ?? 'repo_static_asset').replaceAll(\"'\", \"''\"),\n    source_url_sql: String($json.source_url ?? '').replaceAll(\"'\", \"''\"),\n    storage_url_sql: String($json.storage_url ?? '').replaceAll(\"'\", \"''\"),\n    mime_type_sql: String($json.mime_type ?? 'image/svg+xml').replaceAll(\"'\", \"''\"),\n    status_sql: 'ready'\n  }\n}];"
+        "executeOnce": true,
+        "command": "={{'node /workflows/scripts/generate_and_rehost_post_image.mjs ' + JSON.stringify($json.rehost_payload_base64)}}"
       },
-      "id": "prepare_asset_sql_values",
-      "name": "Prepare Asset SQL Values",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "call_openai_image_generation",
+      "name": "Generate and Rehost Image Asset",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         940,
         320
@@ -61,8 +62,34 @@
     },
     {
       "parameters": {
+        "jsCode": "const stdout = String($json.stdout ?? '').trim();\nif (!stdout) {\n  throw new Error('Generate and Rehost Image Asset produced no stdout.');\n}\nlet parsed;\ntry {\n  parsed = JSON.parse(stdout);\n} catch (error) {\n  throw new Error('Generate and Rehost Image Asset returned invalid JSON: ' + error.message + '. Raw stdout: ' + stdout.slice(0, 500));\n}\nif (!String(parsed.storage_url ?? '').trim()) {\n  throw new Error('The rehost helper did not return storage_url.');\n}\nif (!String(parsed.provider ?? '').trim()) {\n  throw new Error('The rehost helper did not return provider.');\n}\nif (!String(parsed.mime_type ?? '').trim()) {\n  throw new Error('The rehost helper did not return mime_type.');\n}\nreturn [{ json: parsed }];"
+      },
+      "id": "parse_rehosted_image_result",
+      "name": "Parse Rehosted Image Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Prepare Asset SQL Values received an invalid content_id: ' + (contentId || '<empty>') + '.');\n}\nconst startedAt = new Date(String($json.run_started_at ?? new Date().toISOString()));\nconst durationMs = Math.max(0, Date.now() - startedAt.getTime());\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    asset_role_sql: String($json.asset_role ?? 'post_image').replaceAll(\"'\", \"''\"),\n    provider_sql: String($json.provider ?? 'openai_generated_rehosted_jpeg').replaceAll(\"'\", \"''\"),\n    source_url_sql: String($json.source_url ?? '').replaceAll(\"'\", \"''\"),\n    storage_url_sql: String($json.storage_url ?? '').replaceAll(\"'\", \"''\"),\n    mime_type_sql: String($json.mime_type ?? 'image/jpeg').replaceAll(\"'\", \"''\"),\n    generation_model_sql: String($json.generation_model ?? '').replaceAll(\"'\", \"''\"),\n    asset_validation_note_sql: String($json.asset_validation_note ?? '').replaceAll(\"'\", \"''\"),\n    asset_metadata_json_sql: JSON.stringify($json.asset_metadata_json ?? {}).replaceAll(\"'\", \"''\"),\n    workflow_name_sql: String($json.workflow_name ?? 'wf_simple_post_image_asset').replaceAll(\"'\", \"''\"),\n    duration_ms_sql: Number.isFinite(durationMs) ? durationMs : 0,\n    status_sql: 'ready'\n  }\n}];"
+      },
+      "id": "prepare_asset_sql_values",
+      "name": "Prepare Asset SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        320
+      ]
+    },
+    {
+      "parameters": {
         "operation": "executeQuery",
-        "query": "delete from assets\nwhere content_id = '{{$json.content_id_sql}}'::uuid\n  and asset_role = '{{$json.asset_role_sql}}';\n\ninsert into assets (\n  content_id,\n  scene_number,\n  asset_role,\n  provider,\n  source_url,\n  storage_url,\n  mime_type,\n  width,\n  height,\n  status\n)\nvalues (\n  '{{$json.content_id_sql}}'::uuid,\n  null,\n  '{{$json.asset_role_sql}}',\n  '{{$json.provider_sql}}',\n  '{{$json.source_url_sql}}',\n  '{{$json.storage_url_sql}}',\n  '{{$json.mime_type_sql}}',\n  {{$json.width}},\n  {{$json.height}},\n  '{{$json.status_sql}}'\n)\nreturning content_id, asset_role, storage_url, status;",
+        "query": "delete from assets\nwhere content_id = '{{$json.content_id_sql}}'::uuid\n  and asset_role = '{{$json.asset_role_sql}}';\n\ninsert into assets (\n  content_id,\n  scene_number,\n  asset_role,\n  provider,\n  source_url,\n  storage_url,\n  mime_type,\n  width,\n  height,\n  status,\n  metadata_json\n)\nvalues (\n  '{{$json.content_id_sql}}'::uuid,\n  null,\n  '{{$json.asset_role_sql}}',\n  '{{$json.provider_sql}}',\n  '{{$json.source_url_sql}}',\n  '{{$json.storage_url_sql}}',\n  '{{$json.mime_type_sql}}',\n  {{$json.width}},\n  {{$json.height}},\n  '{{$json.status_sql}}',\n  '{{$json.asset_metadata_json_sql}}'::jsonb\n)\nreturning content_id, asset_role, storage_url, mime_type, provider, status;",
         "options": {}
       },
       "id": "replace_post_image_asset",
@@ -70,7 +97,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1180,
+        1660,
         320
       ],
       "credentials": {
@@ -83,15 +110,57 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "update content_items\nset status = 'assets_ready',\n    updated_at = now()\nwhere content_id = '{{$item(0).$node[\"Prepare Asset SQL Values\"].json[\"content_id_sql\"]}}'::uuid\nreturning content_id, title, status, updated_at;",
+        "query": "update content_items\nset status = 'approval_pending',\n    approved_at = null,\n    updated_at = now()\nwhere content_id = '{{$item(0).$node[\"Prepare Asset SQL Values\"].json[\"content_id_sql\"]}}'::uuid\nreturning content_id, title, status, approved_at, updated_at;",
         "options": {}
       },
-      "id": "mark_assets_ready",
-      "name": "Mark Assets Ready",
+      "id": "mark_approval_pending",
+      "name": "Mark Approval Pending",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1420,
+        1900,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update scripts\nset approved_by_human = false,\n    generated_at = generated_at\nwhere content_id = '{{$item(0).$node[\"Prepare Asset SQL Values\"].json[\"content_id_sql\"]}}'::uuid\nreturning content_id, approved_by_human;",
+        "options": {}
+      },
+      "id": "reset_human_approval_flag",
+      "name": "Reset Human Approval Flag",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2140,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Asset SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  '{{$item(0).$node[\"Prepare Asset SQL Values\"].json[\"workflow_name_sql\"]}}',\n  'success',\n  '{{$item(0).$node[\"Prepare Post Asset Payload\"].json[\"run_started_at\"]}}'::timestamptz,\n  now(),\n  {{$item(0).$node[\"Prepare Asset SQL Values\"].json[\"duration_ms_sql\"]}},\n  null,\n  jsonb_build_object(\n    'generation_model', nullif('{{$item(0).$node[\"Prepare Asset SQL Values\"].json[\"generation_model_sql\"]}}', ''),\n    'asset_validation_note', nullif('{{$item(0).$node[\"Prepare Asset SQL Values\"].json[\"asset_validation_note_sql\"]}}', ''),\n    'asset', '{{$item(0).$node[\"Prepare Asset SQL Values\"].json[\"asset_metadata_json_sql\"]}}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, ended_at;",
+        "options": {}
+      },
+      "id": "log_asset_generation_run",
+      "name": "Log Asset Generation Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2380,
         320
       ],
       "credentials": {
@@ -129,7 +198,7 @@
       "main": [
         [
           {
-            "node": "Prepare Asset SQL Values",
+            "node": "Generate and Rehost Image Asset",
             "type": "main",
             "index": 0
           }
@@ -151,7 +220,51 @@
       "main": [
         [
           {
-            "node": "Mark Assets Ready",
+            "node": "Mark Approval Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Approval Pending": {
+      "main": [
+        [
+          {
+            "node": "Reset Human Approval Flag",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reset Human Approval Flag": {
+      "main": [
+        [
+          {
+            "node": "Log Asset Generation Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate and Rehost Image Asset": {
+      "main": [
+        [
+          {
+            "node": "Parse Rehosted Image Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Rehosted Image Result": {
+      "main": [
+        [
+          {
+            "node": "Prepare Asset SQL Values",
             "type": "main",
             "index": 0
           }
@@ -163,7 +276,7 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "seed-simple-post-image-asset-v1",
+  "versionId": "phase2-smart-post-image-asset-v2",
   "meta": {
     "templateCredsSetupCompleted": false
   },

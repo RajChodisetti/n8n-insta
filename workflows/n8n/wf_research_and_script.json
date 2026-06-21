@@ -1,0 +1,277 @@
+{
+  "name": "wf_research_and_script",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with candidate as materialized (\n  select\n    content_id,\n    title,\n    category,\n    confidence_label,\n    target_duration_seconds,\n    source_payload_json\n  from content_items\n  where status = 'idea_approved'\n  order by created_at asc\n  limit 1\n), claim as (\n  update content_items ci\n  set status = 'scripting',\n      updated_at = now()\n  where ci.content_id = (select content_id from candidate)\n    and ci.status = 'idea_approved'\n  returning ci.content_id\n)\nselect\n  c.content_id,\n  c.title,\n  c.category,\n  c.confidence_label,\n  c.target_duration_seconds,\n  c.source_payload_json\nfrom candidate c\njoin claim cl on cl.content_id = c.content_id;",
+        "options": {}
+      },
+      "id": "fetch_next_item",
+      "name": "Fetch Next Approved Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst env = typeof $env === 'object' && $env ? $env : {};\nconst sourcePayload = $json.source_payload_json ?? {};\nconst creativeDefaults = sourcePayload.creative_defaults && typeof sourcePayload.creative_defaults === 'object'\n  ? sourcePayload.creative_defaults\n  : {};\nconst flattenText = (value, keyPath = '') => {\n  if (value == null) return [];\n  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {\n    const text = String(value).trim();\n    return text ? [keyPath + text] : [];\n  }\n  if (Array.isArray(value)) {\n    return value.flatMap((entry, index) => flattenText(entry, keyPath ? keyPath + (index + 1) + '. ' : ''));\n  }\n  if (typeof value === 'object') {\n    return Object.entries(value).flatMap(([key, entry]) => flattenText(entry, key + ': '));\n  }\n  return [];\n};\nconst sourceNotesLines = [];\nif (Array.isArray(sourcePayload.notes)) {\n  sourceNotesLines.push(...sourcePayload.notes.map((entry) => String(entry ?? '').trim()).filter(Boolean));\n}\nfor (const key of ['abstract_idea', 'summary', 'description', 'context', 'narrative_perspective', 'point_of_view', 'visual_direction', 'visual_strategy', 'source_text']) {\n  const text = String(sourcePayload[key] ?? '').trim();\n  if (text) sourceNotesLines.push(text);\n}\nif (Object.keys(creativeDefaults).length > 0) {\n  sourceNotesLines.push('Creative defaults: ' + JSON.stringify(creativeDefaults));\n}\nif (sourceNotesLines.length === 0) {\n  sourceNotesLines.push(...flattenText(sourcePayload));\n}\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Approved Item did not atomically claim a valid content_id. Run from the start and ensure an idea_approved row exists.');\n}\nif (!title) {\n  throw new Error('Fetch Next Approved Item did not produce a title. Re-run from Manual Trigger and inspect the fetch node output.');\n}\nconst targetDurationSeconds = Number($json.target_duration_seconds ?? 45);\nif (!Number.isFinite(targetDurationSeconds) || targetDurationSeconds <= 0) {\n  throw new Error('target_duration_seconds must be a positive number.');\n}\nconst category = String($json.category ?? 'general').trim() || 'general';\nconst confidenceLabel = String($json.confidence_label ?? 'unverified').trim() || 'unverified';\nconst sourceNotes = sourceNotesLines.length ? sourceNotesLines.join('\\\\n') : 'No source notes were provided. Keep the script cautious and explicit about uncertainty.';\nconst confidenceContext = 'Current stored confidence label: ' + confidenceLabel + '. Preserve or lower certainty unless the source notes clearly support a stronger confidence label.';\nconst brandTone = String(env.RESEARCH_BRAND_TONE || creativeDefaults.tone || env.STUDIO_BRAND_TONE || 'cinematic, concise, credible').trim() || 'cinematic, concise, credible';\nconst narratorStyle = String(env.RESEARCH_NARRATOR_STYLE || creativeDefaults.narrator_style || creativeDefaults.voice_role_hint || 'calm, serious, engaging').trim() || 'calm, serious, engaging';\nconst endingSignatureFamily = String(env.RESEARCH_ENDING_SIGNATURE_FAMILY || 'thought-provoking close').trim() || 'thought-provoking close';\nconst promptPayload = {\n  content_id: contentId,\n  title,\n  confidence_label: confidenceLabel,\n  target_duration_seconds: targetDurationSeconds,\n  status_after_success: 'script_complete',\n  prompt_template_data: {\n    target_duration_seconds: String(targetDurationSeconds),\n    brand_tone: brandTone,\n    narrator_style: narratorStyle,\n    ending_signature_family: endingSignatureFamily,\n    topic: title,\n    category,\n    confidence_context: confidenceContext,\n    source_notes: sourceNotes,\n    creative_defaults: creativeDefaults,\n    creative_defaults_json: Object.keys(creativeDefaults).length > 0 ? JSON.stringify(creativeDefaults, null, 2) : '{}',\n    narrative_perspective: String(creativeDefaults.narrative_perspective || sourcePayload.narrative_perspective || '').trim(),\n    voice_role_hint: String(creativeDefaults.voice_role_hint || '').trim(),\n    visual_strategy: String(creativeDefaults.visual_strategy || sourcePayload.visual_strategy || sourcePayload.visual_direction || '').trim(),\n    music_mood: String(creativeDefaults.music_mood || '').trim(),\n  },\n};\nreturn [{\n  json: {\n    ...promptPayload,\n    prompt_payload_base64: Buffer.from(JSON.stringify(promptPayload), 'utf8').toString('base64')\n  }\n}];"
+      },
+      "id": "prepare_prompt_payload",
+      "name": "Prepare Prompt Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "executeOnce": true,
+        "command": "={{'node /workflows/scripts/invoke_structured_text_adapter.mjs research_and_script ' + JSON.stringify($json.prompt_payload_base64)}}"
+      },
+      "id": "build_llm_request",
+      "name": "Build LLM Request",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        940,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const stdout = String($json.stdout ?? '').trim();\nif (!stdout) {\n  throw new Error('Research model adapter returned no stdout.');\n}\nlet parsed;\ntry {\n  parsed = JSON.parse(stdout);\n} catch (error) {\n  throw new Error('Research model adapter returned invalid JSON: ' + error.message);\n}\nif (!parsed.content_id || !parsed.title || !parsed.llm_response) {\n  throw new Error('Research model adapter did not provide the expected structured response.');\n}\nreturn [{ json: parsed }];"
+      },
+      "id": "provider_placeholder",
+      "name": "Parse Research Model Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json.llm_response ?? {};\nif (!$json.content_id) {\n  throw new Error('Research model adapter did not provide content_id to Normalize Script Package.');\n}\nconst targetDurationSeconds = Number($json.target_duration_seconds ?? 0);\nconst requiredTextFields = [\n  'confidence_label',\n  'hook_option_1',\n  'hook_option_2',\n  'hook_option_3',\n  'selected_hook',\n  'narration_script',\n  'short_script',\n  'caption_draft',\n  'cta_line',\n  'music_direction'\n];\nfor (const field of requiredTextFields) {\n  if (!String(response[field] ?? '').trim()) {\n    throw new Error('Research model adapter returned an empty ' + field + '.');\n  }\n}\nif (!Array.isArray(response.onscreen_text_json) || response.onscreen_text_json.length === 0) {\n  throw new Error('Research model adapter did not produce onscreen_text_json.');\n}\nconst onscreenTextJson = response.onscreen_text_json.map((entry, index) => ({\n  scene_number: Number(entry?.scene_number ?? index + 1),\n  text: String(entry?.text ?? '').trim()\n}));\nif (onscreenTextJson.some((entry) => !Number.isInteger(entry.scene_number) || entry.scene_number < 1 || !entry.text)) {\n  throw new Error('onscreen_text_json must contain positive scene_number values and non-empty text.');\n}\nif (!Array.isArray(response.scene_guidance_json) || response.scene_guidance_json.length < 4 || response.scene_guidance_json.length > 8) {\n  throw new Error('Research model adapter did not produce scene_guidance_json with 4 to 8 scenes.');\n}\nconst roundToHundredths = (value) => Number(Number(value).toFixed(2));\nconst sceneGuidanceJson = response.scene_guidance_json.map((scene, index) => ({\n  scene_number: Number(scene?.scene_number ?? index + 1),\n  beat_label: String(scene?.beat_label ?? '').trim(),\n  start_time_seconds: roundToHundredths(Number(scene?.start_time_seconds ?? 0)),\n  end_time_seconds: roundToHundredths(Number(scene?.end_time_seconds ?? 0)),\n  duration_seconds: roundToHundredths(Number(scene?.duration_seconds ?? 0)),\n  narration_text: String(scene?.narration_text ?? '').trim(),\n  dialogue_lines: Array.isArray(scene?.dialogue_lines) ? scene.dialogue_lines.map((line) => String(line ?? '').trim()).filter(Boolean) : [String(scene?.narration_text ?? '').trim()].filter(Boolean),\n  asset_type: ['image', 'video'].includes(String(scene?.asset_type ?? '').trim()) ? String(scene?.asset_type ?? '').trim() : 'image',\n  scene_purpose: String(scene?.scene_purpose ?? '').trim(),\n  visual_beat: String(scene?.visual_beat ?? '').trim(),\n  source_boundary: String(scene?.source_boundary ?? '').trim(),\n  music_cue: String(scene?.music_cue ?? '').trim(),\n}));\nlet previousEndSeconds = 0;\nfor (const [index, scene] of sceneGuidanceJson.entries()) {\n  if (scene.scene_number !== index + 1) {\n    throw new Error('scene_guidance_json scene_number values must be sequential starting at 1.');\n  }\n  if (!scene.beat_label) {\n    throw new Error('scene_guidance_json contains an empty beat_label.');\n  }\n  if (!Number.isFinite(scene.start_time_seconds) || !Number.isFinite(scene.end_time_seconds) || !Number.isFinite(scene.duration_seconds)) {\n    throw new Error('scene_guidance_json timing fields must be numeric.');\n  }\n  if (scene.start_time_seconds < 0 || scene.end_time_seconds <= scene.start_time_seconds || scene.duration_seconds <= 0) {\n    throw new Error('scene_guidance_json contains invalid timing ranges.');\n  }\n  const derivedDurationSeconds = roundToHundredths(scene.end_time_seconds - scene.start_time_seconds);\n  if (Math.abs(derivedDurationSeconds - scene.duration_seconds) > 0.75) {\n    throw new Error('scene_guidance_json duration_seconds must match end_time_seconds - start_time_seconds.');\n  }\n  if (!scene.narration_text) {\n    throw new Error('scene_guidance_json contains an empty narration_text.');\n  }\n  if (!scene.dialogue_lines.length) {\n    throw new Error('scene_guidance_json contains empty dialogue_lines.');\n  }\n  if (!['image', 'video'].includes(scene.asset_type)) {\n    throw new Error('scene_guidance_json contains an invalid asset_type.');\n  }\n  if (!scene.scene_purpose) {\n    throw new Error('scene_guidance_json contains an empty scene_purpose.');\n  }\n  if (!scene.visual_beat) {\n    throw new Error('scene_guidance_json contains an empty visual_beat.');\n  }\n  if (!scene.source_boundary) {\n    throw new Error('scene_guidance_json contains an empty source_boundary.');\n  }\n  if (!scene.music_cue) {\n    throw new Error('scene_guidance_json contains an empty music_cue.');\n  }\n  if (index === 0 && Math.abs(scene.start_time_seconds) > 0.5) {\n    throw new Error('scene_guidance_json must start at 0 seconds.');\n  }\n  if (index > 0 && Math.abs(scene.start_time_seconds - previousEndSeconds) > 0.75) {\n    throw new Error('scene_guidance_json timings must be contiguous from one scene to the next.');\n  }\n  previousEndSeconds = scene.end_time_seconds;\n}\nif (Number.isFinite(targetDurationSeconds) && targetDurationSeconds > 0) {\n  const finalEndSeconds = sceneGuidanceJson[sceneGuidanceJson.length - 1]?.end_time_seconds ?? 0;\n  if (Math.abs(finalEndSeconds - targetDurationSeconds) > Math.max(2, targetDurationSeconds * 0.2)) {\n    throw new Error('scene_guidance_json must end close to the target_duration_seconds.');\n  }\n}\nreturn [{\n  json: {\n    content_id: $json.content_id,\n    title: $json.title,\n    status_after_success: $json.status_after_success,\n    target_duration_seconds: targetDurationSeconds,\n    confidence_label: String(response.confidence_label).trim(),\n    hook_option_1: String(response.hook_option_1).trim(),\n    hook_option_2: String(response.hook_option_2).trim(),\n    hook_option_3: String(response.hook_option_3).trim(),\n    selected_hook: String(response.selected_hook).trim(),\n    narration_script: String(response.narration_script).trim(),\n    short_script: String(response.short_script).trim(),\n    caption_draft: String(response.caption_draft).trim(),\n    cta_line: String(response.cta_line).trim(),\n    music_direction: String(response.music_direction).trim(),\n    onscreen_text_json: onscreenTextJson,\n    scene_guidance_json: sceneGuidanceJson,\n    generation_model: String($json.generation_model ?? '').trim(),\n    cost: $json.cost ?? {},\n    raw_response_json: {\n      provider: String($json.generation_provider ?? $json.llm_provider ?? 'openai').trim(),\n      generation_model: String($json.generation_model ?? '').trim(),\n      provider_metadata: $json.provider_metadata ?? {},\n      scene_guidance_json: sceneGuidanceJson,\n      parsed_response: {\n        ...response,\n        scene_guidance_json: sceneGuidanceJson\n      }\n    }\n  }\n}];"
+      },
+      "id": "normalize_script_package",
+      "name": "Normalize Script Package",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cost_json_sql = JSON.stringify($json.cost ?? {}).replaceAll(\"'\", \"''\");\nconst uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Prepare SQL Values received an invalid content_id: ' + (contentId || '<empty>') + '. Re-run from Manual Trigger and verify earlier nodes are not pinned or stale.');\n}\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    confidence_label_sql: String($json.confidence_label ?? 'unverified').replaceAll(\"'\", \"''\"),\n    hook_option_1_sql: String($json.hook_option_1 ?? '').replaceAll(\"'\", \"''\"),\n    hook_option_2_sql: String($json.hook_option_2 ?? '').replaceAll(\"'\", \"''\"),\n    hook_option_3_sql: String($json.hook_option_3 ?? '').replaceAll(\"'\", \"''\"),\n    selected_hook_sql: String($json.selected_hook ?? '').replaceAll(\"'\", \"''\"),\n    narration_script_sql: String($json.narration_script ?? '').replaceAll(\"'\", \"''\"),\n    short_script_sql: String($json.short_script ?? '').replaceAll(\"'\", \"''\"),\n    caption_draft_sql: String($json.caption_draft ?? '').replaceAll(\"'\", \"''\"),\n    cta_line_sql: String($json.cta_line ?? '').replaceAll(\"'\", \"''\"),\n    onscreen_text_json_sql: JSON.stringify($json.onscreen_text_json ?? []).replaceAll(\"'\", \"''\"),\n    generation_model_sql: String($json.generation_model ?? '').replaceAll(\"'\", \"''\"),\n    raw_response_json_sql: JSON.stringify($json.raw_response_json ?? {}).replaceAll(\"'\", \"''\"),\n    scene_count_sql: Array.isArray($json.scene_guidance_json) ? $json.scene_guidance_json.length : 0,\n    cost_json_sql\n  }\n}];"
+      },
+      "id": "prepare_sql_values",
+      "name": "Prepare SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into scripts (\n  content_id,\n  hook_option_1,\n  hook_option_2,\n  hook_option_3,\n  selected_hook,\n  narration_script,\n  short_script,\n  caption_draft,\n  cta_line,\n  onscreen_text_json,\n  generation_model,\n  raw_response_json,\n  approved_by_human\n)\nvalues (\n  '{{$json.content_id_sql}}'::uuid,\n  '{{$json.hook_option_1_sql}}',\n  '{{$json.hook_option_2_sql}}',\n  '{{$json.hook_option_3_sql}}',\n  '{{$json.selected_hook_sql}}',\n  '{{$json.narration_script_sql}}',\n  '{{$json.short_script_sql}}',\n  '{{$json.caption_draft_sql}}',\n  '{{$json.cta_line_sql}}',\n  '{{$json.onscreen_text_json_sql}}'::jsonb,\n  '{{$json.generation_model_sql}}',\n  '{{$json.raw_response_json_sql}}'::jsonb,\n  false\n)\non conflict (content_id) do update set\n  hook_option_1 = excluded.hook_option_1,\n  hook_option_2 = excluded.hook_option_2,\n  hook_option_3 = excluded.hook_option_3,\n  selected_hook = excluded.selected_hook,\n  narration_script = excluded.narration_script,\n  short_script = excluded.short_script,\n  caption_draft = excluded.caption_draft,\n  cta_line = excluded.cta_line,\n  onscreen_text_json = excluded.onscreen_text_json,\n  generation_model = excluded.generation_model,\n  raw_response_json = excluded.raw_response_json,\n  generated_at = now()\nreturning content_id, selected_hook, generation_model, generated_at;",
+        "options": {}
+      },
+      "id": "upsert_scripts",
+      "name": "Upsert Scripts",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1900,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update content_items\nset status = 'script_complete',\n    confidence_label = '{{$item(0).$node[\"Prepare SQL Values\"].json[\"confidence_label_sql\"]}}',\n    updated_at = now()\nwhere content_id = '{{$item(0).$node[\"Prepare SQL Values\"].json[\"content_id_sql\"]}}'::uuid\nreturning content_id, status, confidence_label, updated_at;",
+        "options": {}
+      },
+      "id": "mark_script_complete",
+      "name": "Mark Script Complete",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2140,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  'wf_research_and_script',\n  'success',\n  now(),\n  now(),\n  0,\n  null,\n  jsonb_build_object(\n    'generation_model', nullif('{{$item(0).$node[\"Prepare SQL Values\"].json[\"generation_model_sql\"]}}', ''),\n    'confidence_label', nullif('{{$item(0).$node[\"Prepare SQL Values\"].json[\"confidence_label_sql\"]}}', ''),\n    'selected_hook', nullif('{{$item(0).$node[\"Prepare SQL Values\"].json[\"selected_hook_sql\"]}}', ''),\n    'scene_count', {{$item(0).$node[\"Prepare SQL Values\"].json[\"scene_count_sql\"]}},\n    'cost', '{{$item(0).$node[\"Prepare SQL Values\"].json[\"cost_json_sql\"]}}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, ended_at;",
+        "options": {}
+      },
+      "id": "log_research_and_script_run",
+      "name": "Log Research and Script Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2380,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Next Approved Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Approved Item": {
+      "main": [
+        [
+          {
+            "node": "Prepare Prompt Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Prompt Payload": {
+      "main": [
+        [
+          {
+            "node": "Build LLM Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build LLM Request": {
+      "main": [
+        [
+          {
+            "node": "Parse Research Model Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Script Package": {
+      "main": [
+        [
+          {
+            "node": "Prepare SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Upsert Scripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Scripts": {
+      "main": [
+        [
+          {
+            "node": "Mark Script Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Research Model Result": {
+      "main": [
+        [
+          {
+            "node": "Normalize Script Package",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Script Complete": {
+      "main": [
+        [
+          {
+            "node": "Log Research and Script Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "phase2-research-and-script-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

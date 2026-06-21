@@ -1,0 +1,204 @@
+{
+  "name": "wf_render_manifest_construction",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with candidate as materialized (\n  select\n    ci.content_id,\n    ci.title,\n    ci.status,\n    sb.storyboard_json,\n    sb.subtitle_lines_json,\n    sb.render_manifest_seed_json,\n    jsonb_agg(\n      jsonb_build_object(\n        'scene_number', a.scene_number,\n        'asset_role', a.asset_role,\n        'provider', a.provider,\n        'storage_url', a.storage_url,\n        'mime_type', a.mime_type,\n        'duration_seconds', a.duration_seconds,\n        'width', a.width,\n        'height', a.height,\n        'metadata_json', a.metadata_json\n      )\n      order by a.scene_number\n    ) filter (where a.asset_role in ('scene_image', 'scene_video') and a.status = 'ready') as scene_assets_json,\n    jsonb_agg(\n      jsonb_build_object(\n        'scene_number', a.scene_number,\n        'provider', a.provider,\n        'storage_url', a.storage_url,\n        'mime_type', a.mime_type,\n        'duration_seconds', a.duration_seconds,\n        'metadata_json', a.metadata_json\n      )\n      order by a.scene_number asc\n    ) filter (where a.asset_role = 'scene_narration' and a.status = 'ready') as scene_narration_assets_json,\n    count(*) filter (where a.asset_role in ('scene_image', 'scene_video') and a.status = 'ready')::int as scene_asset_count,\n    count(*) filter (where a.asset_role = 'scene_narration' and a.status = 'ready')::int as scene_narration_count\n  from content_items ci\n  join storyboards sb on sb.content_id = ci.content_id\n  join assets a on a.content_id = ci.content_id\n  where ci.status = 'narration_ready'\n  group by ci.content_id, ci.title, ci.status, sb.storyboard_json, sb.subtitle_lines_json, sb.render_manifest_seed_json\n  having count(*) filter (where a.asset_role in ('scene_image', 'scene_video') and a.status = 'ready') >= 4\n     and count(*) filter (where a.asset_role = 'scene_narration' and a.status = 'ready') >= 4\n  order by max(ci.updated_at) asc\n  limit 1\n), claim as (\n  update content_items ci\n  set status = 'building_render_manifest',\n      updated_at = now()\n  where ci.content_id = (select content_id from candidate)\n    and ci.status = 'narration_ready'\n  returning ci.content_id\n)\nselect\n  c.content_id,\n  c.title,\n  c.status,\n  c.storyboard_json,\n  c.subtitle_lines_json,\n  c.render_manifest_seed_json,\n  c.scene_assets_json,\n  c.scene_narration_assets_json,\n  c.scene_asset_count,\n  c.scene_narration_count\nfrom candidate c\njoin claim cl on cl.content_id = c.content_id;",
+        "options": {}
+      },
+      "id": "fetch_next_narration_ready_item",
+      "name": "Fetch Next Narration Ready Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst env = typeof $env === 'object' && $env ? $env : {};\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nconst storyboard = Array.isArray($json.storyboard_json) ? $json.storyboard_json : [];\nconst faceImageScene = storyboard.find(scene => scene.is_face_image === true) ?? storyboard[0] ?? null;\nconst faceImageTitle = String(faceImageScene?.face_image_title ?? '').trim();\nconst subtitleLines = Array.isArray($json.subtitle_lines_json) ? $json.subtitle_lines_json : [];\nconst sceneAssets = Array.isArray($json.scene_assets_json) ? $json.scene_assets_json : [];\nconst sceneNarrationAssets = Array.isArray($json.scene_narration_assets_json) ? $json.scene_narration_assets_json : [];\nconst seed = $json.render_manifest_seed_json ?? {};\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Narration Ready Item did not atomically claim a valid content_id.');\n}\nif (!title) {\n  throw new Error('Fetch Next Narration Ready Item did not return title.');\n}\nif (storyboard.length < 4) {\n  throw new Error('A render manifest requires at least 4 storyboard scenes.');\n}\nif (sceneAssets.length < 4) {\n  throw new Error('A render manifest requires at least 4 ready scene assets.');\n}\nif (sceneNarrationAssets.length < storyboard.length) {\n  throw new Error(`A render manifest requires ${storyboard.length} scene_narration assets (one per scene), got ${sceneNarrationAssets.length}.`);\n}\nconst narrationByScene = Object.fromEntries(\n  sceneNarrationAssets.map(a => [Number(a.scene_number), a])\n);\nconst outputWidth = Number.parseInt(String(env.RENDER_OUTPUT_WIDTH || seed?.output?.width || '1080').trim(), 10);\nconst outputHeight = Number.parseInt(String(env.RENDER_OUTPUT_HEIGHT || seed?.output?.height || '1920').trim(), 10);\nconst outputFps = Number.parseInt(String(env.RENDER_OUTPUT_FPS || seed?.output?.fps || '30').trim(), 10);\nconst outputFormat = String(env.RENDER_OUTPUT_FORMAT || seed?.output?.format || 'mp4').trim() || 'mp4';\nconst subtitleStyle = String(env.RENDER_SUBTITLE_STYLE || seed?.subtitles?.style || 'cinematic_center_safe').trim() || 'cinematic_center_safe';\nconst narrationSpeed = Number.isFinite(Number(sceneNarrationAssets[0]?.metadata_json?.speed)) ? Number(sceneNarrationAssets[0].metadata_json.speed) : 1;\nfunction roundToHundredths(value) {\n  return Number(Number(value).toFixed(2));\n}\nfunction inferAssetType(asset) {\n  const mimeType = String(asset?.mime_type ?? '').trim().toLowerCase();\n  const assetRole = String(asset?.asset_role ?? '').trim().toLowerCase();\n  const storageUrl = String(asset?.storage_url ?? '').trim().toLowerCase();\n  if (mimeType.startsWith('video/') || assetRole === 'scene_video' || storageUrl.endsWith('.mp4')) {\n    return 'video';\n  }\n  return 'image';\n}\nlet currentTime = 0;\nconst manifestScenes = storyboard.map((scene, index) => {\n  const sceneNumber = Number(scene?.scene_number ?? index + 1);\n  const narrationAsset = narrationByScene[sceneNumber] ?? null;\n  if (!narrationAsset) {\n    throw new Error(`Missing scene_narration asset for scene ${sceneNumber}.`);\n  }\n  const durationSeconds = roundToHundredths(Math.max(Number(narrationAsset.duration_seconds ?? 0), 0.5));\n  const matchingAsset = sceneAssets.find((asset) => Number(asset?.scene_number ?? 0) === sceneNumber);\n  if (!matchingAsset) {\n    throw new Error(`Missing scene asset for scene ${sceneNumber}.`);\n  }\n  if (!String(matchingAsset.storage_url ?? '').trim()) {\n    throw new Error(`Scene ${sceneNumber} asset is missing storage_url.`);\n  }\n  const assetType = inferAssetType(matchingAsset);\n  const startTime = roundToHundredths(currentTime);\n  const endTime = roundToHundredths(currentTime + durationSeconds);\n  currentTime = endTime;\n  const subtitle = subtitleLines.find((line) => Number(line?.scene_number ?? 0) === sceneNumber);\n  return {\n    scene_number: sceneNumber,\n    start_time_seconds: startTime,\n    end_time_seconds: endTime,\n    duration_seconds: durationSeconds,\n    transition: String(scene?.transition ?? '').trim(),\n    mood: String(scene?.mood ?? '').trim(),\n    music_cue: String(scene?.music_cue ?? '').trim(),\n    visual_prompt: String(scene?.visual_prompt ?? '').trim(),\n    narration_text: String(scene?.narration_text ?? '').trim(),\n    narration_url: String(narrationAsset.storage_url ?? '').trim(),\n    narration_duration_seconds: Number(narrationAsset.duration_seconds ?? 0),\n    asset: {\n      asset_role: String(matchingAsset.asset_role ?? '').trim(),\n      asset_type: assetType,\n      provider: String(matchingAsset.provider ?? '').trim(),\n      storage_url: String(matchingAsset.storage_url ?? '').trim(),\n      mime_type: String(matchingAsset.mime_type ?? '').trim(),\n      width: Number(matchingAsset.width ?? 0),\n      height: Number(matchingAsset.height ?? 0)\n    },\n    subtitle: subtitle ? {\n      text: String(subtitle.text ?? '').trim(),\n      style: subtitleStyle\n    } : null\n  };\n});\nconst totalDuration = roundToHundredths(manifestScenes.reduce((sum, s) => sum + s.duration_seconds, 0));\nconst coverImageUrl = String((sceneAssets.find((asset) => inferAssetType(asset) === 'image') ?? sceneAssets[0])?.storage_url ?? '').trim();\nconst renderManifest = {\n  manifest_version: 2,\n  content_id: contentId,\n  title,\n  title_overlay: faceImageTitle ? { text: faceImageTitle, enabled: true, duration_seconds: 4.0 } : null,\n  output: {\n    width: outputWidth,\n    height: outputHeight,\n    fps: outputFps,\n    format: outputFormat,\n    aspect_ratio: '9:16'\n  },\n  audio: {\n    narration: {\n      mode: 'per_scene',\n      scenes: sceneNarrationAssets.map(a => ({\n        scene_number: Number(a.scene_number),\n        provider: String(a.provider ?? '').trim(),\n        storage_url: String(a.storage_url ?? '').trim(),\n        mime_type: String(a.mime_type ?? 'audio/mpeg').trim(),\n        duration_seconds: Number(a.duration_seconds ?? 0)\n      })),\n      total_duration_seconds: totalDuration,\n      voice: String(sceneNarrationAssets[0]?.metadata_json?.voice ?? '').trim(),\n      speed: narrationSpeed\n    }\n  },\n  subtitles: {\n    enabled: false,\n    style: subtitleStyle,\n    lines: subtitleLines\n  },\n  timing: {\n    mode: 'per_scene_narration',\n    total_duration_seconds: totalDuration,\n    narration_speed: narrationSpeed,\n    scene_count: manifestScenes.length\n  },\n  scenes: manifestScenes,\n  timeline: manifestScenes.map((scene) => ({\n    scene_number: scene.scene_number,\n    start_time_seconds: scene.start_time_seconds,\n    end_time_seconds: scene.end_time_seconds,\n    duration_seconds: scene.duration_seconds,\n    asset_url: scene.asset.storage_url,\n    asset_type: scene.asset.asset_type,\n    narration_url: scene.narration_url,\n    transition: scene.transition\n  })),\n  total_duration_seconds: totalDuration,\n  cover_image_url: coverImageUrl,\n  seed: seed\n};\nconst manifestSummary = {\n  scene_count: manifestScenes.length,\n  total_duration_seconds: totalDuration,\n  timeline_mode: 'per_scene_narration',\n  narration_speed: narrationSpeed,\n  output: renderManifest.output,\n  cover_image_url: coverImageUrl,\n  scene_asset_types: manifestScenes.map((scene) => ({\n    scene_number: scene.scene_number,\n    asset_type: scene.asset.asset_type,\n    asset_role: scene.asset.asset_role\n  }))\n};\nreturn [{\n  json: {\n    content_id: contentId,\n    title,\n    workflow_name: 'wf_render_manifest_construction',\n    run_started_at: new Date().toISOString(),\n    render_manifest_json: renderManifest,\n    render_manifest_summary: manifestSummary,\n    cover_image_url: coverImageUrl,\n    resolution: `${outputWidth}x${outputHeight}`,\n    aspect_ratio: '9:16',\n    duration_seconds: totalDuration,\n    render_status: 'manifest_ready',\n    status_after_success: 'render_manifest_ready'\n  }\n}];"
+      },
+      "id": "build_render_manifest",
+      "name": "Build Render Manifest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Prepare Render Manifest SQL Values received an invalid content_id: ' + (contentId || '<empty>') + '.');\n}\nconst startedAt = new Date(String($json.run_started_at ?? new Date().toISOString()));\nconst durationMs = Math.max(0, Date.now() - startedAt.getTime());\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    render_manifest_json_sql: JSON.stringify($json.render_manifest_json ?? {}).replaceAll(\"'\", \"''\"),\n    render_manifest_summary_json_sql: JSON.stringify($json.render_manifest_summary ?? {}).replaceAll(\"'\", \"''\"),\n    cover_image_url_sql: String($json.cover_image_url ?? '').replaceAll(\"'\", \"''\"),\n    resolution_sql: String($json.resolution ?? '').replaceAll(\"'\", \"''\"),\n    aspect_ratio_sql: String($json.aspect_ratio ?? '9:16').replaceAll(\"'\", \"''\"),\n    duration_seconds_sql: Number.isFinite(Number($json.duration_seconds)) ? Number($json.duration_seconds) : 0,\n    render_status_sql: String($json.render_status ?? 'manifest_ready').replaceAll(\"'\", \"''\"),\n    workflow_name_sql: String($json.workflow_name ?? 'wf_render_manifest_construction').replaceAll(\"'\", \"''\"),\n    duration_ms_sql: Number.isFinite(durationMs) ? durationMs : 0\n  }\n}];"
+      },
+      "id": "prepare_render_manifest_sql_values",
+      "name": "Prepare Render Manifest SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into renders (\n  content_id,\n  render_manifest_json,\n  output_video_url,\n  cover_image_url,\n  resolution,\n  aspect_ratio,\n  duration_seconds,\n  render_status,\n  render_log,\n  requested_at,\n  completed_at\n)\nvalues (\n  '{{$json.content_id_sql}}'::uuid,\n  '{{$json.render_manifest_json_sql}}'::jsonb,\n  null,\n  nullif('{{$json.cover_image_url_sql}}', ''),\n  nullif('{{$json.resolution_sql}}', ''),\n  nullif('{{$json.aspect_ratio_sql}}', ''),\n  {{$json.duration_seconds_sql}},\n  '{{$json.render_status_sql}}',\n  null,\n  now(),\n  null\n)\non conflict (content_id) do update set\n  render_manifest_json = excluded.render_manifest_json,\n  output_video_url = excluded.output_video_url,\n  cover_image_url = excluded.cover_image_url,\n  resolution = excluded.resolution,\n  aspect_ratio = excluded.aspect_ratio,\n  duration_seconds = excluded.duration_seconds,\n  render_status = excluded.render_status,\n  render_log = excluded.render_log,\n  requested_at = now(),\n  completed_at = excluded.completed_at\nreturning content_id, render_status, resolution, aspect_ratio, duration_seconds;",
+        "options": {}
+      },
+      "id": "upsert_render_manifest",
+      "name": "Upsert Render Manifest",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1180,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update content_items\nset status = 'render_manifest_ready',\n    updated_at = now()\nwhere content_id = '{{$item(0).$node[\"Prepare Render Manifest SQL Values\"].json[\"content_id_sql\"]}}'::uuid\nreturning content_id, title, status, updated_at;",
+        "options": {}
+      },
+      "id": "mark_render_manifest_ready",
+      "name": "Mark Render Manifest Ready",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1420,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Render Manifest SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  '{{$item(0).$node[\"Prepare Render Manifest SQL Values\"].json[\"workflow_name_sql\"]}}',\n  'success',\n  '{{$item(0).$node[\"Build Render Manifest\"].json[\"run_started_at\"]}}'::timestamptz,\n  now(),\n  {{$item(0).$node[\"Prepare Render Manifest SQL Values\"].json[\"duration_ms_sql\"]}},\n  null,\n  jsonb_build_object(\n    'render_manifest', '{{$item(0).$node[\"Prepare Render Manifest SQL Values\"].json[\"render_manifest_summary_json_sql\"]}}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, ended_at;",
+        "options": {}
+      },
+      "id": "log_render_manifest_run",
+      "name": "Log Render Manifest Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1660,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Next Narration Ready Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Narration Ready Item": {
+      "main": [
+        [
+          {
+            "node": "Build Render Manifest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Render Manifest": {
+      "main": [
+        [
+          {
+            "node": "Prepare Render Manifest SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Render Manifest SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Upsert Render Manifest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Render Manifest": {
+      "main": [
+        [
+          {
+            "node": "Mark Render Manifest Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Render Manifest Ready": {
+      "main": [
+        [
+          {
+            "node": "Log Render Manifest Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8d3eb391-0c0e-4b74-8b1e-8e3a26e46951",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

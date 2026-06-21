@@ -1,0 +1,727 @@
+[
+  {
+    "id": "departure-mixkit",
+    "title": "Departure",
+    "categories": [
+      "general",
+      "documentary",
+      "history",
+      "science",
+      "technology",
+      "biography",
+      "mystery"
+    ],
+    "tags": [
+      "ambient",
+      "electronica",
+      "atmospheric",
+      "modern",
+      "cinematic",
+      "underscore",
+      "subtle",
+      "instrumental"
+    ],
+    "moods": [
+      "calm",
+      "reflective",
+      "neutral",
+      "mysterious",
+      "serious"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 0.8,
+    "fade_out_seconds": 2.5,
+    "default": true,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/mood/sombre/",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/departure-mixkit.mp3"
+  },
+  {
+    "id": "vastness-mixkit",
+    "title": "Vastness",
+    "categories": [
+      "general",
+      "documentary",
+      "mystery",
+      "science",
+      "space",
+      "philosophy",
+      "biography"
+    ],
+    "tags": [
+      "ambient",
+      "atmospheric",
+      "cinematic",
+      "modern",
+      "underscore",
+      "spacious",
+      "subtle",
+      "instrumental"
+    ],
+    "moods": [
+      "reflective",
+      "serene",
+      "mysterious",
+      "somber",
+      "calm"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 0.8,
+    "fade_out_seconds": 2.5,
+    "default": false,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/mood/calm/",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/vastness-mixkit.mp3"
+  },
+  {
+    "id": "spirit-in-the-woods-mixkit",
+    "title": "Spirit in the Woods",
+    "categories": [
+      "mystery",
+      "paranormal",
+      "folklore",
+      "nature",
+      "documentary",
+      "general"
+    ],
+    "tags": [
+      "ambient",
+      "mysterious",
+      "atmospheric",
+      "synth",
+      "modern",
+      "underscore",
+      "subtle",
+      "instrumental"
+    ],
+    "moods": [
+      "eerie",
+      "mysterious",
+      "reflective",
+      "somber",
+      "uneasy"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 0.8,
+    "fade_out_seconds": 2.5,
+    "default": false,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/mood/calm/",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/spirit-in-the-woods-mixkit.mp3"
+  },
+  {
+    "id": "echoes-mixkit",
+    "title": "Echoes",
+    "categories": [
+      "horror",
+      "paranormal",
+      "crime",
+      "thriller",
+      "conspiracy",
+      "mystery"
+    ],
+    "tags": [
+      "drone",
+      "eerie",
+      "atmospheric",
+      "synth",
+      "cinematic",
+      "thriller",
+      "modern",
+      "instrumental"
+    ],
+    "moods": [
+      "ominous",
+      "dark",
+      "eerie",
+      "suspenseful",
+      "uneasy"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 1,
+    "fade_out_seconds": 3,
+    "default": false,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/mood/sombre/",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/echoes-mixkit.mp3"
+  },
+  {
+    "id": "selpan-mixkit",
+    "title": "Selpan",
+    "categories": [
+      "crime",
+      "investigation",
+      "documentary",
+      "mystery",
+      "horror",
+      "paranormal"
+    ],
+    "tags": [
+      "drone",
+      "mysterious",
+      "eerie",
+      "electric guitar",
+      "documentary",
+      "investigation",
+      "modern",
+      "instrumental"
+    ],
+    "moods": [
+      "uneasy",
+      "mysterious",
+      "dark",
+      "tense",
+      "somber"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 1,
+    "fade_out_seconds": 3,
+    "default": false,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/tag/dark/",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/selpan-mixkit.mp3"
+  },
+  {
+    "id": "relaxation-05-mixkit",
+    "title": "Relaxation 05",
+    "categories": [
+      "general",
+      "documentary",
+      "wellness",
+      "nature",
+      "biography",
+      "philosophy"
+    ],
+    "tags": [
+      "ambient",
+      "meditative",
+      "soft",
+      "atmospheric",
+      "modern",
+      "underscore",
+      "subtle",
+      "instrumental"
+    ],
+    "moods": [
+      "calm",
+      "peaceful",
+      "reflective",
+      "serene",
+      "gentle"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 0.8,
+    "fade_out_seconds": 2.5,
+    "default": false,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/mood/calm/",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/relaxation-05-mixkit.mp3"
+  },
+  {
+    "id": "cyberpunk-city-mixkit",
+    "title": "Cyberpunk City",
+    "categories": [
+      "technology",
+      "science",
+      "future",
+      "sci-fi",
+      "cyberpunk",
+      "mystery"
+    ],
+    "tags": [
+      "ambient",
+      "electronica",
+      "mysterious",
+      "dark",
+      "cinematic",
+      "modern",
+      "instrumental"
+    ],
+    "moods": [
+      "futuristic",
+      "tense",
+      "mysterious",
+      "dark",
+      "mechanical"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 0.8,
+    "fade_out_seconds": 2.5,
+    "default": false,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/tag/dark/",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/cyberpunk-city-mixkit.mp3"
+  },
+  {
+    "id": "gymnopedie-no-1",
+    "title": "Gymnopedie No. 1",
+    "categories": [
+      "history",
+      "biography",
+      "philosophy",
+      "mystery",
+      "paranormal"
+    ],
+    "tags": [
+      "piano",
+      "minimal",
+      "contemplative",
+      "spacious",
+      "documentary",
+      "subtle",
+      "instrumental"
+    ],
+    "moods": [
+      "reflective",
+      "calm",
+      "contemplative",
+      "eerie",
+      "somber"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 0.8,
+    "fade_out_seconds": 2.5,
+    "default": false,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Gymnopedie_No._1..ogg",
+    "license": "CC0",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/gymnopedie-no-1.ogg"
+  },
+  {
+    "id": "moonlight-sonata",
+    "title": "Moonlight Sonata",
+    "categories": [
+      "mystery",
+      "tragedy",
+      "paranormal",
+      "crime",
+      "history"
+    ],
+    "tags": [
+      "piano",
+      "nocturnal",
+      "somber",
+      "suspense",
+      "documentary",
+      "classic",
+      "instrumental"
+    ],
+    "moods": [
+      "somber",
+      "ominous",
+      "reflective",
+      "uneasy",
+      "suspenseful"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 0.8,
+    "fade_out_seconds": 2.5,
+    "default": false,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Moonlight_Sonata.ogg",
+    "license": "Public domain",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/moonlight-sonata.ogg"
+  },
+  {
+    "id": "chopin-nocturne-op9-no2",
+    "title": "Chopin Nocturne Op. 9 No. 2",
+    "categories": [
+      "history",
+      "biography",
+      "tragedy",
+      "romance",
+      "mystery"
+    ],
+    "tags": [
+      "piano",
+      "lyrical",
+      "reflective",
+      "elegant",
+      "documentary",
+      "subtle",
+      "instrumental"
+    ],
+    "moods": [
+      "wistful",
+      "melancholic",
+      "reflective",
+      "intimate",
+      "somber"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 0.8,
+    "fade_out_seconds": 2.5,
+    "default": false,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Chopin.Nocturne.Es-Dur.opus.9.2.ogg",
+    "license": "CC0",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/chopin-nocturne-op9-no2.ogg"
+  },
+  {
+    "id": "danse-macabre",
+    "title": "Danse Macabre",
+    "categories": [
+      "horror",
+      "paranormal",
+      "gothic",
+      "plague",
+      "occult"
+    ],
+    "tags": [
+      "orchestral",
+      "macabre",
+      "eerie",
+      "vintage",
+      "dark",
+      "instrumental"
+    ],
+    "moods": [
+      "eerie",
+      "sinister",
+      "gothic",
+      "playful",
+      "uneasy"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 1,
+    "fade_out_seconds": 3,
+    "default": false,
+    "source_url": "https://commons.wikimedia.org/wiki/File:PhiladelphiaSymphonyOrchestra-DanseMacabre.ogg",
+    "license": "Public domain",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/danse-macabre.ogg"
+  },
+  {
+    "id": "night-on-bald-mountain",
+    "title": "Night on Bald Mountain",
+    "categories": [
+      "horror",
+      "paranormal",
+      "occult",
+      "folklore",
+      "conspiracy"
+    ],
+    "tags": [
+      "orchestral",
+      "supernatural",
+      "dark",
+      "demonic",
+      "crescendo",
+      "instrumental"
+    ],
+    "moods": [
+      "ominous",
+      "chaotic",
+      "terrifying",
+      "dark",
+      "intense"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 1,
+    "fade_out_seconds": 3,
+    "default": false,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Modest_Mussorgsky_-_night_on_bald_mountain.ogg",
+    "license": "Public domain",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/night-on-bald-mountain.ogg"
+  },
+  {
+    "id": "mars-bringer-of-war",
+    "title": "Mars, the Bringer of War",
+    "categories": [
+      "war",
+      "military",
+      "battle",
+      "history",
+      "empire"
+    ],
+    "tags": [
+      "orchestral",
+      "marching",
+      "percussion",
+      "conflict",
+      "relentless",
+      "instrumental"
+    ],
+    "moods": [
+      "tense",
+      "ominous",
+      "aggressive",
+      "urgent",
+      "grim"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 0.8,
+    "fade_out_seconds": 2.5,
+    "default": false,
+    "source_url": "https://commons.wikimedia.org/wiki/File:Holst-_mars.ogg",
+    "license": "Public domain",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/mars-bringer-of-war.ogg"
+  },
+  {
+    "id": "silent-descent-mixkit",
+    "title": "Silent Descent",
+    "categories": [
+      "general",
+      "documentary",
+      "human drama",
+      "social justice",
+      "law",
+      "history",
+      "tragedy",
+      "biography"
+    ],
+    "tags": [
+      "film score",
+      "cinematic",
+      "sad",
+      "piano",
+      "strings",
+      "documentary",
+      "human drama",
+      "instrumental"
+    ],
+    "moods": [
+      "sad",
+      "somber",
+      "reflective",
+      "grave",
+      "intimate",
+      "serious"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 1,
+    "fade_out_seconds": 3,
+    "default": false,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/mood/sad/",
+    "source_asset_url": "https://assets.mixkit.co/music/614/614.mp3",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/silent-descent-mixkit.mp3"
+  },
+  {
+    "id": "shame-mixkit",
+    "title": "Shame",
+    "categories": [
+      "general",
+      "documentary",
+      "social justice",
+      "crime",
+      "law",
+      "human rights",
+      "tragedy"
+    ],
+    "tags": [
+      "electronica",
+      "cinematic",
+      "sad",
+      "modern",
+      "documentary",
+      "underscore",
+      "instrumental"
+    ],
+    "moods": [
+      "somber",
+      "uneasy",
+      "tense",
+      "intimate",
+      "reflective",
+      "dark"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 1,
+    "fade_out_seconds": 3,
+    "default": false,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/mood/sad/",
+    "source_asset_url": "https://assets.mixkit.co/music/553/553.mp3",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/shame-mixkit.mp3"
+  },
+  {
+    "id": "ode-to-loneliness-mixkit",
+    "title": "Ode to Loneliness",
+    "categories": [
+      "general",
+      "documentary",
+      "biography",
+      "human drama",
+      "tragedy",
+      "mystery"
+    ],
+    "tags": [
+      "film score",
+      "cinematic",
+      "sad",
+      "piano",
+      "lonely",
+      "documentary",
+      "instrumental"
+    ],
+    "moods": [
+      "lonely",
+      "melancholic",
+      "reflective",
+      "somber",
+      "quiet",
+      "intimate"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 1,
+    "fade_out_seconds": 3,
+    "default": false,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/mood/sad/",
+    "source_asset_url": "https://assets.mixkit.co/music/520/520.mp3",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/ode-to-loneliness-mixkit.mp3"
+  },
+  {
+    "id": "indian-meditations-mixkit",
+    "title": "Indian Meditations",
+    "categories": [
+      "general",
+      "documentary",
+      "india",
+      "history",
+      "culture",
+      "spiritual",
+      "biography"
+    ],
+    "tags": [
+      "world",
+      "meditative",
+      "soft",
+      "indian",
+      "documentary",
+      "subtle",
+      "instrumental"
+    ],
+    "moods": [
+      "calm",
+      "reflective",
+      "serious",
+      "gentle",
+      "spiritual",
+      "contemplative"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 1,
+    "fade_out_seconds": 3,
+    "default": false,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/mood/sad/",
+    "source_asset_url": "https://assets.mixkit.co/music/21/21.mp3",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/indian-meditations-mixkit.mp3"
+  },
+  {
+    "id": "alignment-mixkit",
+    "title": "Alignment",
+    "categories": [
+      "general",
+      "documentary",
+      "science",
+      "philosophy",
+      "wellness",
+      "biography"
+    ],
+    "tags": [
+      "film score",
+      "ambient",
+      "calm",
+      "cinematic",
+      "minimal",
+      "instrumental"
+    ],
+    "moods": [
+      "calm",
+      "hopeful",
+      "reflective",
+      "neutral",
+      "serene",
+      "gentle"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 0.8,
+    "fade_out_seconds": 2.5,
+    "default": false,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/mood/sad/",
+    "source_asset_url": "https://assets.mixkit.co/music/310/310.mp3",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/alignment-mixkit.mp3"
+  },
+  {
+    "id": "epic-games-mixkit",
+    "title": "Epic Games",
+    "categories": [
+      "general",
+      "history",
+      "war",
+      "adventure",
+      "science",
+      "technology",
+      "empire"
+    ],
+    "tags": [
+      "film score",
+      "epic",
+      "orchestral",
+      "cinematic",
+      "energetic",
+      "instrumental"
+    ],
+    "moods": [
+      "epic",
+      "urgent",
+      "hopeful",
+      "dramatic",
+      "intense",
+      "heroic"
+    ],
+    "vocals": false,
+    "volume": 0.3,
+    "fade_in_seconds": 0.8,
+    "fade_out_seconds": 2.5,
+    "default": false,
+    "source_provider": "Mixkit",
+    "source_page_url": "https://mixkit.co/free-stock-music/mood/sad/",
+    "source_asset_url": "https://assets.mixkit.co/music/76/76.mp3",
+    "license": "Mixkit Stock Music Free License",
+    "license_url": "https://mixkit.co/license/#musicFree",
+    "url": "https://storage.googleapis.com/n8ninstastorage/assets/music/epic-games-mixkit.mp3"
+  }
+]

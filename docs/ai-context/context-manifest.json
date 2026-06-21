@@ -1,0 +1,193 @@
+{
+  "version": "1.0",
+  "last_reviewed": "2026-06-21",
+  "git_commit": "0d0515b",
+  "repo_summary": "Instagram-only AI storytelling pipeline orchestrated by n8n with file-backed prompts, Postgres state, provider adapter scripts, local FFmpeg render worker, Instagram publish/metrics workflows, shell smoke tests, and a local Studio UI.",
+  "entrypoint_docs": [
+    {
+      "path": "AGENTS.md",
+      "read_when": "Always start here for repo-level agent rules."
+    },
+    {
+      "path": "docs/ai-context/README.md",
+      "read_when": "Understand the context system and how to use progressive disclosure."
+    },
+    {
+      "path": "docs/ai-context/task-routing.md",
+      "read_when": "Choose task-specific docs and folders before inspecting implementation files."
+    }
+  ],
+  "context_docs": [
+    {
+      "path": "docs/ai-context/repo-map.md",
+      "read_when": "Need top-level folder purpose, key files, or ignore paths."
+    },
+    {
+      "path": "docs/ai-context/architecture-summary.md",
+      "read_when": "Need current system components, data flow, and integration boundaries."
+    },
+    {
+      "path": "docs/ai-context/commands-and-validation.md",
+      "read_when": "Need install, dev, Docker, smoke-test, or environment command guidance."
+    },
+    {
+      "path": "docs/ai-context/glossary.md",
+      "read_when": "Need repo-specific term, provider, or status definitions."
+    },
+    {
+      "path": "docs/ai-context/current-focus.md",
+      "read_when": "Need active direction, awaiting-test items, or known current ambiguities."
+    },
+    {
+      "path": "docs/ai-context/known-risks-and-gotchas.md",
+      "read_when": "Before touching secrets, runtime state, workflows, providers, render, or schema contracts."
+    },
+    {
+      "path": "docs/ai-context/context-maintenance.md",
+      "read_when": "Updating the context layer."
+    }
+  ],
+  "major_areas": [
+    {
+      "name": "prompts",
+      "path_globs": [
+        "prompts/**"
+      ],
+      "related_context_doc": "prompts/AGENTS.md",
+      "read_when": "Prompt wording, response schema, placeholder, or model-output shape work.",
+      "validation_commands": [
+        "bash scripts/test_phase2_topic_to_storyboard_smoke.sh",
+        "bash scripts/test_phase2_caption_iteration_smoke.sh",
+        "bash scripts/test_phase3_scene_asset_generation_smoke.sh",
+        "bash scripts/test_phase3_narration_generation_smoke.sh"
+      ]
+    },
+    {
+      "name": "workflows",
+      "path_globs": [
+        "workflows/n8n/**",
+        "workflows/scripts/**",
+        "workflows/assets/**"
+      ],
+      "related_context_doc": "workflows/AGENTS.md",
+      "read_when": "n8n workflow, helper script, provider adapter, asset generation, or render orchestration work.",
+      "validation_commands": [
+        "bash scripts/test_phase2_topic_to_storyboard_smoke.sh",
+        "bash scripts/test_phase3_render_manifest_smoke.sh",
+        "bash scripts/test_phase3_render_worker_dispatch_smoke.sh"
+      ]
+    },
+    {
+      "name": "infra",
+      "path_globs": [
+        "infra/docker-compose.yml",
+        "infra/postgres/init/**",
+        "infra/render-worker/**",
+        "infra/*.plist"
+      ],
+      "related_context_doc": "infra/AGENTS.md",
+      "read_when": "Docker, schema, render worker, service port, or local runtime work.",
+      "validation_commands": [
+        "docker compose --env-file infra/.env -f infra/docker-compose.yml ps",
+        "docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c \"\\\\dt\""
+      ]
+    },
+    {
+      "name": "studio-ui",
+      "path_globs": [
+        "studio-ui/**"
+      ],
+      "related_context_doc": "studio-ui/AGENTS.md",
+      "read_when": "Local UI, prompt editor, runtime settings, workflow launcher, or recent item inspection work.",
+      "validation_commands": [
+        "docker compose --env-file infra/.env -f infra/docker-compose.yml up -d postgres redis minio minio-bootstrap n8n render-worker studio-ui"
+      ]
+    },
+    {
+      "name": "scripts",
+      "path_globs": [
+        "scripts/**"
+      ],
+      "related_context_doc": "scripts/CONTEXT.md",
+      "read_when": "Smoke-test, live-candidate prep, token, or operational script work.",
+      "validation_commands": [
+        "bash scripts/test_phase2_topic_to_storyboard_smoke.sh",
+        "bash scripts/test_phase3_render_manifest_smoke.sh",
+        "bash scripts/test_phase4_metrics_collection_smoke.sh"
+      ]
+    },
+    {
+      "name": "delivery-testing",
+      "path_globs": [
+        "delivery-testing/**"
+      ],
+      "related_context_doc": "delivery-testing/CONTEXT.md",
+      "read_when": "Need historical completed-item evidence or delivery archive context.",
+      "validation_commands": []
+    }
+  ],
+  "path_globs": [
+    {
+      "glob": "prompts/**",
+      "related_context_doc": "prompts/AGENTS.md",
+      "read_when": "Editing prompt files or schemas."
+    },
+    {
+      "glob": "workflows/n8n/*.json",
+      "related_context_doc": "workflows/AGENTS.md",
+      "read_when": "Changing n8n workflow exports."
+    },
+    {
+      "glob": "workflows/scripts/*.mjs",
+      "related_context_doc": "workflows/AGENTS.md",
+      "read_when": "Changing helper scripts, adapters, prompt rendering, or orchestration."
+    },
+    {
+      "glob": "infra/postgres/init/*.sql",
+      "related_context_doc": "infra/AGENTS.md",
+      "read_when": "Changing schema contracts."
+    },
+    {
+      "glob": "infra/render-worker/**",
+      "related_context_doc": "infra/AGENTS.md",
+      "read_when": "Changing rendering, FFmpeg, or render output hosting."
+    },
+    {
+      "glob": "studio-ui/**",
+      "related_context_doc": "studio-ui/AGENTS.md",
+      "read_when": "Changing the local Studio UI."
+    },
+    {
+      "glob": "scripts/test_*.sh",
+      "related_context_doc": "scripts/CONTEXT.md",
+      "read_when": "Changing or running smoke tests."
+    }
+  ],
+  "validation_commands": {
+    "context_manifest": "jq empty docs/ai-context/context-manifest.json",
+    "infra_ps": "docker compose --env-file infra/.env -f infra/docker-compose.yml ps",
+    "db_tables": "docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c \"\\\\dt\"",
+    "phase2_storyboard": "bash scripts/test_phase2_topic_to_storyboard_smoke.sh",
+    "phase2_caption": "bash scripts/test_phase2_caption_iteration_smoke.sh",
+    "phase3_assets": "bash scripts/test_phase3_scene_asset_generation_smoke.sh",
+    "phase3_narration": "bash scripts/test_phase3_narration_generation_smoke.sh",
+    "phase3_render_manifest": "bash scripts/test_phase3_render_manifest_smoke.sh",
+    "phase3_render_dispatch": "bash scripts/test_phase3_render_worker_dispatch_smoke.sh",
+    "phase3_render_callback": "bash scripts/test_phase3_render_status_callback_smoke.sh",
+    "phase4_metrics": "bash scripts/test_phase4_metrics_collection_smoke.sh"
+  },
+  "ignore_paths": [
+    ".DS_Store",
+    ".env",
+    ".env.bak.*",
+    ".env.local",
+    "infra/.env",
+    "infra/state/**",
+    "storage/**",
+    "workflows/exports/**",
+    "logs/**",
+    "infra/render-worker/__pycache__/**",
+    ".claude/worktrees/**",
+    "sa-key.json"
+  ]
+}

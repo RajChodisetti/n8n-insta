@@ -1,0 +1,172 @@
+{
+  "name": "wf_validation_check",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with candidate as materialized (\n  select\n    ci.content_id,\n    ci.title,\n    ci.category,\n    ci.target_duration_seconds,\n    ci.source_payload_json,\n    s.raw_response_json,\n    coalesce(s.raw_response_json->'scene_guidance_json', '[]'::jsonb) as script_scene_guidance_json,\n    sb.storyboard_json,\n    sb.subtitle_lines_json,\n    sb.render_manifest_seed_json,\n    coalesce(sb.cover_prompt, '') as cover_prompt,\n    coalesce(sb.style_notes, '') as style_notes\n  from content_items ci\n  join scripts s on s.content_id = ci.content_id\n  join storyboards sb on sb.content_id = ci.content_id\n  where ci.status = 'storyboard_complete'\n  order by ci.updated_at asc\n  limit 1\n), claim as (\n  update content_items ci\n  set status = 'validating',\n      updated_at = now()\n  where ci.content_id = (select content_id from candidate)\n    and ci.status = 'storyboard_complete'\n  returning ci.content_id\n)\nselect\n  c.content_id,\n  c.title,\n  c.category,\n  c.target_duration_seconds,\n  c.source_payload_json,\n  c.raw_response_json,\n  c.script_scene_guidance_json,\n  c.storyboard_json,\n  c.subtitle_lines_json,\n  c.render_manifest_seed_json,\n  c.cover_prompt,\n  c.style_notes\nfrom candidate c\njoin claim cl on cl.content_id = c.content_id;",
+        "options": {}
+      },
+      "id": "fetch_next_storyboard_complete_item",
+      "name": "Fetch Next Storyboard Complete Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Validation check did not atomically claim a valid content_id.');\n}\nif (!title) {\n  throw new Error('Validation check did not receive title.');\n}\nconst storyboard = Array.isArray($json.storyboard_json) ? $json.storyboard_json : [];\nconst scriptScenes = Array.isArray($json.script_scene_guidance_json) ? $json.script_scene_guidance_json : [];\nconst subtitles = Array.isArray($json.subtitle_lines_json) ? $json.subtitle_lines_json : [];\nconst renderSeed = $json.render_manifest_seed_json && typeof $json.render_manifest_seed_json === 'object'\n  ? $json.render_manifest_seed_json\n  : {};\nif (storyboard.length < 2 || storyboard.length > 16) {\n  throw new Error('Validation check requires 2 to 16 storyboard scenes (1 title card + up to 15 content scenes).');\n}\nconst forbiddenTextTerms = /subtitle|caption|watermark|logo|lower third|newspaper headline|readable text|text overlay|title text|typography|letters|words on screen|speech bubble|dialogue bubble|thought bubble|comic text/i;\nlet totalDuration = 0;\nlet previousSceneNumber = 0;\nfor (const [index, scene] of storyboard.entries()) {\n  const sceneNumber = Number(scene?.scene_number ?? 0);\n  const durationSeconds = Number(scene?.duration_seconds ?? 0);\n  const narrationText = String(scene?.narration_text ?? '').trim();\n  const dialogueLines = Array.isArray(scene?.dialogue_lines) ? scene.dialogue_lines.map((line) => String(line ?? '').trim()).filter(Boolean) : [];\n  const visualPrompt = String(scene?.visual_prompt ?? '').trim();\n  const assetType = String(scene?.asset_type ?? '').trim();\n  const transition = String(scene?.transition ?? '').trim();\n  const mood = String(scene?.mood ?? '').trim();\n  const musicCue = String(scene?.music_cue ?? '').trim();\n  if (sceneNumber !== previousSceneNumber + 1 || sceneNumber !== index + 1) {\n    throw new Error('Storyboard scene numbers must be sequential starting at 1.');\n  }\n  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {\n    throw new Error('Storyboard scene ' + sceneNumber + ' has invalid duration_seconds.');\n  }\n  const isContentScene = sceneNumber !== 1;\n  if ((isContentScene && (!narrationText || dialogueLines.length === 0)) || !visualPrompt || !transition || !mood || !musicCue) {\n    throw new Error('Storyboard scene ' + sceneNumber + ' is missing required scene data (content scenes need narration and dialogue; all scenes need visual_prompt, transition, mood, music_cue).');\n  }\n  if (!['image', 'video'].includes(assetType)) {\n    throw new Error('Storyboard scene ' + sceneNumber + ' has invalid asset_type.');\n  }\n  if (sceneNumber === 1) {\n    if (scene.is_face_image !== true || !String(scene.face_image_title ?? '').trim()) {\n      throw new Error('Scene 1 must be the face image and include face_image_title.');\n    }\n    const titleWords = String(scene.face_image_title ?? '').trim().split(/\\s+/).filter(Boolean);\n    if (titleWords.length < 2 || titleWords.length > 5) {\n      throw new Error('Scene 1 face_image_title must be 2 to 5 words.');\n    }\n    if (durationSeconds > 4.25) {\n      throw new Error('Scene 1 title card must be 4 seconds or shorter.');\n    }\n  } else if (String(scene.face_image_title ?? '').trim()) {\n    throw new Error('Only scene 1 may include face_image_title.');\n  }\n  if (forbiddenTextTerms.test(visualPrompt)) {\n    throw new Error('Storyboard scene ' + sceneNumber + ' visual_prompt appears to request visible text or overlays. The title belongs in face_image_title metadata only.');\n  }\n  totalDuration += durationSeconds;\n  previousSceneNumber = sceneNumber;\n}\nif (subtitles.length === 0) {\n  throw new Error('subtitle_lines_json metadata is required for review, even though render subtitles stay disabled.');\n}\nif (!renderSeed.output || !Array.isArray(renderSeed.timeline)) {\n  throw new Error('render_manifest_seed_json must include output and timeline.');\n}\nif (!renderSeed.subtitles || renderSeed.subtitles.enabled !== false) {\n  throw new Error('render_manifest_seed_json.subtitles.enabled must be false.');\n}\nif (renderSeed.timeline.length && renderSeed.timeline.length !== storyboard.length) {\n  throw new Error('render_manifest_seed_json.timeline must match storyboard scene count.');\n}\nconst targetDurationSeconds = Number($json.target_duration_seconds ?? 0);\nif (Number.isFinite(targetDurationSeconds) && targetDurationSeconds > 0) {\n  const drift = Math.abs(totalDuration - targetDurationSeconds);\n  if (drift > Math.max(3, targetDurationSeconds * 0.65)) {\n    throw new Error('Storyboard total duration is too far from target_duration_seconds.');\n  }\n}\nreturn [{\n  json: {\n    content_id: contentId,\n    title,\n    scene_count: storyboard.length,\n    total_duration_seconds: Number(totalDuration.toFixed(2)),\n    validation_summary: {\n      scene_count: storyboard.length,\n      script_scene_count: scriptScenes.length,\n      subtitle_line_count: subtitles.length,\n      total_duration_seconds: Number(totalDuration.toFixed(2)),\n      title_card_duration_seconds: Number(storyboard[0]?.duration_seconds ?? 0),\n      subtitles_enabled: false,\n      checked_at: new Date().toISOString()\n    },\n    run_started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "validate_storyboard_package",
+      "name": "Validate Storyboard Package",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Prepare Validation SQL Values received invalid content_id.');\n}\nconst startedAt = new Date(String($json.run_started_at ?? new Date().toISOString()));\nconst durationMs = Math.max(0, Date.now() - startedAt.getTime());\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    validation_summary_json_sql: JSON.stringify($json.validation_summary ?? {}).replaceAll(\"'\", \"''\"),\n    scene_count_sql: Number($json.scene_count ?? 0),\n    total_duration_seconds_sql: Number($json.total_duration_seconds ?? 0),\n    duration_ms_sql: Number.isFinite(durationMs) ? durationMs : 0,\n  }\n}];"
+      },
+      "id": "prepare_validation_sql_values",
+      "name": "Prepare Validation SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update content_items\nset status = 'validation_complete',\n    updated_at = now()\nwhere content_id = '{{$json.content_id_sql}}'::uuid\n  and status = 'validating'\nreturning content_id, title, status, updated_at;",
+        "options": {}
+      },
+      "id": "mark_validation_complete",
+      "name": "Mark Validation Complete",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1180,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Validation SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  'wf_validation_check',\n  'success',\n  now(),\n  now(),\n  {{$item(0).$node[\"Prepare Validation SQL Values\"].json[\"duration_ms_sql\"]}},\n  null,\n  jsonb_build_object(\n    'scene_count', {{$item(0).$node[\"Prepare Validation SQL Values\"].json[\"scene_count_sql\"]}},\n    'total_duration_seconds', {{$item(0).$node[\"Prepare Validation SQL Values\"].json[\"total_duration_seconds_sql\"]}},\n    'validation_summary', '{{$item(0).$node[\"Prepare Validation SQL Values\"].json[\"validation_summary_json_sql\"]}}'::jsonb,\n    'cost', '{}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, ended_at;",
+        "options": {}
+      },
+      "id": "log_validation_check_run",
+      "name": "Log Validation Check Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1420,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Next Storyboard Complete Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Storyboard Complete Item": {
+      "main": [
+        [
+          {
+            "node": "Validate Storyboard Package",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Storyboard Package": {
+      "main": [
+        [
+          {
+            "node": "Prepare Validation SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Validation SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Mark Validation Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Validation Complete": {
+      "main": [
+        [
+          {
+            "node": "Log Validation Check Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "validation-check-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

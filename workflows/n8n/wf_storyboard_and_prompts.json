@@ -15,11 +15,11 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "select\n  ci.content_id,\n  ci.title,\n  ci.category,\n  ci.target_duration_seconds,\n  s.narration_script,\n  s.short_script,\n  s.onscreen_text_json\nfrom content_items ci\njoin scripts s on s.content_id = ci.content_id\nwhere ci.status = 'script_complete'\norder by ci.updated_at asc\nlimit 1;",
+        "query": "with candidate as materialized (\n  select\n    ci.content_id,\n    ci.title,\n    ci.category,\n    ci.target_duration_seconds,\n    ci.source_payload_json,\n    s.narration_script,\n    s.short_script,\n    s.onscreen_text_json,\n    coalesce(s.raw_response_json->'scene_guidance_json', '[]'::jsonb) as script_scene_guidance_json,\n    d.director_json\n  from content_items ci\n  join scripts s on s.content_id = ci.content_id\n  join directors d on d.content_id = ci.content_id\n  where ci.status = 'directed'\n  order by ci.updated_at asc\n  limit 1\n), claim as (\n  update content_items ci\n  set status = 'storyboarding',\n      updated_at = now()\n  where ci.content_id = (select content_id from candidate)\n    and ci.status = 'directed'\n  returning ci.content_id\n)\nselect\n  c.content_id,\n  c.title,\n  c.category,\n  c.target_duration_seconds,\n  c.source_payload_json,\n  c.narration_script,\n  c.short_script,\n  c.onscreen_text_json,\n  c.script_scene_guidance_json,\n  c.director_json\nfrom candidate c\njoin claim cl on cl.content_id = c.content_id;",
         "options": {}
       },
       "id": "fetch_next_script_complete_item",
-      "name": "Fetch Next Script Complete Item",
+      "name": "Fetch Next Directed Item",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
@@ -35,7 +35,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nconst narrationScript = String($json.narration_script ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Script Complete Item did not produce a valid content_id. Ensure a script_complete row exists and run from the start.');\n}\nif (!title) {\n  throw new Error('Fetch Next Script Complete Item did not produce a title.');\n}\nif (!narrationScript) {\n  throw new Error('Fetch Next Script Complete Item did not produce a narration_script.');\n}\nreturn [{\n  json: {\n    content_id: contentId,\n    title,\n    category: String($json.category ?? 'general'),\n    target_duration_seconds: Number($json.target_duration_seconds ?? 45),\n    narration_script: narrationScript,\n    short_script: String($json.short_script ?? ''),\n    onscreen_text_json: $json.onscreen_text_json ?? [],\n    brand_tone: 'cinematic, concise, credible',\n    visual_style_rules: 'realistic, moody, high contrast, cinematic composition, vertical-frame friendly',\n    subtitle_style_rules: 'short lines, high contrast, mobile readable, centered safely above app UI',\n    llm_instruction: 'Convert this narration into a storyboard package with scenes, subtitles, a cover prompt, and a render manifest seed.',\n    status_after_success: 'storyboard_complete'\n  }\n}];"
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst env = typeof $env === 'object' && $env ? $env : {};\nconst sourcePayload = $json.source_payload_json ?? {};\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Directed Item did not atomically claim a valid content_id.');\n}\nif (!title) {\n  throw new Error('Fetch Next Directed Item did not return title.');\n}\nconst narrationScript = String($json.narration_script ?? '').trim();\nif (!narrationScript) {\n  throw new Error('Fetch Next Directed Item did not return narration_script.');\n}\nconst targetDurationSeconds = Number($json.target_duration_seconds ?? 45);\nif (!Number.isFinite(targetDurationSeconds) || targetDurationSeconds <= 0) {\n  throw new Error('target_duration_seconds must be a positive number.');\n}\nconst scriptSceneGuidanceJson = Array.isArray($json.script_scene_guidance_json) ? $json.script_scene_guidance_json : [];\nconst creativeDefaults = sourcePayload.creative_defaults && typeof sourcePayload.creative_defaults === 'object'\n  ? sourcePayload.creative_defaults\n  : {};\nconst brandTone = String(env.STORYBOARD_BRAND_TONE || creativeDefaults.tone || env.STUDIO_BRAND_TONE || 'cinematic, concise, credible').trim() || 'cinematic, concise, credible';\nconst visualStyleRules = String(env.STORYBOARD_VISUAL_STYLE_RULES || 'dark, atmospheric, documentary-realistic, moody lighting, strong focal point, no visible text').trim() || 'dark, atmospheric, documentary-realistic, moody lighting, strong focal point, no visible text';\nconst subtitleStyleRules = String(env.STORYBOARD_SUBTITLE_STYLE_RULES || 'short lines, centered safe zone, high contrast, mobile readable').trim() || 'short lines, centered safe zone, high contrast, mobile readable';\nconst directorJson = $json.director_json && typeof $json.director_json === 'object' ? $json.director_json : {};\nconst directorPlanJson = Object.keys(directorJson).length > 0 ? JSON.stringify(directorJson, null, 2) : '';\nconst directorVoiceRole = String(directorJson.voice_role ?? '').trim();\nconst directorGlobalVisualStyle = String(directorJson.global_visual_style ?? '').trim();\nconst directorVisualStrategy = String(directorJson.visual_strategy ?? '').trim();\nconst directorGlobalPacing = String(directorJson.global_pacing ?? '').trim();\nconst directorGlobalMusicDirection = String(directorJson.global_music_direction ?? '').trim();\nconst promptPayload = {\n  content_id: contentId,\n  title,\n  target_duration_seconds: targetDurationSeconds,\n  script_scene_guidance_json: scriptSceneGuidanceJson,\n  status_after_success: 'storyboard_complete',\n  prompt_template_data: {\n    title,\n    category: String($json.category ?? 'general').trim() || 'general',\n    target_duration_seconds: String(targetDurationSeconds),\n    narration_script: narrationScript,\n    script_scene_guidance_json: JSON.stringify(scriptSceneGuidanceJson, null, 2),\n    brand_tone: brandTone,\n    visual_style_rules: visualStyleRules,\n    subtitle_style_rules: subtitleStyleRules,\n    creative_defaults: creativeDefaults,\n    creative_defaults_json: Object.keys(creativeDefaults).length > 0 ? JSON.stringify(creativeDefaults, null, 2) : '{}',\n    director_json: directorJson,\n    director_contract_json: directorJson,\n    director_plan_json: directorPlanJson,\n    director_voice_role: directorVoiceRole,\n    director_global_visual_style: directorGlobalVisualStyle,\n    director_visual_strategy: directorVisualStrategy,\n    director_global_pacing: directorGlobalPacing,\n    director_global_music_direction: directorGlobalMusicDirection,\n  },\n};\nreturn [{\n  json: {\n    ...promptPayload,\n    prompt_payload_base64: Buffer.from(JSON.stringify(promptPayload), 'utf8').toString('base64')\n  }\n}];"
       },
       "id": "prepare_storyboard_prompt_payload",
       "name": "Prepare Storyboard Prompt Payload",
@@ -48,12 +48,13 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{\n  json: {\n    content_id: $json.content_id,\n    title: $json.title,\n    category: $json.category,\n    target_duration_seconds: $json.target_duration_seconds,\n    prompt: {\n      instruction: $json.llm_instruction,\n      narration_script: $json.narration_script,\n      brand_tone: $json.brand_tone,\n      visual_style_rules: $json.visual_style_rules,\n      subtitle_style_rules: $json.subtitle_style_rules,\n      response_schema: {\n        storyboard_json: [\n          {\n            scene_number: 1,\n            duration_seconds: 4,\n            narration_text: 'string',\n            visual_prompt: 'string',\n            asset_type: 'image|video',\n            transition: 'string',\n            mood: 'string'\n          }\n        ],\n        cover_prompt: 'string',\n        subtitle_lines_json: [\n          {\n            scene_number: 1,\n            text: 'string'\n          }\n        ],\n        style_notes: 'string',\n        visual_style_summary: 'string',\n        render_manifest_seed_json: {\n          output: {\n            width: 1080,\n            height: 1920,\n            fps: 30,\n            format: 'mp4'\n          },\n          timeline: [],\n          subtitles: {\n            enabled: true,\n            style: 'default_story_subtitles'\n          }\n        }\n      }\n    },\n    status_after_success: $json.status_after_success\n  }\n}];"
+        "executeOnce": true,
+        "command": "={{'node /workflows/scripts/invoke_structured_text_adapter.mjs storyboard_and_prompts ' + JSON.stringify($json.prompt_payload_base64)}}"
       },
       "id": "build_storyboard_request",
       "name": "Build Storyboard Request",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [
         940,
         320
@@ -61,10 +62,10 @@
     },
     {
       "parameters": {
-        "jsCode": "if (!$json.content_id || !$json.title || !$json.prompt?.narration_script) {\n  throw new Error('Build Storyboard Request did not produce the required context for storyboard generation.');\n}\nconst rawSegments = $json.prompt.narration_script\n  .split(/(?<=[.!?])\\s+/)\n  .map((segment) => segment.trim())\n  .filter(Boolean);\nconst segments = rawSegments.length >= 4\n  ? rawSegments.slice(0, 6)\n  : [\n      rawSegments[0] ?? $json.title,\n      rawSegments[1] ?? `The core question around ${$json.title}`,\n      rawSegments[2] ?? 'The details that keep the story alive.',\n      rawSegments[3] ?? 'Why the debate never fully ends.'\n    ];\nconst baseDuration = Math.max(3, Number(($json.target_duration_seconds / segments.length).toFixed(1)));\nconst storyboardJson = segments.map((segment, index) => ({\n  scene_number: index + 1,\n  duration_seconds: baseDuration,\n  narration_text: segment,\n  visual_prompt: `${$json.title}, ${segment}, cinematic vertical composition, ${index % 2 === 0 ? 'moody realism' : 'atmospheric detail'}, high contrast, story-driven frame`,\n  asset_type: index % 2 === 0 ? 'video' : 'image',\n  transition: index === 0 ? 'cut' : 'fade',\n  mood: index === 0 ? 'intrigue' : index === segments.length - 1 ? 'reflection' : 'tension'\n}));\nconst subtitleLines = storyboardJson.map((scene) => ({\n  scene_number: scene.scene_number,\n  text: scene.narration_text\n}));\nconst renderManifestSeed = {\n  output: {\n    width: 1080,\n    height: 1920,\n    fps: 30,\n    format: 'mp4'\n  },\n  timeline: storyboardJson.map((scene) => ({\n    scene_number: scene.scene_number,\n    duration_seconds: scene.duration_seconds,\n    asset_type: scene.asset_type,\n    transition: scene.transition\n  })),\n  subtitles: {\n    enabled: true,\n    style: 'default_story_subtitles'\n  }\n};\nreturn [{\n  json: {\n    content_id: $json.content_id,\n    title: $json.title,\n    status_after_success: $json.status_after_success,\n    storyboard_response: {\n      storyboard_json: storyboardJson,\n      cover_prompt: `${$json.title}, bold focal point, cinematic mystery cover, vertical composition, high contrast, minimal clutter`,\n      subtitle_lines_json: subtitleLines,\n      style_notes: `Tone: ${$json.prompt.brand_tone}. Visual rules: ${$json.prompt.visual_style_rules}. Subtitle rules: ${$json.prompt.subtitle_style_rules}.`,\n      visual_style_summary: 'Cinematic vertical realism with restrained motion, high contrast framing, and readable mobile-first subtitle timing.',\n      render_manifest_seed_json: renderManifestSeed\n    }\n  }\n}];"
+        "jsCode": "const stdout = String($json.stdout ?? '').trim();\nif (!stdout) {\n  throw new Error('Storyboard model adapter returned no stdout.');\n}\nlet parsed;\ntry {\n  parsed = JSON.parse(stdout);\n} catch (error) {\n  throw new Error('Storyboard model adapter returned invalid JSON: ' + error.message);\n}\nif (!parsed.content_id || !parsed.storyboard_response) {\n  throw new Error('Storyboard model adapter did not provide the expected structured response.');\n}\nreturn [{ json: parsed }];"
       },
       "id": "mock_storyboard_response",
-      "name": "Mock Storyboard Response",
+      "name": "Parse Storyboard Model Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -74,7 +75,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $json.storyboard_response ?? {};\nif (!$json.content_id) {\n  throw new Error('Mock Storyboard Response did not provide content_id.');\n}\nif (!Array.isArray(response.storyboard_json) || response.storyboard_json.length === 0) {\n  throw new Error('Mock Storyboard Response did not produce storyboard_json.');\n}\nreturn [{\n  json: {\n    content_id: $json.content_id,\n    status_after_success: $json.status_after_success,\n    storyboard_json: response.storyboard_json,\n    cover_prompt: response.cover_prompt,\n    subtitle_lines_json: response.subtitle_lines_json,\n    style_notes: `${response.style_notes}\\n\\nVisual style summary: ${response.visual_style_summary}`,\n    render_manifest_seed_json: response.render_manifest_seed_json,\n    raw_storyboard_json: response\n  }\n}];"
+        "jsCode": "const response = $json.storyboard_response ?? {};\nif (!$json.content_id) {\n  throw new Error('Storyboard model adapter did not provide content_id.');\n}\nif (!Array.isArray(response.storyboard_json) || response.storyboard_json.length < 2 || response.storyboard_json.length > 16) {\n  throw new Error('Storyboard model adapter must produce 2 to 16 storyboard scenes (1 title card + up to 15 content scenes).');\n}\nif (!Array.isArray(response.subtitle_lines_json) || response.subtitle_lines_json.length === 0) {\n  throw new Error('Storyboard model adapter did not produce subtitle_lines_json.');\n}\nconst storyboardJson = response.storyboard_json.map((scene, index) => ({\n  scene_number: Number(scene?.scene_number ?? index + 1),\n  duration_seconds: Number(scene?.duration_seconds ?? 0),\n  narration_text: String(scene?.narration_text ?? '').trim(),\n  dialogue_lines: Array.isArray(scene?.dialogue_lines) ? scene.dialogue_lines.map((line) => String(line ?? '').trim()).filter(Boolean) : [String(scene?.narration_text ?? '').trim()].filter(Boolean),\n  tts_instructions: String(scene?.tts_instructions ?? '').trim(),\n  visual_prompt: String(scene?.visual_prompt ?? '').trim(),\n  asset_type: String(scene?.asset_type ?? '').trim(),\n  transition: String(scene?.transition ?? '').trim(),\n  mood: String(scene?.mood ?? '').trim(),\n  music_cue: String(scene?.music_cue ?? '').trim(),\n  is_face_image: Boolean(scene?.is_face_image),\n  face_image_title: String(scene?.face_image_title ?? '').trim()\n}));\nif (storyboardJson.some((scene) => !Number.isInteger(scene.scene_number) || scene.scene_number < 1 || !Number.isFinite(scene.duration_seconds) || scene.duration_seconds <= 0 || (!scene.narration_text && !scene.is_face_image) || (!scene.dialogue_lines.length && !scene.is_face_image) || (!scene.tts_instructions && !scene.is_face_image) || !scene.visual_prompt || !['image', 'video'].includes(scene.asset_type) || !scene.transition || !scene.mood || !scene.music_cue)) {\n  throw new Error('storyboard_json contains invalid scene data.');\n}\nconst firstScene = storyboardJson[0];\nif (!firstScene?.is_face_image || !firstScene.face_image_title) {\n  throw new Error('storyboard_json scene 1 must be the face image and include face_image_title.');\n}\nconst firstTitleWords = firstScene.face_image_title.split(/\\s+/).filter(Boolean);\nif (firstTitleWords.length < 2 || firstTitleWords.length > 5) {\n  throw new Error('storyboard_json scene 1 face_image_title must be 2 to 5 words.');\n}\nif (firstScene.duration_seconds > 4.25) {\n  throw new Error('storyboard_json scene 1 title card must be 4 seconds or shorter.');\n}\nconst scriptSceneGuidanceJson = Array.isArray($json.script_scene_guidance_json) ? $json.script_scene_guidance_json : [];\nconst subtitleLines = response.subtitle_lines_json.map((line, index) => ({\n  scene_number: Number(line?.scene_number ?? index + 1),\n  text: String(line?.text ?? '').trim()\n}));\nif (subtitleLines.some((line) => !Number.isInteger(line.scene_number) || line.scene_number < 1 || !line.text)) {\n  throw new Error('subtitle_lines_json contains invalid subtitle data.');\n}\nconst renderManifestSeedJson = response.render_manifest_seed_json ?? {};\nrenderManifestSeedJson.subtitles = { ...(renderManifestSeedJson.subtitles ?? {}), enabled: false };\nif (!renderManifestSeedJson.output || !Array.isArray(renderManifestSeedJson.timeline) || !renderManifestSeedJson.subtitles) {\n  throw new Error('render_manifest_seed_json is missing output, timeline, or subtitles.');\n}\nreturn [{\n  json: {\n    content_id: $json.content_id,\n    status_after_success: $json.status_after_success,\n    storyboard_json: storyboardJson,\n    cover_prompt: String(response.cover_prompt ?? '').trim(),\n    subtitle_lines_json: subtitleLines,\n    style_notes: String(response.style_notes ?? '').trim() + '\\\\n\\\\nVisual style summary: ' + String(response.visual_style_summary ?? '').trim() + '\\\\nModel: ' + String($json.generation_model ?? '').trim(),\n    render_manifest_seed_json: renderManifestSeedJson,\n    generation_model: String($json.generation_model ?? '').trim(),\n    cost: $json.cost ?? {},\n    raw_storyboard_json: {\n      provider: String($json.generation_provider ?? $json.llm_provider ?? 'openai').trim(),\n      generation_model: String($json.generation_model ?? '').trim(),\n      provider_metadata: $json.provider_metadata ?? {},\n      script_scene_guidance_json: scriptSceneGuidanceJson,\n      parsed_response: response\n    }\n  }\n}];"
       },
       "id": "normalize_storyboard_package",
       "name": "Normalize Storyboard Package",
@@ -87,7 +88,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error(`Prepare Storyboard SQL Values received an invalid content_id: ${contentId || '<empty>'}.`);\n}\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    storyboard_json_sql: JSON.stringify($json.storyboard_json ?? []).replaceAll(\"'\", \"''\"),\n    cover_prompt_sql: String($json.cover_prompt ?? '').replaceAll(\"'\", \"''\"),\n    subtitle_lines_json_sql: JSON.stringify($json.subtitle_lines_json ?? []).replaceAll(\"'\", \"''\"),\n    style_notes_sql: String($json.style_notes ?? '').replaceAll(\"'\", \"''\"),\n    render_manifest_seed_json_sql: JSON.stringify($json.render_manifest_seed_json ?? {}).replaceAll(\"'\", \"''\")\n  }\n}];"
+        "jsCode": "const cost_json_sql = JSON.stringify($json.cost ?? {}).replaceAll(\"'\", \"''\");\nconst uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error(`Prepare Storyboard SQL Values received an invalid content_id: ${contentId || '<empty>'}.`);\n}\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    storyboard_json_sql: JSON.stringify($json.storyboard_json ?? []).replaceAll(\"'\", \"''\"),\n    cover_prompt_sql: String($json.cover_prompt ?? '').replaceAll(\"'\", \"''\"),\n    subtitle_lines_json_sql: JSON.stringify($json.subtitle_lines_json ?? []).replaceAll(\"'\", \"''\"),\n    style_notes_sql: String($json.style_notes ?? '').replaceAll(\"'\", \"''\"),\n    render_manifest_seed_json_sql: JSON.stringify($json.render_manifest_seed_json ?? {}).replaceAll(\"'\", \"''\"),\n    scene_count_sql: Array.isArray($json.storyboard_json) ? $json.storyboard_json.length : 0,\n    generation_model_sql: String($json.generation_model ?? '').replaceAll(\"'\", \"''\"),\n    cost_json_sql\n  }\n}];"
       },
       "id": "prepare_storyboard_sql_values",
       "name": "Prepare Storyboard SQL Values",
@@ -139,6 +140,27 @@
           "name": "Local Postgres"
         }
       }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Storyboard SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  'wf_storyboard_and_prompts',\n  'success',\n  now(),\n  now(),\n  0,\n  null,\n  jsonb_build_object(\n    'generation_model', nullif('{{$item(0).$node[\"Prepare Storyboard SQL Values\"].json[\"generation_model_sql\"]}}', ''),\n    'scene_count', {{$item(0).$node[\"Prepare Storyboard SQL Values\"].json[\"scene_count_sql\"]}},\n    'cost', '{{$item(0).$node[\"Prepare Storyboard SQL Values\"].json[\"cost_json_sql\"]}}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, ended_at;",
+        "options": {}
+      },
+      "id": "log_storyboard_and_prompts_run",
+      "name": "Log Storyboard and Prompts Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2380,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
     }
   ],
   "connections": {
@@ -146,18 +168,7 @@
       "main": [
         [
           {
-            "node": "Fetch Next Script Complete Item",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Next Script Complete Item": {
-      "main": [
-        [
-          {
-            "node": "Prepare Storyboard Prompt Payload",
+            "node": "Fetch Next Directed Item",
             "type": "main",
             "index": 0
           }
@@ -179,18 +190,7 @@
       "main": [
         [
           {
-            "node": "Mock Storyboard Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mock Storyboard Response": {
-      "main": [
-        [
-          {
-            "node": "Normalize Storyboard Package",
+            "node": "Parse Storyboard Model Result",
             "type": "main",
             "index": 0
           }
@@ -229,13 +229,46 @@
           }
         ]
       ]
+    },
+    "Parse Storyboard Model Result": {
+      "main": [
+        [
+          {
+            "node": "Normalize Storyboard Package",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Storyboard Complete": {
+      "main": [
+        [
+          {
+            "node": "Log Storyboard and Prompts Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Directed Item": {
+      "main": [
+        [
+          {
+            "node": "Prepare Storyboard Prompt Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "seed-storyboard-and-prompts-v2",
+  "versionId": "phase2-storyboard-and-prompts-v1",
   "meta": {
     "templateCredsSetupCompleted": false
   },

@@ -1,0 +1,125 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "profile_summary",
+    "research_and_script",
+    "storyboard_and_prompts",
+    "caption_and_hashtags",
+    "scene_asset_generation",
+    "narration_generation",
+    "post_image_generation"
+  ],
+  "properties": {
+    "profile_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "research_and_script": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_language",
+        "brand_tone",
+        "narrator_style",
+        "ending_signature_family",
+        "language_guidance",
+        "timing_guidance"
+      ],
+      "properties": {
+        "content_language": { "type": ["string", "null"], "minLength": 1 },
+        "brand_tone": { "type": ["string", "null"], "minLength": 1 },
+        "narrator_style": { "type": ["string", "null"], "minLength": 1 },
+        "ending_signature_family": { "type": ["string", "null"], "minLength": 1 },
+        "language_guidance": { "type": ["string", "null"], "minLength": 1 },
+        "timing_guidance": { "type": ["string", "null"], "minLength": 1 }
+      }
+    },
+    "storyboard_and_prompts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_language",
+        "brand_tone",
+        "visual_style_rules",
+        "subtitle_style_rules",
+        "language_guidance",
+        "storyboard_timing_guidance",
+        "narration_alignment_guidance",
+        "render_timing_guidance"
+      ],
+      "properties": {
+        "content_language": { "type": ["string", "null"], "minLength": 1 },
+        "brand_tone": { "type": ["string", "null"], "minLength": 1 },
+        "visual_style_rules": { "type": ["string", "null"], "minLength": 1 },
+        "subtitle_style_rules": { "type": ["string", "null"], "minLength": 1 },
+        "language_guidance": { "type": ["string", "null"], "minLength": 1 },
+        "storyboard_timing_guidance": { "type": ["string", "null"], "minLength": 1 },
+        "narration_alignment_guidance": { "type": ["string", "null"], "minLength": 1 },
+        "render_timing_guidance": { "type": ["string", "null"], "minLength": 1 }
+      }
+    },
+    "caption_and_hashtags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_language",
+        "brand_tone",
+        "language_guidance"
+      ],
+      "properties": {
+        "content_language": { "type": ["string", "null"], "minLength": 1 },
+        "brand_tone": { "type": ["string", "null"], "minLength": 1 },
+        "language_guidance": { "type": ["string", "null"], "minLength": 1 }
+      }
+    },
+    "scene_asset_generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_language",
+        "style_notes",
+        "scene_timing_guidance",
+        "story_alignment_guidance"
+      ],
+      "properties": {
+        "content_language": { "type": ["string", "null"], "minLength": 1 },
+        "style_notes": { "type": ["string", "null"], "minLength": 1 },
+        "scene_timing_guidance": { "type": ["string", "null"], "minLength": 1 },
+        "story_alignment_guidance": { "type": ["string", "null"], "minLength": 1 }
+      }
+    },
+    "narration_generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_language",
+        "narration_style",
+        "narration_timing_guidance",
+        "background_music_direction"
+      ],
+      "properties": {
+        "content_language": { "type": ["string", "null"], "minLength": 1 },
+        "narration_style": { "type": ["string", "null"], "minLength": 1 },
+        "narration_timing_guidance": { "type": ["string", "null"], "minLength": 1 },
+        "background_music_direction": { "type": ["string", "null"], "minLength": 1 }
+      }
+    },
+    "post_image_generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content_language",
+        "cover_prompt_direction",
+        "style_notes",
+        "story_alignment_guidance"
+      ],
+      "properties": {
+        "content_language": { "type": ["string", "null"], "minLength": 1 },
+        "cover_prompt_direction": { "type": ["string", "null"], "minLength": 1 },
+        "style_notes": { "type": ["string", "null"], "minLength": 1 },
+        "story_alignment_guidance": { "type": ["string", "null"], "minLength": 1 }
+      }
+    }
+  }
+}

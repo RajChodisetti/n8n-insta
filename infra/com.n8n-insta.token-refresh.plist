@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.n8n-insta.token-refresh</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/rajchodisetti/n8n-insta/scripts/auto_refresh_instagram_token.sh</string>
+    </array>
+
+    <!-- Every 5 days in seconds: 5 * 24 * 3600 = 432000 -->
+    <key>StartInterval</key>
+    <integer>432000</integer>
+
+    <!-- Do NOT run immediately on launchctl load -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/rajchodisetti/n8n-insta/logs/token-refresh.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/rajchodisetti/n8n-insta/logs/token-refresh.error.log</string>
+
+    <!-- Ensure docker and homebrew binaries are on PATH -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>

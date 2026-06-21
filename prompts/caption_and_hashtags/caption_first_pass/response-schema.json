@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "caption_option_1",
+    "caption_option_2",
+    "caption_option_3",
+    "selection_rationale",
+    "caption_final"
+  ],
+  "properties": {
+    "caption_option_1": {
+      "type": "string",
+      "minLength": 1
+    },
+    "caption_option_2": {
+      "type": "string",
+      "minLength": 1
+    },
+    "caption_option_3": {
+      "type": "string",
+      "minLength": 1
+    },
+    "selection_rationale": {
+      "type": "string",
+      "minLength": 1
+    },
+    "caption_final": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

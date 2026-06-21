@@ -1,0 +1,112 @@
+{
+  "name": "wf_end_to_end_reel_generate_and_publish_v2",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "executeOnce": true,
+        "command": "={{'node /workflows/scripts/execute_workflow_by_name.mjs wf_render_status_callback /workflows/n8n/wf_render_status_callback.json --activate-only'}}"
+      },
+      "id": "activate_render_callback_workflow",
+      "name": "Activate Render Callback Workflow",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        500,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "executeOnce": true,
+        "command": "={{'node /workflows/scripts/run_resume_aware_reel_pipeline_v3.mjs'}}"
+      },
+      "id": "execute_resume_aware_pipeline",
+      "name": "Execute Resume-Aware Reel Pipeline",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        800,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select\n  ci.content_id,\n  ci.slug,\n  ci.title,\n  ci.status as content_status,\n  p.publish_status,\n  p.instagram_media_id,\n  p.instagram_container_id,\n  p.published_at,\n  r.output_video_url\nfrom content_items ci\njoin publishes p on p.content_id = ci.content_id\nleft join renders r on r.content_id = ci.content_id\nwhere p.platform = 'instagram'\n  and p.publish_status = 'published'\norder by coalesce(p.published_at, ci.updated_at) desc\nlimit 1;",
+        "options": {}
+      },
+      "id": "fetch_latest_published_reel_summary",
+      "name": "Fetch Latest Published Reel Summary",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Activate Render Callback Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Activate Render Callback Workflow": {
+      "main": [
+        [
+          {
+            "node": "Execute Resume-Aware Reel Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Resume-Aware Reel Pipeline": {
+      "main": [
+        [
+          {
+            "node": "Fetch Latest Published Reel Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {},
+  "versionId": "gen-inject-pub-v2-story-pkg",
+  "triggerCount": null,
+  "tags": [],
+  "active": false
+}

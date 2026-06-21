@@ -11,7 +11,9 @@
     "short_script",
     "caption_draft",
     "cta_line",
-    "onscreen_text_json"
+    "onscreen_text_json",
+    "music_direction",
+    "scene_guidance_json"
   ],
   "properties": {
     "confidence_label": {
@@ -50,6 +52,10 @@
       "type": "string",
       "minLength": 1
     },
+    "music_direction": {
+      "type": "string",
+      "minLength": 1
+    },
     "onscreen_text_json": {
       "type": "array",
       "minItems": 1,
@@ -63,6 +69,83 @@
             "minimum": 1
           },
           "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "scene_guidance_json": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scene_number",
+          "beat_label",
+          "start_time_seconds",
+          "end_time_seconds",
+          "duration_seconds",
+          "narration_text",
+          "dialogue_lines",
+          "asset_type",
+          "scene_purpose",
+          "visual_beat",
+          "source_boundary",
+          "music_cue"
+        ],
+        "properties": {
+          "scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "beat_label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "start_time_seconds": {
+            "type": "number",
+            "minimum": 0
+          },
+          "end_time_seconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "duration_seconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "narration_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dialogue_lines": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "asset_type": {
+            "type": "string",
+            "enum": ["image", "video"]
+          },
+          "scene_purpose": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visual_beat": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_boundary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "music_cue": {
             "type": "string",
             "minLength": 1
           }

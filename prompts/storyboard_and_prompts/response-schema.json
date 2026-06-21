@@ -12,8 +12,8 @@
   "properties": {
     "storyboard_json": {
       "type": "array",
-      "minItems": 4,
-      "maxItems": 8,
+      "minItems": 2,
+      "maxItems": 16,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -21,10 +21,15 @@
           "scene_number",
           "duration_seconds",
           "narration_text",
+          "dialogue_lines",
+          "tts_instructions",
           "visual_prompt",
           "asset_type",
           "transition",
-          "mood"
+          "mood",
+          "music_cue",
+          "is_face_image",
+          "face_image_title"
         ],
         "properties": {
           "scene_number": {
@@ -36,6 +41,18 @@
             "exclusiveMinimum": 0
           },
           "narration_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dialogue_lines": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "tts_instructions": {
             "type": "string",
             "minLength": 1
           },
@@ -54,6 +71,18 @@
           "mood": {
             "type": "string",
             "minLength": 1
+          },
+          "music_cue": {
+            "type": "string",
+            "minLength": 1
+          },
+          "is_face_image": {
+            "type": "boolean",
+            "description": "True if this is the opening face image that receives a renderer title overlay"
+          },
+          "face_image_title": {
+            "type": "string",
+            "description": "Short title text (2-5 words) for scene 1 renderer overlay. Use an empty string for all other scenes. Do not include this text inside the generated image prompt."
           }
         }
       }

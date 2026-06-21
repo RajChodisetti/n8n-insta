@@ -1,0 +1,228 @@
+{
+  "name": "wf_render_worker_dispatch_v2",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with candidate as materialized (\n  select\n    ci.content_id,\n    ci.title,\n    ci.status,\n    ci.category,\n    ci.source_payload_json,\n    coalesce(d.director_json, '{}'::jsonb) as director_json,\n    r.render_manifest_json,\n    r.render_status,\n    r.resolution,\n    r.aspect_ratio,\n    r.duration_seconds,\n    r.cover_image_url,\n    coalesce(s.selected_hook, '') as selected_hook,\n    coalesce(s.narration_script, '') as narration_script,\n    coalesce(s.raw_response_json->'parsed_response'->>'music_direction', s.raw_response_json->>'music_direction', '') as script_music_direction\n  from content_items ci\n  join renders r on r.content_id = ci.content_id\n  left join scripts s on s.content_id = ci.content_id\n  left join directors d on d.content_id = ci.content_id\n  where ci.status = 'render_manifest_ready'\n    and r.render_status = 'manifest_ready'\n  order by ci.updated_at asc\n  limit 1\n), claim as (\n  update content_items ci\n  set status = 'dispatching_render',\n      updated_at = now()\n  where ci.content_id = (select content_id from candidate)\n    and ci.status = 'render_manifest_ready'\n  returning ci.content_id\n)\nselect\n  c.content_id,\n  c.title,\n  c.status,\n  c.category,\n  c.source_payload_json,\n  c.director_json,\n  c.render_manifest_json,\n  c.render_status,\n  c.resolution,\n  c.aspect_ratio,\n  c.duration_seconds,\n  c.cover_image_url,\n  c.selected_hook,\n  c.narration_script,\n  c.script_music_direction\nfrom candidate c\njoin claim cl on cl.content_id = c.content_id;",
+        "options": {}
+      },
+      "id": "fetch_next_render_manifest_ready_item",
+      "name": "Fetch Next Render Manifest Ready Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst env = typeof $env === 'object' && $env ? $env : {};\nconst sourcePayload = $json.source_payload_json ?? {};\nconst promptProfile = sourcePayload.prompt_profile ?? {};\nconst creativeDefaults = sourcePayload.creative_defaults && typeof sourcePayload.creative_defaults === 'object' ? sourcePayload.creative_defaults : {};\nconst directorJson = $json.director_json && typeof $json.director_json === 'object' ? $json.director_json : {};\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nconst manifest = $json.render_manifest_json ?? {};\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Render Manifest Ready Item did not atomically claim a valid content_id.');\n}\nif (!title) {\n  throw new Error('Fetch Next Render Manifest Ready Item did not return title.');\n}\nif (!Array.isArray(manifest.scenes) || manifest.scenes.length < 4) {\n  throw new Error('render_manifest_json is missing scenes.');\n}\nif (!Array.isArray(manifest.timeline) || manifest.timeline.length < 4) {\n  throw new Error('render_manifest_json is missing timeline entries.');\n}\nconst narrationMode = String(manifest?.audio?.narration?.mode ?? '').trim();\nconst isPerScene = narrationMode === 'per_scene';\nif (isPerScene) {\n  const narrationScenes = Array.isArray(manifest?.audio?.narration?.scenes) ? manifest.audio.narration.scenes : [];\n  if (narrationScenes.length === 0) {\n    throw new Error('render_manifest_json has per_scene narration mode but audio.narration.scenes is empty.');\n  }\n  const missingUrl = narrationScenes.find((s) => !String(s?.storage_url ?? '').trim());\n  if (missingUrl) {\n    throw new Error('render_manifest_json per_scene narration scene ' + (missingUrl.scene_number ?? '?') + ' is missing storage_url.');\n  }\n} else {\n  if (!String(manifest?.audio?.narration?.storage_url ?? '').trim()) {\n    throw new Error('render_manifest_json is missing narration audio.');\n  }\n}\nconst parseNumber = (value, fallback) => {\n  const parsed = Number.parseFloat(String(value ?? '').trim());\n  return Number.isFinite(parsed) ? parsed : fallback;\n};\nconst workerMode = String(env.RENDER_WORKER_MODE || 'stub').trim().toLowerCase() || 'stub';\nconst workerUrl = String(env.RENDER_WORKER_URL || '').trim();\nconst callbackUrl = String(env.RENDER_CALLBACK_URL || 'http://n8n:5678/webhook/render-status-callback').trim();\nconst outputPrefix = String(env.RENDER_OUTPUT_PATH_PREFIX || 'reels').trim().replace(/^\\/+|\\/+$/g, '') || 'reels';\nconst renderProvider = String(env.RENDER_PROVIDER || 'local_ffmpeg').trim().toLowerCase() || 'local_ffmpeg';\nconst requestId = 'render-' + contentId + '-' + Date.now();\nconst backgroundMusicVolume = Math.min(1, Math.max(0, parseNumber(env.BACKGROUND_MUSIC_DEFAULT_VOLUME, 0.12)));\nconst backgroundMusicFadeInSeconds = Math.max(0, parseNumber(env.BACKGROUND_MUSIC_FADE_IN_SECONDS, 0.8));\nconst backgroundMusicFadeOutSeconds = Math.max(0, parseNumber(env.BACKGROUND_MUSIC_FADE_OUT_SECONDS, 2.5));\nconst sceneMoods = (Array.isArray(manifest.scenes) ? manifest.scenes : []).flatMap((scene) => [String(scene?.mood ?? '').trim(), String(scene?.music_cue ?? '').trim()]).filter(Boolean);\nconst scenePromptSummary = (Array.isArray(manifest.scenes) ? manifest.scenes : []).map((scene) => String(scene?.visual_prompt ?? '').trim()).filter(Boolean).slice(0, 6).join(' | ');\nconst promptProfileSummary = String(sourcePayload.prompt_profile_summary ?? '').trim();\nconst scriptMusicDirection = String($json.script_music_direction ?? '').trim();\nconst backgroundMusicDirection = [String(directorJson.global_music_direction ?? '').trim(), String(creativeDefaults.music_mood ?? '').trim(), String(promptProfile?.narration_generation?.background_music_direction ?? '').trim(), scriptMusicDirection].filter(Boolean).join(' | ');\nconst narrationStyle = [String(directorJson.tts_delivery ?? '').trim(), String(creativeDefaults.narrator_style ?? '').trim(), String(promptProfile?.narration_generation?.narration_style ?? '').trim()].filter(Boolean).join(' | ');\nconst styleNotes = [String(directorJson.global_visual_style ?? '').trim(), String(directorJson.visual_strategy ?? '').trim(), String(creativeDefaults.visual_strategy ?? '').trim(), String(promptProfile?.storyboard_and_prompts?.visual_style_rules ?? '').trim(), String(promptProfile?.scene_asset_generation?.style_notes ?? '').trim(), String(promptProfile?.post_image_generation?.style_notes ?? '').trim()].filter(Boolean).join(' | ');\nconst narrationScript = String($json.narration_script ?? '').trim();\nconst renderRequest = {\n  content_id: contentId,\n  request_id: requestId,\n  title,\n  title_overlay: manifest.title_overlay && typeof manifest.title_overlay === 'object'\n    ? { ...manifest.title_overlay, enabled: false }\n    : { enabled: false },\n  callback_url: callbackUrl,\n  render_provider: renderProvider,\n  output: manifest.output,\n  timeline: manifest.timeline.map((scene) => ({\n    scene_number: scene.scene_number,\n    asset_url: scene.asset_url,\n    start_time: scene.start_time_seconds,\n    duration_seconds: scene.duration_seconds,\n    narration_url: String(scene.narration_url ?? '').trim() || null,\n    transition: scene.transition\n  })),\n  audio: {\n    narration_url: isPerScene ? null : (String(manifest.audio?.narration?.storage_url ?? '').trim() || null),\n    narration: {\n      mode: narrationMode || 'single',\n      storage_url: isPerScene ? null : (String(manifest.audio?.narration?.storage_url ?? '').trim() || null)\n    },\n    music_url: null,\n    music_path: null,\n    music_volume: backgroundMusicVolume,\n    music_fade_in_seconds: backgroundMusicFadeInSeconds,\n    music_fade_out_seconds: backgroundMusicFadeOutSeconds\n  },\n  music_context: {\n    category: String($json.category ?? 'general').trim() || 'general',\n    selected_hook: String($json.selected_hook ?? '').trim(),\n    narration_script_excerpt: narrationScript.slice(0, 1500),\n    scene_prompt_summary: scenePromptSummary,\n    prompt_profile_summary: promptProfileSummary,\n    background_music_direction: backgroundMusicDirection,\n    narration_style: narrationStyle,\n    style_notes: styleNotes,\n    scene_moods: sceneMoods,\n    script_music_direction: scriptMusicDirection\n  },\n  subtitles: {\n    enabled: false,\n    subtitle_lines: Array.isArray(manifest.subtitles?.lines) ? manifest.subtitles.lines : [],\n    style: String(manifest.subtitles?.style || env.RENDER_SUBTITLE_STYLE || 'cinematic_center_safe').trim()\n  },\n  cover: {\n    enabled: Boolean(manifest.cover_image_url),\n    cover_asset_url: String(manifest.cover_image_url || '').trim() || null\n  },\n  storage: {\n    output_path: outputPrefix + '/' + contentId + '/final.' + (String(manifest.output?.format || 'mp4').trim() || 'mp4')\n  }\n};\nreturn [{\n  json: {\n    content_id: contentId,\n    title,\n    workflow_name: 'wf_render_worker_dispatch_v2',\n    run_started_at: new Date().toISOString(),\n    worker_mode: workerMode,\n    worker_url: workerUrl,\n    render_provider: renderProvider,\n    request_id: requestId,\n    render_request: renderRequest\n  }\n}];"
+      },
+      "id": "prepare_render_request",
+      "name": "Prepare Render Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const mode = String($json.worker_mode || 'stub').trim().toLowerCase();\nconst requestId = String($json.request_id || '').trim();\nconst request = $json.render_request ?? {};\nif (!requestId) {\n  throw new Error('Prepare Render Request did not provide request_id.');\n}\nif (!request.content_id) {\n  throw new Error('Prepare Render Request did not provide render_request.content_id.');\n}\nif (mode === 'stub') {\n  return [{\n    json: {\n      ...$json,\n      worker_response: {\n        accepted: true,\n        mode: 'stub',\n        request_id: requestId,\n        render_status: 'queued',\n        worker_message: 'Render request recorded locally in stub mode.'\n      }\n    }\n  }];\n}\nif (mode !== 'webhook') {\n  throw new Error('Unsupported RENDER_WORKER_MODE: ' + mode);\n}\nconst workerUrl = String($json.worker_url || '').trim();\nif (!workerUrl) {\n  throw new Error('Set RENDER_WORKER_URL when RENDER_WORKER_MODE=webhook.');\n}\nconst response = await helpers.httpRequest({\n  method: 'POST',\n  url: workerUrl,\n  json: true,\n  returnFullResponse: true,\n  ignoreHttpStatusErrors: true,\n  body: request,\n});\nconst statusCode = Number(response.statusCode ?? 0);\nconst body = response.body ?? {};\nif (!(statusCode >= 200 && statusCode < 300)) {\n  throw new Error('Render worker request failed (' + (statusCode || 'no status') + '): ' + JSON.stringify(body));\n}\nreturn [{\n  json: {\n    ...$json,\n    worker_response: {\n      accepted: true,\n      mode: 'webhook',\n      request_id: String(body.request_id || requestId),\n      render_status: String(body.render_status || 'queued'),\n      worker_message: String(body.message || 'Render worker accepted the request.'),\n      worker_response_body: body\n    }\n  }\n}];"
+      },
+      "id": "dispatch_render_request",
+      "name": "Dispatch Render Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Prepare Render Dispatch SQL Values received an invalid content_id: ' + (contentId || '<empty>') + '.');\n}\nconst startedAt = new Date(String($json.run_started_at ?? new Date().toISOString()));\nconst durationMs = Math.max(0, Date.now() - startedAt.getTime());\nconst response = $json.worker_response ?? {};\nconst request = $json.render_request ?? {};\nconst renderLog = {\n  request_id: String(response.request_id || $json.request_id || '').trim(),\n  mode: String(response.mode || $json.worker_mode || 'stub').trim(),\n  worker_message: String(response.worker_message || '').trim(),\n  request: request,\n  response: response.worker_response_body ?? response,\n  dispatched_at: new Date().toISOString()\n};\nconst requestSummary = {\n  request_id: String(response.request_id || $json.request_id || '').trim(),\n  worker_mode: String(response.mode || $json.worker_mode || 'stub').trim(),\n  render_provider: String(request.render_provider || $json.render_provider || 'local_ffmpeg').trim(),\n  scene_count: Array.isArray(request.timeline) ? request.timeline.length : 0,\n  output_path: String(request?.storage?.output_path || '').trim(),\n  render_status: String(response.render_status || 'queued').trim()\n};\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    render_status_sql: String(response.render_status || 'queued').replaceAll(\"'\", \"''\"),\n    render_log_sql: JSON.stringify(renderLog).replaceAll(\"'\", \"''\"),\n    workflow_name_sql: String($json.workflow_name || 'wf_render_worker_dispatch_v2').replaceAll(\"'\", \"''\"),\n    render_request_summary_json_sql: JSON.stringify(requestSummary).replaceAll(\"'\", \"''\"),\n    duration_ms_sql: Number.isFinite(durationMs) ? durationMs : 0\n  }\n}];"
+      },
+      "id": "prepare_render_dispatch_sql_values",
+      "name": "Prepare Render Dispatch SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update renders\nset render_status = '{{$json.render_status_sql}}',\n    render_log = '{{$json.render_log_sql}}'\nwhere content_id = '{{$json.content_id_sql}}'::uuid\nreturning content_id, render_status, render_log;",
+        "options": {}
+      },
+      "id": "update_render_queue_status",
+      "name": "Update Render Queue Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1420,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update content_items\nset status = 'render_queued',\n    updated_at = now()\nwhere content_id = '{{$item(0).$node[\"Prepare Render Dispatch SQL Values\"].json[\"content_id_sql\"]}}'::uuid\nreturning content_id, title, status, updated_at;",
+        "options": {}
+      },
+      "id": "mark_render_queued",
+      "name": "Mark Render Queued",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1660,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Render Dispatch SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  '{{$item(0).$node[\"Prepare Render Dispatch SQL Values\"].json[\"workflow_name_sql\"]}}',\n  'success',\n  '{{$item(0).$node[\"Prepare Render Request\"].json[\"run_started_at\"]}}'::timestamptz,\n  now(),\n  {{$item(0).$node[\"Prepare Render Dispatch SQL Values\"].json[\"duration_ms_sql\"]}},\n  null,\n  jsonb_build_object(\n    'render_request', '{{$item(0).$node[\"Prepare Render Dispatch SQL Values\"].json[\"render_request_summary_json_sql\"]}}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, ended_at;",
+        "options": {}
+      },
+      "id": "log_render_dispatch_run",
+      "name": "Log Render Dispatch Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1900,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Next Render Manifest Ready Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Render Manifest Ready Item": {
+      "main": [
+        [
+          {
+            "node": "Prepare Render Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Render Request": {
+      "main": [
+        [
+          {
+            "node": "Dispatch Render Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dispatch Render Request": {
+      "main": [
+        [
+          {
+            "node": "Prepare Render Dispatch SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Render Dispatch SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Update Render Queue Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Render Queue Status": {
+      "main": [
+        [
+          {
+            "node": "Mark Render Queued",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Render Queued": {
+      "main": [
+        [
+          {
+            "node": "Log Render Dispatch Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "6b4149d7-bc59-468f-bad1-9300f51f8eeb",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

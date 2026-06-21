@@ -1,0 +1,49 @@
+{
+  "name": "wf_story_package_generation",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [220, 320]
+    },
+    {
+      "parameters": {
+        "executeOnce": true,
+        "command": "={{'node /workflows/scripts/run_story_package_generation.mjs'}}"
+      },
+      "id": "execute_story_package_generation",
+      "name": "Execute Story Package Generation",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [520, 320]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Execute Story Package Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {},
+  "versionId": "story-package-generation-v2",
+  "triggerCount": null,
+  "tags": [],
+  "active": false
+}

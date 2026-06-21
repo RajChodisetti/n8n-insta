@@ -1,0 +1,126 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "voice_role",
+    "tts_delivery",
+    "global_visual_style",
+    "visual_strategy",
+    "global_pacing",
+    "energy_curve",
+    "mood_curve",
+    "global_music_direction",
+    "global_rules",
+    "scenes"
+  ],
+  "properties": {
+    "voice_role": {
+      "type": "string",
+      "enum": [
+        "primary_male",
+        "primary_female",
+        "investigative_male",
+        "calm_female",
+        "documentary_narrator",
+        "kid",
+        "urgent_male"
+      ]
+    },
+    "global_visual_style": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tts_delivery": {
+      "type": "string",
+      "minLength": 1
+    },
+    "visual_strategy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "global_pacing": {
+      "type": "string",
+      "minLength": 1
+    },
+    "energy_curve": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mood_curve": {
+      "type": "string",
+      "minLength": 1
+    },
+    "global_music_direction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "global_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tone", "avoid"],
+      "properties": {
+        "tone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "avoid": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scene_number",
+          "scene_objective",
+          "mood",
+          "energy",
+          "tts_instructions",
+          "visual_strategy",
+          "transition_hint",
+          "avoid"
+        ],
+        "properties": {
+          "scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "scene_objective": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mood": {
+            "type": "string",
+            "minLength": 1
+          },
+          "energy": {
+            "type": "string",
+            "enum": ["low", "medium-low", "medium", "medium-high", "high"]
+          },
+          "tts_instructions": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visual_strategy": {
+            "type": "string",
+            "minLength": 1
+          },
+          "transition_hint": {
+            "type": "string",
+            "minLength": 1
+          },
+          "avoid": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

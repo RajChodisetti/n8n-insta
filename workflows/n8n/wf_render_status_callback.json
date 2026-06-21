@@ -1,0 +1,299 @@
+{
+  "name": "wf_render_status_callback",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select\n  ci.content_id,\n  ci.title,\n  ci.status,\n  r.resolution,\n  r.duration_seconds,\n  r.cover_image_url,\n  r.render_log\nfrom content_items ci\njoin renders r on r.content_id = ci.content_id\nwhere ci.status = 'render_queued'\n  and r.render_status = 'queued'\norder by ci.updated_at asc\nlimit 1;",
+        "options": {}
+      },
+      "id": "fetch_latest_queued_render_manual",
+      "name": "Fetch Latest Queued Render Manual",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        260
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "render-status-callback",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        220,
+        420
+      ],
+      "webhookId": "c5f0f9f0-cac1-4b7e-a1d3-38b87dbf12b9"
+    },
+    {
+      "parameters": {
+        "jsCode": "const contentId = String($json.content_id ?? '').trim();\nif (!contentId) {\n  throw new Error('Manual callback path could not find a queued render content_id.');\n}\nconst renderLogText = String($json.render_log ?? '').trim();\nlet parsedRenderLog = {};\nif (renderLogText) {\n  try {\n    parsedRenderLog = JSON.parse(renderLogText);\n  } catch {}\n}\nconst outputPath = String(parsedRenderLog?.request?.storage?.output_path || `reels/${contentId}/final.mp4`).trim();\nconst outputBase = String($env.RENDER_CALLBACK_OUTPUT_BASE_URL || $env.REELS_STORAGE_PUBLIC_BASE_URL || '').trim().replace(/\\/$/, '');\nconst outputVideoUrl = outputBase ? `${outputBase}/${outputPath}` : `https://example.com/${outputPath}`;\nreturn [{\n  json: {\n    content_id: contentId,\n    render_status: 'success',\n    output_video_url: outputVideoUrl,\n    cover_image_url: String($json.cover_image_url ?? '').trim(),\n    duration_seconds: Number($json.duration_seconds ?? 0),\n    resolution: String($json.resolution ?? '').trim(),\n    render_log: 'stub render completed locally',\n    error_message: '',\n    workflow_name: 'wf_render_status_callback',\n    run_started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "normalize_callback_payload_manual",
+      "name": "Normalize Callback Payload Manual",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sourceJson = $json.body && typeof $json.body === 'object' ? $json.body : $json;\nconst contentId = String(sourceJson.content_id ?? '').trim();\nconst renderStatus = String(sourceJson.render_status ?? '').trim().toLowerCase();\nif (!contentId) {\n  throw new Error('content_id is required for the render status callback.');\n}\nif (!['success', 'failed'].includes(renderStatus)) {\n  throw new Error('render_status must be either success or failed.');\n}\nreturn [{\n  json: {\n    content_id: contentId,\n    render_status: renderStatus,\n    output_video_url: String(sourceJson.output_video_url ?? '').trim(),\n    cover_image_url: String(sourceJson.cover_image_url ?? '').trim(),\n    duration_seconds: Number(sourceJson.duration_seconds ?? 0),\n    resolution: String(sourceJson.resolution ?? '').trim(),\n    render_log: String(sourceJson.render_log ?? '').trim(),\n    error_message: String(sourceJson.error_message ?? '').trim(),\n    workflow_name: 'wf_render_status_callback',\n    run_started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "normalize_callback_payload_webhook",
+      "name": "Normalize Callback Payload Webhook",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Render status callback received an invalid content_id: ' + (contentId || '<empty>') + '.');\n}\nconst renderStatus = String($json.render_status ?? '').trim().toLowerCase();\nconst isSuccess = renderStatus === 'success';\nconst nextContentStatus = isSuccess ? 'render_complete' : 'render_failed';\nconst nextRenderStatus = isSuccess ? 'success' : 'failed';\nconst startedAt = new Date(String($json.run_started_at ?? new Date().toISOString()));\nconst durationMs = Math.max(0, Date.now() - startedAt.getTime());\nconst callbackSummary = {\n  render_status: nextRenderStatus,\n  output_video_url: String($json.output_video_url ?? '').trim(),\n  cover_image_url: String($json.cover_image_url ?? '').trim(),\n  duration_seconds: Number.isFinite(Number($json.duration_seconds)) ? Number($json.duration_seconds) : 0,\n  resolution: String($json.resolution ?? '').trim(),\n  error_message: String($json.error_message ?? '').trim()\n};\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    next_content_status_sql: nextContentStatus,\n    next_render_status_sql: nextRenderStatus,\n    output_video_url_sql: String($json.output_video_url ?? '').replaceAll(\"'\", \"''\"),\n    cover_image_url_sql: String($json.cover_image_url ?? '').replaceAll(\"'\", \"''\"),\n    duration_seconds_sql: Number.isFinite(Number($json.duration_seconds)) ? Number($json.duration_seconds) : 0,\n    resolution_sql: String($json.resolution ?? '').replaceAll(\"'\", \"''\"),\n    render_log_sql: String($json.render_log ?? '').replaceAll(\"'\", \"''\"),\n    error_message_sql: String($json.error_message ?? '').replaceAll(\"'\", \"''\"),\n    workflow_name_sql: String($json.workflow_name ?? 'wf_render_status_callback').replaceAll(\"'\", \"''\"),\n    callback_summary_json_sql: JSON.stringify(callbackSummary).replaceAll(\"'\", \"''\"),\n    duration_ms_sql: Number.isFinite(durationMs) ? durationMs : 0\n  }\n}];"
+      },
+      "id": "prepare_render_callback_sql_values",
+      "name": "Prepare Render Callback SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update renders\nset render_status = '{{$json.next_render_status_sql}}',\n    output_video_url = nullif('{{$json.output_video_url_sql}}', ''),\n    cover_image_url = coalesce(nullif('{{$json.cover_image_url_sql}}', ''), cover_image_url),\n    duration_seconds = case when {{$json.duration_seconds_sql}} > 0 then {{$json.duration_seconds_sql}} else duration_seconds end,\n    resolution = coalesce(nullif('{{$json.resolution_sql}}', ''), resolution),\n    render_log = case\n      when nullif('{{$json.render_log_sql}}', '') is not null then '{{$json.render_log_sql}}'\n      else render_log\n    end,\n    completed_at = now()\nwhere content_id = '{{$json.content_id_sql}}'::uuid\nreturning content_id, render_status, output_video_url, cover_image_url, duration_seconds, resolution, completed_at;",
+        "options": {}
+      },
+      "id": "update_render_completion",
+      "name": "Update Render Completion",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1180,
+        340
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update content_items\nset status = '{{$item(0).$node[\"Prepare Render Callback SQL Values\"].json[\"next_content_status_sql\"]}}',\n    updated_at = now()\nwhere content_id = '{{$item(0).$node[\"Prepare Render Callback SQL Values\"].json[\"content_id_sql\"]}}'::uuid\nreturning content_id, title, status, updated_at;",
+        "options": {}
+      },
+      "id": "mark_render_complete_or_failed",
+      "name": "Mark Render Complete Or Failed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1420,
+        340
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Render Callback SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  '{{$item(0).$node[\"Prepare Render Callback SQL Values\"].json[\"workflow_name_sql\"]}}',\n  '{{$item(0).$node[\"Prepare Render Callback SQL Values\"].json[\"next_render_status_sql\"] == \"success\" ? \"success\" : \"failed\"}}',\n  '{{$item(0).$node[\"Prepare Render Callback SQL Values\"].json[\"run_started_at\"]}}'::timestamptz,\n  now(),\n  {{$item(0).$node[\"Prepare Render Callback SQL Values\"].json[\"duration_ms_sql\"]}},\n  nullif('{{$item(0).$node[\"Prepare Render Callback SQL Values\"].json[\"error_message_sql\"]}}', ''),\n  jsonb_build_object(\n    'render_callback', '{{$item(0).$node[\"Prepare Render Callback SQL Values\"].json[\"callback_summary_json_sql\"]}}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, ended_at;",
+        "options": {}
+      },
+      "id": "log_render_callback_run",
+      "name": "Log Render Callback Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1660,
+        340
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"ok\":true,\"content_id\":\"{{$json.content_id_sql}}\",\"render_status\":\"{{$json.next_render_status_sql}}\",\"content_status\":\"{{$json.next_content_status_sql}}\"}",
+        "options": {}
+      },
+      "id": "respond_to_webhook",
+      "name": "Respond To Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1900,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Latest Queued Render Manual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Callback Payload Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Callback Payload Manual": {
+      "main": [
+        [
+          {
+            "node": "Prepare Render Callback SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Callback Payload Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Render Callback SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Latest Queued Render Manual": {
+      "main": [
+        [
+          {
+            "node": "Normalize Callback Payload Manual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Render Callback SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Update Render Completion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Render Completion": {
+      "main": [
+        [
+          {
+            "node": "Mark Render Complete Or Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Render Complete Or Failed": {
+      "main": [
+        [
+          {
+            "node": "Log Render Callback Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Render Callback Run": {
+      "main": [
+        [
+          {
+            "node": "Respond To Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Normalize Callback Payload Manual": [
+      {
+        "json": {
+          "content_id": "00000000-0000-4000-8000-000000000000",
+          "render_status": "success",
+          "output_video_url": "https://example.com/final.mp4",
+          "cover_image_url": "https://example.com/cover.jpg",
+          "duration_seconds": 41.2,
+          "resolution": "1080x1920",
+          "render_log": "stub render completed locally",
+          "error_message": "",
+          "workflow_name": "wf_render_status_callback",
+          "run_started_at": "2026-04-22T00:00:00.000Z"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c0d76c46-3fdb-42a0-98c0-59a5e6fc1f6b",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision_summary",
+    "caption_final"
+  ],
+  "properties": {
+    "revision_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "caption_final": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

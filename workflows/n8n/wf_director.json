@@ -1,0 +1,277 @@
+{
+  "name": "wf_director_contract",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with candidate as materialized (\n  select\n    ci.content_id,\n    ci.title,\n    ci.category,\n    ci.target_duration_seconds,\n    ci.source_payload_json,\n    s.narration_script,\n    coalesce(s.raw_response_json->'scene_guidance_json', '[]'::jsonb) as scene_guidance_json\n  from content_items ci\n  join scripts s on s.content_id = ci.content_id\n  where ci.status = 'script_complete'\n  order by ci.updated_at asc\n  limit 1\n), claim as (\n  update content_items ci\n  set status = 'directing',\n      updated_at = now()\n  where ci.content_id = (select content_id from candidate)\n    and ci.status = 'script_complete'\n  returning ci.content_id\n)\nselect\n  c.content_id,\n  c.title,\n  c.category,\n  c.target_duration_seconds,\n  c.source_payload_json,\n  c.narration_script,\n  c.scene_guidance_json\nfrom candidate c\njoin claim cl on cl.content_id = c.content_id;",
+        "options": {}
+      },
+      "id": "fetch_next_script_complete_item",
+      "name": "Fetch Next Script Complete Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst sourcePayload = $json.source_payload_json ?? {};\nconst creativeDefaults = sourcePayload.creative_defaults && typeof sourcePayload.creative_defaults === 'object'\n  ? sourcePayload.creative_defaults\n  : {};\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nconst narrationScript = String($json.narration_script ?? '').trim();\nconst sceneGuidanceJson = Array.isArray($json.scene_guidance_json) ? $json.scene_guidance_json : [];\nconst queueQueryReturnedNoCandidate = String($json.success ?? '').trim().toLowerCase() === 'true'\n  && !contentId\n  && !title;\nif (queueQueryReturnedNoCandidate) {\n  throw new Error('No script_complete content item is currently available for wf_director_contract.');\n}\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Script Complete Item did not atomically claim a valid content_id: ' + (contentId || '<empty>') + '.');\n}\nif (!title) {\n  throw new Error('Fetch Next Script Complete Item did not return title.');\n}\nif (!narrationScript) {\n  throw new Error('Fetch Next Script Complete Item did not return narration_script.');\n}\nif (sceneGuidanceJson.length < 4) {\n  throw new Error('Director contract requires at least 4 scenes in scene_guidance_json. Got ' + sceneGuidanceJson.length + '.');\n}\nconst targetDurationSeconds = Number($json.target_duration_seconds ?? 45);\nif (!Number.isFinite(targetDurationSeconds) || targetDurationSeconds <= 0) {\n  throw new Error('target_duration_seconds must be a positive number.');\n}\nconst promptPayload = {\n  content_id: contentId,\n  title,\n  target_duration_seconds: targetDurationSeconds,\n  status_after_success: 'directed',\n  prompt_template_data: {\n    title,\n    category: String($json.category ?? 'general').trim() || 'general',\n    target_duration_seconds: String(targetDurationSeconds),\n    narration_script: narrationScript,\n    scene_guidance_json: sceneGuidanceJson,\n    scene_count: String(sceneGuidanceJson.length),\n    creative_defaults: creativeDefaults,\n    creative_defaults_json: Object.keys(creativeDefaults).length > 0 ? JSON.stringify(creativeDefaults, null, 2) : '{}',\n  },\n};\nreturn [{\n  json: {\n    ...promptPayload,\n    prompt_payload_base64: Buffer.from(JSON.stringify(promptPayload), 'utf8').toString('base64')\n  }\n}];"
+      },
+      "id": "prepare_director_payload",
+      "name": "Prepare Director Contract Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "executeOnce": true,
+        "command": "={{'node /workflows/scripts/invoke_structured_text_adapter.mjs director_contract ' + JSON.stringify($json.prompt_payload_base64)}}"
+      },
+      "id": "build_director_request",
+      "name": "Build Director Contract Request",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        940,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const stdout = String($json.stdout ?? '').trim();\nif (!stdout) {\n  throw new Error('Director contract adapter returned no stdout.');\n}\nlet parsed;\ntry {\n  parsed = JSON.parse(stdout);\n} catch (error) {\n  throw new Error('Director contract adapter returned invalid JSON: ' + error.message);\n}\nif (!parsed.content_id || !parsed.director_contract_response) {\n  throw new Error('Director contract adapter did not provide content_id or director_contract_response.');\n}\nreturn [{ json: parsed }];"
+      },
+      "id": "parse_director_model_result",
+      "name": "Parse Director Contract Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json.director_contract_response ?? {};\nif (!$json.content_id) {\n  throw new Error('Director contract adapter did not provide content_id.');\n}\nfor (const field of ['voice_role', 'tts_delivery', 'global_visual_style', 'visual_strategy', 'global_pacing', 'energy_curve', 'mood_curve', 'global_music_direction']) {\n  if (!String(response[field] ?? '').trim()) {\n    throw new Error('Director contract adapter did not return ' + field + '.');\n  }\n}\nif (!Array.isArray(response.scenes) || response.scenes.length < 4) {\n  throw new Error('Director contract adapter must return at least 4 scenes. Got: ' + (Array.isArray(response.scenes) ? response.scenes.length : 0) + '.');\n}\nfor (const scene of response.scenes) {\n  if (!scene.tts_instructions) {\n    throw new Error('Director contract scene ' + scene.scene_number + ' is missing tts_instructions.');\n  }\n  if (!scene.visual_strategy) {\n    throw new Error('Director contract scene ' + scene.scene_number + ' is missing visual_strategy.');\n  }\n}\nreturn [{\n  json: {\n    ...$json,\n    director_json: response,\n    voice_role: String(response.voice_role || '').trim(),\n    tts_delivery: String(response.tts_delivery || '').trim(),\n    global_visual_style: String(response.global_visual_style || '').trim(),\n    visual_strategy: String(response.visual_strategy || '').trim(),\n    global_pacing: String(response.global_pacing || '').trim(),\n    global_music_direction: String(response.global_music_direction || '').trim(),\n    scene_count: response.scenes.length,\n  }\n}];"
+      },
+      "id": "normalize_director_package",
+      "name": "Normalize Director Contract Package",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cost_json_sql = JSON.stringify($json.cost ?? {}).replaceAll(\"'\", \"''\");\nconst uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Prepare Director Contract SQL Values received invalid content_id: ' + (contentId || '<empty>') + '.');\n}\nconst directorJson = $json.director_json ?? {};\nconst startedAt = new Date(String($json.run_started_at ?? new Date().toISOString()));\nconst durationMs = Math.max(0, Date.now() - startedAt.getTime());\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    voice_role_sql: String(directorJson.voice_role ?? '').replaceAll(\"'\", \"''\"),\n    tts_delivery_sql: String(directorJson.tts_delivery ?? '').replaceAll(\"'\", \"''\"),\n    global_visual_style_sql: String(directorJson.global_visual_style ?? '').replaceAll(\"'\", \"''\"),\n    visual_strategy_sql: String(directorJson.visual_strategy ?? '').replaceAll(\"'\", \"''\"),\n    global_pacing_sql: String(directorJson.global_pacing ?? '').replaceAll(\"'\", \"''\"),\n    global_music_direction_sql: String(directorJson.global_music_direction ?? '').replaceAll(\"'\", \"''\"),\n    director_json_sql: JSON.stringify(directorJson).replaceAll(\"'\", \"''\"),\n    generation_model_sql: String($json.generation_model ?? '').replaceAll(\"'\", \"''\"),\n    workflow_name_sql: 'wf_director_contract',\n    scene_count_sql: Number($json.scene_count ?? 0),\n    duration_ms_sql: Number.isFinite(durationMs) ? durationMs : 0,\n    cost_json_sql,\n  }\n}];"
+      },
+      "id": "prepare_director_sql_values",
+      "name": "Prepare Director Contract SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into directors (\n  content_id,\n  voice_role,\n  tts_delivery,\n  global_visual_style,\n  visual_strategy,\n  global_pacing,\n  global_music_direction,\n  director_json,\n  generation_model\n)\nvalues (\n  '{{$json.content_id_sql}}'::uuid,\n  nullif('{{$json.voice_role_sql}}', ''),\n  nullif('{{$json.tts_delivery_sql}}', ''),\n  nullif('{{$json.global_visual_style_sql}}', ''),\n  nullif('{{$json.visual_strategy_sql}}', ''),\n  nullif('{{$json.global_pacing_sql}}', ''),\n  nullif('{{$json.global_music_direction_sql}}', ''),\n  '{{$json.director_json_sql}}'::jsonb,\n  nullif('{{$json.generation_model_sql}}', '')\n)\non conflict (content_id) do update set\n  voice_role = excluded.voice_role,\n  tts_delivery = excluded.tts_delivery,\n  global_visual_style = excluded.global_visual_style,\n  visual_strategy = excluded.visual_strategy,\n  global_pacing = excluded.global_pacing,\n  global_music_direction = excluded.global_music_direction,\n  director_json = excluded.director_json,\n  generation_model = excluded.generation_model,\n  generated_at = now()\nreturning content_id, voice_role, generated_at;",
+        "options": {}
+      },
+      "id": "upsert_director",
+      "name": "Upsert Director",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1900,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update content_items\nset status = 'directed',\n    updated_at = now()\nwhere content_id = '{{$item(0).$node[\"Prepare Director Contract SQL Values\"].json[\"content_id_sql\"]}}'::uuid\nreturning content_id, title, status, updated_at;",
+        "options": {}
+      },
+      "id": "mark_directed",
+      "name": "Mark Directed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2140,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Director Contract SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  'wf_director_contract',\n  'success',\n  now(),\n  now(),\n  {{$item(0).$node[\"Prepare Director Contract SQL Values\"].json[\"duration_ms_sql\"]}},\n  null,\n  jsonb_build_object(\n    'generation_model', nullif('{{$item(0).$node[\"Prepare Director Contract SQL Values\"].json[\"generation_model_sql\"]}}', ''),\n    'voice_role', nullif('{{$item(0).$node[\"Prepare Director Contract SQL Values\"].json[\"voice_role_sql\"]}}', ''),\n    'scene_count', {{$item(0).$node[\"Prepare Director Contract SQL Values\"].json[\"scene_count_sql\"]}},\n    'cost', '{{$item(0).$node[\"Prepare Director Contract SQL Values\"].json[\"cost_json_sql\"]}}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, ended_at;",
+        "options": {}
+      },
+      "id": "log_director_run",
+      "name": "Log Director Contract Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2380,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Next Script Complete Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Script Complete Item": {
+      "main": [
+        [
+          {
+            "node": "Prepare Director Contract Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Director": {
+      "main": [
+        [
+          {
+            "node": "Mark Directed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Directed": {
+      "main": [
+        [
+          {
+            "node": "Log Director Contract Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Director Contract Payload": {
+      "main": [
+        [
+          {
+            "node": "Build Director Contract Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Director Contract Request": {
+      "main": [
+        [
+          {
+            "node": "Parse Director Contract Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Director Contract Result": {
+      "main": [
+        [
+          {
+            "node": "Normalize Director Contract Package",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Director Contract Package": {
+      "main": [
+        [
+          {
+            "node": "Prepare Director Contract SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Director Contract SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Upsert Director",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "director-contract-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

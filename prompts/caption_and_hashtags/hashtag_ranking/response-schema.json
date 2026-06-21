@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hashtag_set_1",
+    "hashtag_set_2",
+    "hashtag_set_3",
+    "hashtag_selection_rationale",
+    "hashtags_final"
+  ],
+  "properties": {
+    "hashtag_set_1": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hashtag_set_2": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hashtag_set_3": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hashtag_selection_rationale": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hashtags_final": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

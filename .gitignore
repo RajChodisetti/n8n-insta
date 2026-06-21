@@ -11,3 +11,5 @@ secrets/
 .DS_Store
 infra/state/
 storage/
+*.lock
+workflows/exports/

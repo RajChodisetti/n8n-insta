@@ -1,0 +1,253 @@
+{
+  "name": "wf_narration_generation",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with candidate as materialized (\n  select\n    ci.content_id,\n    ci.title,\n    ci.status,\n    ci.target_duration_seconds,\n    ci.source_payload_json,\n    s.narration_script,\n    coalesce(s.raw_response_json->>'v2_story_package', 'false') as is_v2_story_package,\n    sb.storyboard_json,\n    count(distinct a.scene_number)::int as scene_asset_count,\n    coalesce(d.director_json, '{}'::jsonb) as director_json\n  from content_items ci\n  join scripts s on s.content_id = ci.content_id\n  join storyboards sb on sb.content_id = ci.content_id\n  left join directors d on d.content_id = ci.content_id\n  join assets a on a.content_id = ci.content_id and a.asset_role in ('scene_image', 'scene_video') and a.status = 'ready'\n  where ci.status = 'assets_ready'\n  group by ci.content_id, ci.title, ci.status, ci.target_duration_seconds, ci.source_payload_json, s.narration_script, s.raw_response_json, sb.storyboard_json, d.director_json\n  having count(distinct a.scene_number) >= jsonb_array_length(sb.storyboard_json)\n  order by max(ci.updated_at) asc\n  limit 1\n), claim as (\n  update content_items ci\n  set status = 'generating_narration',\n      updated_at = now()\n  where ci.content_id = (select content_id from candidate)\n    and ci.status = 'assets_ready'\n  returning ci.content_id\n)\nselect\n  c.content_id,\n  c.title,\n  c.status,\n  c.target_duration_seconds,\n  c.source_payload_json,\n  c.narration_script,\n  c.is_v2_story_package,\n  c.storyboard_json,\n  c.scene_asset_count,\n  c.director_json\nfrom candidate c\njoin claim cl on cl.content_id = c.content_id;",
+        "options": {}
+      },
+      "id": "fetch_next_assets_ready_item",
+      "name": "Fetch Next Assets Ready Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        460,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst env = typeof $env === 'object' && $env ? $env : {};\nconst sourcePayload = $json.source_payload_json ?? {};\nconst contentId = String($json.content_id ?? '').trim();\nconst title = String($json.title ?? '').trim();\nconst narrationScript = String($json.narration_script ?? '').trim();\nconst isV2StoryPackage = String($json.is_v2_story_package ?? '').trim().toLowerCase() === 'true';\nconst sceneAssetCount = Number($json.scene_asset_count ?? 0);\nconst storyboardJson = Array.isArray($json.storyboard_json) ? $json.storyboard_json : [];\nconst creativeDefaults = sourcePayload.creative_defaults && typeof sourcePayload.creative_defaults === 'object' ? sourcePayload.creative_defaults : {};\nconst directorJson = $json.director_json && typeof $json.director_json === 'object' ? $json.director_json : {};\nconst normalizedDirectorVoiceRole = String(directorJson.voice_role ?? '').trim().toLowerCase();\nconst directorScenes = Array.isArray(directorJson.scenes) ? directorJson.scenes : [];\nconst directorTtsDelivery = String(directorJson.tts_delivery ?? '').trim();\nconst kidVoiceHintText = [\n  creativeDefaults.voice_role_hint,\n  creativeDefaults.narrator_style,\n  sourcePayload.abstract_idea,\n  title,\n].map((value) => String(value || '').trim().toLowerCase()).filter(Boolean).join(' | ');\nconst kidVoiceHintPattern = /\b(kid|kids|child|children|school[- ]age|youngster|youthful|boy narrator|girl narrator|robot kid|kid robot)\b/;\nconst shouldPreferKidVoice = kidVoiceHintPattern.test(kidVoiceHintText);\nconst genericDirectorRoles = new Set(['', 'primary_male', 'documentary_narrator']);\nconst directorVoiceRole = shouldPreferKidVoice && genericDirectorRoles.has(normalizedDirectorVoiceRole)\n  ? 'kid'\n  : normalizedDirectorVoiceRole;\nconst VOICE_ROLE_ENV_MAP = {\n  primary_male: ['FISH_AUDIO_VOICE_PRIMARY_MALE', 'FISH_AUDIO_REFERENCE_ID', 'FISH_AUDIO_VOICE_ID'],\n  investigative_male: ['FISH_AUDIO_VOICE_INVESTIGATIVE_MALE', 'FISH_AUDIO_REFERENCE_ID', 'FISH_AUDIO_VOICE_ID'],\n  urgent_male: ['FISH_AUDIO_VOICE_URGENT_MALE', 'FISH_AUDIO_REFERENCE_ID', 'FISH_AUDIO_VOICE_ID'],\n  documentary_narrator: ['FISH_AUDIO_VOICE_DOCUMENTARY_NARRATOR', 'FISH_AUDIO_REFERENCE_ID', 'FISH_AUDIO_VOICE_ID'],\n  kid: ['FISH_AUDIO_VOICE_KID', 'FISH_AUDIO_REFERENCE_ID', 'FISH_AUDIO_VOICE_ID'],\n  primary_female: ['FISH_AUDIO_VOICE_PRIMARY_FEMALE', 'FISH_AUDIO_REFERENCE_ID_FEMALE'],\n  calm_female: ['FISH_AUDIO_VOICE_CALM_FEMALE', 'FISH_AUDIO_REFERENCE_ID_FEMALE'],\n};\nconst femaleRoles = new Set(['primary_female', 'calm_female']);\nconst defaultEnvKeys = femaleRoles.has(directorVoiceRole)\n  ? ['FISH_AUDIO_REFERENCE_ID_FEMALE']\n  : ['FISH_AUDIO_REFERENCE_ID', 'FISH_AUDIO_VOICE_ID'];\nconst voiceEnvKeys = VOICE_ROLE_ENV_MAP[directorVoiceRole] || defaultEnvKeys;\nconst directorVoiceReferenceId = voiceEnvKeys.reduce(\n  (found, key) => found || String(env[key] || '').trim(),\n  '',\n);\nconst queueQueryReturnedNoCandidate = String($json.success ?? '').trim().toLowerCase() === 'true'\n  && !contentId\n  && !title\n  && !narrationScript;\nif (queueQueryReturnedNoCandidate) {\n  throw new Error('No assets_ready content item with narration prerequisites is currently available for wf_narration_generation.');\n}\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Fetch Next Assets Ready Item returned an invalid content_id: ' + (contentId || '<empty>') + '.');\n}\nif (!title) {\n  throw new Error('Fetch Next Assets Ready Item did not return title.');\n}\nif (!narrationScript) {\n  throw new Error('Fetch Next Assets Ready Item did not return narration_script.');\n}\nif (sceneAssetCount < storyboardJson.length || sceneAssetCount < 4) {\n  throw new Error('Fetch Next Assets Ready Item requires one ready visual asset per storyboard scene before narration generation.');\n}\nif (storyboardJson.length < 4) {\n  throw new Error('Fetch Next Assets Ready Item requires storyboard_json before narration generation.');\n}\nconst targetDurationSeconds = Number($json.target_duration_seconds ?? 45);\nif (!Number.isFinite(targetDurationSeconds) || targetDurationSeconds <= 0) {\n  throw new Error('target_duration_seconds must be a positive number.');\n}\nconst defaultProvider = String(env.V2_NARRATION_PROVIDER || env.NARRATION_PROVIDER || env.TTS_PROVIDER || 'fish_audio').trim().toLowerCase() || 'fish_audio';\nconst defaultModel = String(env.V2_NARRATION_MODEL || env.NARRATION_MODEL || env.TTS_MODEL || env.FISH_AUDIO_TTS_MODEL || 's2-pro').trim() || 's2-pro';\nconst defaultVoice = String(directorVoiceReferenceId || env.V2_NARRATION_VOICE || env.NARRATION_VOICE || env.TTS_VOICE || env.FISH_AUDIO_REFERENCE_ID || env.FISH_AUDIO_VOICE_ID || '').trim();\nconst parsedSpeed = Number.parseFloat(String(isV2StoryPackage ? (env.V2_NARRATION_SPEED || env.NARRATION_SPEED || env.TTS_SPEED || '1') : (env.NARRATION_SPEED || env.TTS_SPEED || env.OPENAI_TTS_SPEED || '1')).trim());\nconst ttsSpeed = Number.isFinite(parsedSpeed)\n  ? Math.min(4, Math.max(0.25, Number(parsedSpeed.toFixed(2))))\n  : 1;\nconst responseFormat = String(env.V2_NARRATION_OUTPUT_FORMAT || env.NARRATION_OUTPUT_FORMAT || env.FISH_AUDIO_FORMAT || 'mp3').trim().toLowerCase() || 'mp3';\nconst sampleRateRaw = Number.parseInt(String(env.V2_NARRATION_SAMPLE_RATE || env.NARRATION_SAMPLE_RATE || env.FISH_AUDIO_SAMPLE_RATE || '24000').trim(), 10);\nconst sampleRate = Number.isFinite(sampleRateRaw) ? Math.min(44100, Math.max(8000, sampleRateRaw)) : 24000;\nconst ttsRequest = {\n  provider: defaultProvider,\n  model: defaultModel,\n  voice: defaultVoice,\n  speed: ttsSpeed,\n  response_format: responseFormat,\n  ...(isV2StoryPackage ? { output_format: responseFormat, sample_rate: sampleRate } : {}),\n  ...(directorVoiceReferenceId ? { voice_reference_id: directorVoiceReferenceId } : {})\n};\nconst payload = {\n  content_id: contentId,\n  title,\n  narration_script: narrationScript,\n  target_duration_seconds: targetDurationSeconds,\n  storyboard_json: storyboardJson,\n  workflow_name: 'wf_narration_generation',\n  run_started_at: new Date().toISOString(),\n  narration_provider: defaultProvider,\n  is_v2_story_package: isV2StoryPackage,\n  tts_request: ttsRequest,\n  openai_tts_request: ttsRequest,\n  prompt_profile: sourcePayload.prompt_profile ?? {},\n  narration_style: String(creativeDefaults.narrator_style || creativeDefaults.voice_role_hint || '').trim(),\n  director_voice_role: directorVoiceRole,\n  director_tts_delivery: directorTtsDelivery,\n  director_scenes: directorScenes,\n  director_global_pacing: String(directorJson.global_pacing ?? '').trim(),\n};\nreturn [{\n  json: {\n    ...payload,\n    rehost_payload_base64: Buffer.from(JSON.stringify(payload), 'utf8').toString('base64')\n  }\n}];"
+      },
+      "id": "prepare_narration_payload",
+      "name": "Prepare Narration Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "executeOnce": true,
+        "command": "={{'node /workflows/scripts/generate_and_rehost_narration_audio.mjs ' + JSON.stringify($json.rehost_payload_base64)}}"
+      },
+      "id": "generate_and_rehost_narration_audio",
+      "name": "Generate and Rehost Narration Audio",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        940,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const stdout = String($json.stdout ?? '').trim();\nif (!stdout) {\n  throw new Error('Generate and Rehost Narration Audio produced no stdout.');\n}\nlet parsed;\ntry {\n  parsed = JSON.parse(stdout);\n} catch (error) {\n  throw new Error('Generate and Rehost Narration Audio returned invalid JSON: ' + error.message + '. Raw stdout: ' + stdout.slice(0, 500));\n}\nconst scenes = Array.isArray(parsed.scenes) ? parsed.scenes : [];\nif (scenes.length === 0) {\n  throw new Error('The narration helper did not return a scenes array.');\n}\nfor (const scene of scenes) {\n  if (!String(scene.storage_url ?? '').trim()) {\n    throw new Error('Scene ' + scene.scene_number + ' narration is missing storage_url.');\n  }\n  if (!String(scene.provider ?? '').trim()) {\n    throw new Error('Scene ' + scene.scene_number + ' narration is missing provider.');\n  }\n}\nreturn [{ json: parsed }];"
+      },
+      "id": "parse_narration_result",
+      "name": "Parse Narration Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1180,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const _cost = $json.cost ?? {};\nconst cost_json_sql = JSON.stringify(_cost).replaceAll(\"'\", \"''\");\nconst uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;\nconst contentId = String($json.content_id ?? '').trim();\nif (!uuidPattern.test(contentId)) {\n  throw new Error('Prepare Narration SQL Values received an invalid content_id: ' + (contentId || '<empty>') + '.');\n}\nconst startedAt = new Date(String($json.run_started_at ?? new Date().toISOString()));\nconst durationMs = Math.max(0, Date.now() - startedAt.getTime());\nconst scenes = Array.isArray($json.scenes) ? $json.scenes : [];\nconst firstScene = scenes[0] ?? {};\nconst firstMeta = firstScene.metadata_json ?? {};\nreturn [{\n  json: {\n    ...$json,\n    content_id_sql: contentId,\n    scenes_json_sql: JSON.stringify(scenes).replaceAll(\"'\", \"''\"),\n    workflow_name_sql: String($json.workflow_name ?? 'wf_narration_generation').replaceAll(\"'\", \"''\"),\n    generation_model_sql: String(firstMeta.generation_model ?? '').replaceAll(\"'\", \"''\"),\n    voice_sql: String(firstMeta.voice ?? '').replaceAll(\"'\", \"''\"),\n    scene_count_sql: scenes.length,\n    total_duration_seconds_sql: Number.isFinite(Number($json.total_duration_seconds)) ? Number($json.total_duration_seconds) : 0,\n    duration_ms_sql: Number.isFinite(durationMs) ? durationMs : 0,\n    cost_json_sql\n  }\n}];"
+      },
+      "id": "prepare_narration_sql_values",
+      "name": "Prepare Narration SQL Values",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with deleted as (\n  delete from assets\n  where content_id = '{{$json.content_id_sql}}'::uuid\n    and asset_role = 'scene_narration'\n), inserted as (\n  insert into assets (\n    content_id,\n    scene_number,\n    asset_role,\n    provider,\n    source_url,\n    storage_url,\n    mime_type,\n    duration_seconds,\n    status,\n    metadata_json\n  )\n  select\n    '{{$json.content_id_sql}}'::uuid,\n    (scene->>'scene_number')::integer,\n    'scene_narration',\n    scene->>'provider',\n    scene->>'source_url',\n    scene->>'storage_url',\n    scene->>'mime_type',\n    (scene->>'duration_seconds')::float,\n    'ready',\n    scene->'metadata_json'\n  from jsonb_array_elements('{{$json.scenes_json_sql}}'::jsonb) as scene\n  returning 1\n)\nselect\n  '{{$json.content_id_sql}}'::uuid as content_id,\n  'scene_narration' as asset_role,\n  count(*)::int as asset_count\nfrom inserted;",
+        "options": {}
+      },
+      "id": "replace_narration_audio_asset",
+      "name": "Replace Narration Audio Asset",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1660,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update content_items\nset status = 'narration_ready',\n    updated_at = now()\nwhere content_id = '{{$item(0).$node[\"Prepare Narration SQL Values\"].json[\"content_id_sql\"]}}'::uuid\nreturning content_id, title, status, updated_at;",
+        "options": {}
+      },
+      "id": "mark_narration_ready",
+      "name": "Mark Narration Ready",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1900,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into workflow_runs (\n  content_id,\n  workflow_name,\n  run_status,\n  started_at,\n  ended_at,\n  duration_ms,\n  error_message,\n  details_json\n)\nvalues (\n  '{{$item(0).$node[\"Prepare Narration SQL Values\"].json[\"content_id_sql\"]}}'::uuid,\n  '{{$item(0).$node[\"Prepare Narration SQL Values\"].json[\"workflow_name_sql\"]}}',\n  'success',\n  '{{$item(0).$node[\"Parse Narration Result\"].json[\"run_started_at\"]}}'::timestamptz,\n  now(),\n  {{$item(0).$node[\"Prepare Narration SQL Values\"].json[\"duration_ms_sql\"]}},\n  null,\n  jsonb_build_object(\n    'generation_model', nullif('{{$item(0).$node[\"Prepare Narration SQL Values\"].json[\"generation_model_sql\"]}}', ''),\n    'voice', nullif('{{$item(0).$node[\"Prepare Narration SQL Values\"].json[\"voice_sql\"]}}', ''),\n    'scene_count', {{$item(0).$node[\"Prepare Narration SQL Values\"].json[\"scene_count_sql\"]}},\n    'total_duration_seconds', {{$item(0).$node[\"Prepare Narration SQL Values\"].json[\"total_duration_seconds_sql\"]}},\n    'cost', '{{$item(0).$node[\"Prepare Narration SQL Values\"].json[\"cost_json_sql\"]}}'::jsonb\n  )\n)\nreturning run_id, workflow_name, run_status, ended_at;",
+        "options": {}
+      },
+      "id": "log_narration_generation_run",
+      "name": "Log Narration Generation Run",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2140,
+        320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "replace-me",
+          "name": "Local Postgres"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Next Assets Ready Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Next Assets Ready Item": {
+      "main": [
+        [
+          {
+            "node": "Prepare Narration Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Narration Payload": {
+      "main": [
+        [
+          {
+            "node": "Generate and Rehost Narration Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate and Rehost Narration Audio": {
+      "main": [
+        [
+          {
+            "node": "Parse Narration Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Narration Result": {
+      "main": [
+        [
+          {
+            "node": "Prepare Narration SQL Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Narration SQL Values": {
+      "main": [
+        [
+          {
+            "node": "Replace Narration Audio Asset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Narration Audio Asset": {
+      "main": [
+        [
+          {
+            "node": "Mark Narration Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Narration Ready": {
+      "main": [
+        [
+          {
+            "node": "Log Narration Generation Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "phase3-narration-generation-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "active": false,
+  "tags": []
+}

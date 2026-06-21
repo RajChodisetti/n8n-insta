@@ -90,7 +90,7 @@ Stores scene-level plan.
 ### Fields
 - `storyboard_id` (uuid)
 - `content_id`
-- `storyboard_json`
+- `storyboard_json` — array of scene objects, where scene 1 is always the "face image" with `is_face_image: true` and `face_image_title` containing the opening hook text
 - `cover_prompt`
 - `subtitle_lines_json`
 - `style_notes`
@@ -104,13 +104,17 @@ Stores scene-level plan.
     "scene_number": 1,
     "duration_seconds": 4,
     "narration_text": "In 1872, a ship was found drifting in the Atlantic.",
-    "visual_prompt": "stormy Atlantic ocean, 19th century wooden ship drifting in fog, cinematic, dark blue tones",
+    "visual_prompt": "stormy Atlantic ocean, 19th century wooden ship drifting in fog with 'The Mary Celeste' title text centered in the middle of the frame, cinematic, dark blue tones",
     "asset_type": "video",
     "transition": "fade",
-    "mood": "suspense"
+    "mood": "suspense",
+    "is_face_image": true,
+    "face_image_title": "The Mary Celeste"
   }
 ]
 ```
+
+**Note:** Scene 1 is always the "face image" opening, where `is_face_image` is true and `face_image_title` contains the short title text (2-5 words) that appears centered in the middle of the image frame. This title serves as the face of the reel, immediately hooking the viewer. All subsequent scenes have `is_face_image` set to false and no `face_image_title`.
 
 ---
 
