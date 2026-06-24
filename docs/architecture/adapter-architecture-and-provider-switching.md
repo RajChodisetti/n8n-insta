@@ -34,23 +34,24 @@ Current adapter entry points:
 Implemented today:
 
 - text generation: `openai`
-- image generation: `openai`
-- narration / TTS: `openai`
-- render provider: `local_ffmpeg`
+- image generation: `openai`, `fal_ai`
+- scene video generation: `fal_ai` / Wan helpers
+- narration / TTS: `openai`, `fish_audio`, `smallest_ai`
+- render provider: `remotion` by default, `local_ffmpeg` fallback
 - asset host: `google_cloud_storage`
 - asset host: `object_storage`
 
 Pluggable but not implemented yet:
 
 - text generation: any non-OpenAI provider you add later
-- image generation: providers such as `nano`
-- narration / TTS: providers such as `elevenlabs`
+- image generation: any new provider you add later
+- narration / TTS: any new provider you add later
 - render provider: providers such as `seedance`
 - asset host: any CDN or storage adapter you add later
 
 If you select a provider that is not implemented, the workflow should fail with a message like:
 
-- `provider 'elevenlabs' is not implemented for narration`
+- `provider 'new_provider' is not implemented for narration`
 
 That is intentional. It prevents half-switched pipelines.
 
@@ -260,19 +261,19 @@ GOOGLE_CLOUD_STORAGE_PUBLIC_BASE_URL=https://storage.googleapis.com
 
 ### Switch only one component to a future provider
 
-Example target: ElevenLabs narration.
+Example target: a new narration provider.
 
 Step 1:
 
 ```env
-NARRATION_PROVIDER=elevenlabs
-NARRATION_MODEL=eleven_turbo_v2
+NARRATION_PROVIDER=new_provider
+NARRATION_MODEL=new_provider_model
 NARRATION_VOICE=<your_voice_id>
 ```
 
 Step 2:
 
-- implement the ElevenLabs branch in [tts_adapters.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/tts_adapters.mjs)
+- implement the provider branch in [tts_adapters.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/tts_adapters.mjs)
 
 Step 3:
 

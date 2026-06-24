@@ -6,7 +6,14 @@ import { createRequire } from 'node:module';
 import crypto from 'node:crypto';
 
 const require = createRequire(import.meta.url);
-const { Client } = require('/usr/local/lib/node_modules/n8n/node_modules/pg');
+function loadPgModule() {
+  try {
+    return require('/usr/local/lib/node_modules/n8n/node_modules/pg');
+  } catch {
+    return require('pg');
+  }
+}
+const { Client } = loadPgModule();
 
 function fail(message) {
   throw new Error(message);

@@ -11,10 +11,15 @@ This summary is inferred from README/runbooks, `docs/delivery/engineering-backlo
 - Phase 3 scene assets, narration, render manifest, render dispatch, and render callback are documented as complete.
 - Phase 3 live Reel publish, prompt externalization/one-click orchestration, and adapter-first provider/host architecture are marked `implemented_awaiting_test`.
 - Phase 4 Instagram metrics collection is the recommended next build item and is also marked `implemented_awaiting_test`.
+- Code-first orchestration is being introduced beside n8n: Studio queues `pipeline_runs`, `pipeline-worker` claims `pipeline_steps`, and n8n workflow exports remain as fallback/reference until parity is proven.
+- Reel type selection is now active for code-first runs: `image`, `video`, and `avatar` stage plans are selected through Studio/API and persisted as `reel_type`.
+- Remotion is now the default code-first renderer through `infra/remotion-renderer/`; the existing FFmpeg render worker remains rollback fallback until parity is documented.
+- Avatar video support is wired through an avatar consent gate plus HeyGen provider stage, and must remain blocked without HeyGen env plus explicit account consent policy.
 
 ## Prominent active areas
 
 - The active IDE file is `workflows/scripts/generate_and_rehost_scene_assets_v3.mjs`.
+- New orchestration source lives in `pipeline/`, with Docker runtime support in `infra/node-runtime/Dockerfile` and `infra/docker-compose.yml`.
 - Current v2/v3 workflow files include `wf_asset_generation_v3.json`, `wf_render_worker_dispatch_v2.json`, `wf_render_sync_completion_v2.json`, `wf_validation_check.json`, `run_resume_aware_reel_pipeline_v3.mjs`, and `generate_and_rehost_scene_video.mjs`.
 - Newer prompt groups/docs include `director/`, `story_package_generation/`, `rules/`, `style_packs/`, consolidated [Face Image](../features/face-image.md), consolidated [Fish Audio](../integrations/fish-audio.md), and the [AI video workflow session plan](../roadmaps/ai-video-workflow-session-plan.md).
 - Sessions 1-20 of the AI video workflow plan added workflow inventory, fixtures, rule/style pack contracts, story package v2 contracts, a style-pack-constrained director contract, a prompt-free storyboard/shot-plan contract, a separate visual prompt builder contract, a clean-script-preserving voice performance contract, music/SFX license metadata, a contract-only final QA result, a selected-render approval gate, per-content client/account context snapshots, a planning-only model provider router contract, a renderer-neutral render manifest v2 bridge, a contract-only Remotion-compatible edit plan, a consent-gated avatar/presenter selector contract, an offline AI video contract regression suite, and a stabilization/push pass. Read [AI video workflow inventory](ai-video-workflow-inventory.md) before changing prompt contracts, status transitions, render manifests, provider routing, client/account policy, Remotion edit plans, avatar/presenter decisions, tests, or publish gates.
@@ -23,6 +28,7 @@ This summary is inferred from README/runbooks, `docs/delivery/engineering-backlo
 ## Likely upcoming integration areas
 
 - Validating v3 scene asset/video generation and deciding which workflow export is the active path.
+- Proving code-first pipeline parity against the legacy n8n path, especially Remotion render output, caption, approval, avatar consent failures, and explicit publish behavior.
 - Keeping provider documentation aligned with adapter code, especially Fal AI, Fish Audio, Smallest AI, and Wan.
 - Testing live Reel publish and Phase 4 metrics collection.
 - Reconciling tracked runtime/secret-looking files with ignore policy.

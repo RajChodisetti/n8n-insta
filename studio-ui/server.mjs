@@ -17,6 +17,17 @@ import {
   hasPromptProfileOverrides,
   normalizePromptProfile,
 } from '../workflows/scripts/prompt_profile_contract.mjs';
+import {
+  PIPELINE_ACTION_LABELS,
+  REEL_TYPE_LABELS,
+  REEL_TYPES,
+  createPipelineRun,
+  getDefaultReelType,
+  getPipelineRunById,
+  listPipelineRuns,
+  normalizeReelType,
+} from '../pipeline/runs.mjs';
+import { ensurePipelineSchema } from '../pipeline/schema.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -409,6 +420,19 @@ const WORKFLOWS = [
   },
 ];
 const DEFAULT_ABSTRACT_IDEA_WORKFLOW_KEY = 'wf_end_to_end_reel_generate_and_publish';
+const SECRET_VALUE_MASK = '********';
+
+function isSensitiveConfigKey(key) {
+  const normalized = String(key || '').trim().toUpperCase();
+  if (!normalized) return false;
+  if (normalized.endsWith('_KEY_PATH')) return false;
+  return normalized.includes('API_KEY')
+    || normalized.endsWith('_TOKEN')
+    || normalized.includes('ACCESS_TOKEN')
+    || normalized.includes('PASSWORD')
+    || normalized.includes('SECRET')
+    || normalized.includes('ENCRYPTION_KEY');
+}
 const ACTIVE_REEL_PIPELINE_STATUSES = Object.freeze([
   'idea_approved',
   'scripting',
@@ -530,30 +554,79 @@ const CONFIG_SECTIONS = [
     title: 'Adapters & Models',
     description: 'These settings choose which adapter path and model each stage uses. Changes require a container recreate before workflow runs use the new values.',
     fields: [
-      field('TEXT_LLM_PROVIDER', 'Text LLM Provider', 'Global text provider fallback.', ['openai', 'anthropic']),
-      field('PROMPT_BUILDER_LLM_PROVIDER', 'Prompt Builder Provider', 'Optional prompt-builder provider override for the Studio UI generator.', ['openai', 'openrouter']),
-      field('RESEARCH_LLM_PROVIDER', 'Research Provider', 'Optional research-stage provider override.', ['openai', 'openrouter']),
-      field('DIRECTOR_LLM_PROVIDER', 'Director Provider', 'Optional director-contract provider override.', ['openai', 'openrouter']),
-      field('STORYBOARD_LLM_PROVIDER', 'Storyboard Provider', 'Optional storyboard-stage provider override.', ['openai', 'openrouter']),
-      field('CAPTION_LLM_PROVIDER', 'Caption Provider', 'Optional caption-stage provider override.', ['openai', 'openrouter']),
+      field('TEXT_LLM_PROVIDER', 'Text LLM Provider', 'Global text provider fallback. Current text adapter implementation supports openai.', ['openai']),
+      field('IDEA_INGEST_LLM_PROVIDER', 'Idea Ingest Provider', 'Optional idea-ingest provider override. Leave blank to use Text LLM Provider.', ['openai']),
+      field('IDEA_PROMPT_PROFILE_LLM_PROVIDER', 'Idea Prompt Profile Provider', 'Optional idea prompt-profile provider override. Leave blank to use Prompt Builder or Text provider.', ['openai']),
+      field('PROMPT_BUILDER_LLM_PROVIDER', 'Prompt Builder Provider', 'Optional prompt-builder provider override for the Studio UI generator.', ['openai']),
+      field('RESEARCH_LLM_PROVIDER', 'Research Provider', 'Optional research-stage provider override.', ['openai']),
+      field('DIRECTOR_LLM_PROVIDER', 'Director Provider', 'Optional director-contract provider override.', ['openai']),
+      field('STORY_PACKAGE_LLM_PROVIDER', 'Story Package Provider', 'Optional story-package provider override.', ['openai']),
+      field('STORY_PACKAGE_V2_LLM_PROVIDER', 'Story Package V2 Provider', 'Optional story-package-v2 provider override.', ['openai']),
+      field('STORYBOARD_LLM_PROVIDER', 'Storyboard Provider', 'Optional storyboard-stage provider override.', ['openai']),
+      field('CAPTION_LLM_PROVIDER', 'Caption Provider', 'Optional caption-stage provider override.', ['openai']),
       field('TEXT_MODEL', 'Text Model', 'Global text model fallback.', ['gpt-4o-mini', 'gpt-4.1-mini']),
+      field('IDEA_INGEST_MODEL', 'Idea Ingest Model', 'Model used to turn an abstract idea into a topic payload.', ['gpt-4.1-mini', 'gpt-4o-mini']),
+      field('IDEA_PROMPT_PROFILE_MODEL', 'Idea Prompt Profile Model', 'Model used for idea prompt profile generation when that stage is enabled.', ['gpt-4.1-mini', 'gpt-4o-mini']),
       field('PROMPT_BUILDER_MODEL', 'Prompt Builder Model', 'Optional prompt-builder model override for the Studio UI generator.', ['gpt-4o-mini', 'gpt-4.1-mini']),
       field('RESEARCH_MODEL', 'Research Model', 'Research-stage model override.', ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini']),
+      field('DIRECTOR_CONTRACT_MODEL', 'Director Contract Model', 'Director-contract model override before Director Model.', ['gpt-4.1-mini', 'gpt-4.1']),
       field('DIRECTOR_MODEL', 'Director Model', 'Director-contract model override.', ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4.1']),
+      field('STORY_PACKAGE_MODEL', 'Story Package Model', 'One-pass story package model override.', ['gpt-4.1', 'gpt-4.1-mini']),
+      field('STORY_PACKAGE_V2_MODEL', 'Story Package V2 Model', 'V2 story package model override.', ['gpt-4.1', 'gpt-4.1-mini']),
       field('STORYBOARD_MODEL', 'Storyboard Model', 'Storyboard-stage model override.', ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini']),
       field('CAPTION_MODEL', 'Caption Model', 'Caption-stage model override.', ['gpt-4o-mini', 'gpt-4.1-mini']),
-      field('IMAGE_GENERATION_PROVIDER', 'Image Provider', 'Global image generation provider fallback.', ['openai', 'stability']),
-      field('SCENE_IMAGE_PROVIDER', 'Scene Image Provider', 'Scene-image provider override.', ['openai', 'stability']),
+      field('IMAGE_GENERATION_PROVIDER', 'Image Provider', 'Global image generation provider fallback.', ['openai', 'fal_ai']),
+      field('SCENE_IMAGE_PROVIDER', 'Scene Image Provider', 'Scene-image provider override.', ['openai', 'fal_ai']),
       field('SCENE_REFERENCE_IMAGE_PROVIDER', 'Reference Image Provider', 'Provider used when scene images have uploaded reference images.', ['openai']),
-      field('POST_IMAGE_PROVIDER', 'Post Image Provider', 'Single-post image provider override.', ['openai', 'stability']),
+      field('POST_IMAGE_PROVIDER', 'Post Image Provider', 'Single-post image provider override.', ['openai', 'fal_ai']),
       field('IMAGE_MODEL', 'Image Model', 'Global image model fallback.', ['gpt-image-1', 'gpt-image-1-mini']),
       field('SCENE_IMAGE_MODEL', 'Scene Image Model', 'Scene-image model override.', ['gpt-image-1-mini', 'gpt-image-1']),
       field('SCENE_REFERENCE_IMAGE_MODEL', 'Reference Image Model', 'Image model used when uploaded references are passed into scene image generation.', ['gpt-image-1', 'gpt-image-1-mini']),
       field('POST_IMAGE_MODEL', 'Post Image Model', 'Single-post image model override.', ['gpt-image-1', 'gpt-image-1-mini']),
-      field('TTS_PROVIDER', 'TTS Provider', 'Global narration/TTS provider fallback.', ['openai', 'elevenlabs']),
-      field('NARRATION_PROVIDER', 'Narration Provider', 'Narration provider override.', ['openai', 'elevenlabs']),
-      field('TTS_MODEL', 'TTS Model', 'Global TTS model fallback.', ['gpt-4o-mini-tts', 'eleven_multilingual_v2']),
-      field('NARRATION_MODEL', 'Narration Model', 'Narration model override.', ['gpt-4o-mini-tts', 'eleven_multilingual_v2']),
+      field('WAN_VIDEO_MODEL', 'Wan Video Model', 'Fal/Wan text-to-video model used by video reels.', ['fal-ai/wan-t2v']),
+      field('WAN_REFERENCE_VIDEO_MODEL', 'Wan Reference Video Model', 'Fal/Wan reference-to-video model used when character reference video generation is needed.', ['fal-ai/wan/v2.7/reference-to-video']),
+      field('TTS_PROVIDER', 'TTS Provider', 'Global narration/TTS provider fallback.', ['fish_audio', 'openai', 'smallest_ai']),
+      field('NARRATION_PROVIDER', 'Narration Provider', 'Narration provider override.', ['fish_audio', 'openai', 'smallest_ai']),
+      field('TTS_MODEL', 'TTS Model', 'Global TTS model fallback.', ['s2-pro', 'gpt-4o-mini-tts', 'lightning-v3.1']),
+      field('NARRATION_MODEL', 'Narration Model', 'Narration model override.', ['s2-pro', 'gpt-4o-mini-tts', 'lightning-v3.1']),
+      field('DEFAULT_REEL_TYPE', 'Default Reel Type', 'Default run type when Studio/API payloads omit reel_type.', ['video', 'image', 'avatar']),
+      field('RENDER_PROVIDER', 'Render Provider', 'Renderer used by the code-first worker.', ['remotion', 'local_ffmpeg']),
+    ],
+  },
+  {
+    id: 'provider-keys',
+    title: 'Provider API Keys',
+    description: 'Optional stage-specific keys. Leave a stage key blank to use the component/global provider key already present in env; if neither exists, that stage fails before the provider call.',
+    fields: [
+      field('OPENAI_API_KEY', 'OpenAI API Key', 'Global fallback for OpenAI text, image, and TTS calls.', ['']),
+      field('TEXT_OPENAI_API_KEY', 'Text OpenAI API Key', 'Fallback for all OpenAI text stages before OPENAI_API_KEY.', ['']),
+      field('IDEA_INGEST_OPENAI_API_KEY', 'Idea Ingest OpenAI Key', 'OpenAI key used only for abstract idea ingestion.', ['']),
+      field('IDEA_PROMPT_PROFILE_OPENAI_API_KEY', 'Idea Prompt Profile OpenAI Key', 'OpenAI key used only for idea prompt profile generation when that stage is enabled.', ['']),
+      field('PROMPT_BUILDER_OPENAI_API_KEY', 'Prompt Builder OpenAI Key', 'OpenAI key used by runtime prompt builder text rewrites.', ['']),
+      field('RESEARCH_OPENAI_API_KEY', 'Research OpenAI Key', 'OpenAI key used only for research/script generation when that stage is active.', ['']),
+      field('DIRECTOR_OPENAI_API_KEY', 'Director OpenAI Key', 'OpenAI key used for director contract generation.', ['']),
+      field('DIRECTOR_CONTRACT_OPENAI_API_KEY', 'Director Contract OpenAI Key', 'OpenAI key used before Director OpenAI Key for director contract generation.', ['']),
+      field('STORY_PACKAGE_OPENAI_API_KEY', 'Story Package OpenAI Key', 'OpenAI key used only for story package generation.', ['']),
+      field('STORY_PACKAGE_V2_OPENAI_API_KEY', 'Story Package V2 OpenAI Key', 'OpenAI key used only for story package V2 generation.', ['']),
+      field('STORYBOARD_OPENAI_API_KEY', 'Storyboard OpenAI Key', 'OpenAI key used only for storyboard/prompt generation when that stage is active.', ['']),
+      field('CAPTION_OPENAI_API_KEY', 'Caption OpenAI Key', 'OpenAI key used only for caption/hashtag generation when that stage is active.', ['']),
+      field('IMAGE_OPENAI_API_KEY', 'Image OpenAI Key', 'Fallback for OpenAI image generation before OPENAI_API_KEY.', ['']),
+      field('SCENE_IMAGE_OPENAI_API_KEY', 'Scene Image OpenAI Key', 'OpenAI key used only for scene image generation.', ['']),
+      field('POST_IMAGE_OPENAI_API_KEY', 'Post Image OpenAI Key', 'OpenAI key used only for post/cover image generation.', ['']),
+      field('FAL_AI_API_KEY', 'Fal AI API Key', 'Global fallback for Fal image/video providers.', ['']),
+      field('IMAGE_FAL_AI_API_KEY', 'Image Fal AI Key', 'Fallback for Fal image generation before FAL_AI_API_KEY.', ['']),
+      field('SCENE_IMAGE_FAL_AI_API_KEY', 'Scene Image Fal AI Key', 'Fal key used only for scene image generation.', ['']),
+      field('POST_IMAGE_FAL_AI_API_KEY', 'Post Image Fal AI Key', 'Fal key used only for post/cover image generation.', ['']),
+      field('SCENE_VIDEO_FAL_AI_API_KEY', 'Scene Video Fal AI Key', 'Fal key used only for Wan scene-video generation.', ['']),
+      field('WAN_REFERENCE_VIDEO_FAL_AI_API_KEY', 'Wan Reference Video Fal AI Key', 'Fal key used only for reference-to-video generation.', ['']),
+      field('TTS_OPENAI_API_KEY', 'OpenAI TTS Key', 'OpenAI key used for narration when TTS provider is openai.', ['']),
+      field('NARRATION_OPENAI_API_KEY', 'Narration OpenAI Key', 'OpenAI key used only for narration before TTS/global OpenAI fallbacks.', ['']),
+      field('FISH_AUDIO_API_KEY', 'Fish Audio API Key', 'Global fallback for Fish Audio narration.', ['']),
+      field('TTS_FISH_AUDIO_API_KEY', 'TTS Fish Audio Key', 'Fish Audio key used by all TTS calls before the global Fish key.', ['']),
+      field('NARRATION_FISH_AUDIO_API_KEY', 'Narration Fish Audio Key', 'Fish Audio key used only for narration before the global Fish key.', ['']),
+      field('SMALLEST_AI_API_KEY', 'Smallest AI API Key', 'Global fallback for Smallest AI narration.', ['']),
+      field('TTS_SMALLEST_AI_API_KEY', 'TTS Smallest AI Key', 'Smallest AI key used by all TTS calls before the global Smallest key.', ['']),
+      field('NARRATION_SMALLEST_AI_API_KEY', 'Narration Smallest AI Key', 'Smallest AI key used only for narration before the global Smallest key.', ['']),
     ],
   },
   {
@@ -588,6 +661,8 @@ const CONFIG_SECTIONS = [
       field('RENDER_OUTPUT_HEIGHT', 'Render Height', 'Final render height in pixels.', ['1920', '1280']),
       field('RENDER_OUTPUT_FPS', 'Render FPS', 'Frames per second for the output timeline.', ['30', '24']),
       field('RENDER_OUTPUT_FORMAT', 'Render Format', 'Container format for the final render.', ['mp4', 'mov']),
+      field('RENDER_WORKER_SYNC_URL', 'Render Worker Sync URL', 'Internal sync render endpoint used by pipeline-worker.', ['http://remotion-renderer:8081/render-sync', 'http://render-worker:8080/render-sync']),
+      field('REMOTION_RENDER_STUB', 'Remotion Stub Mode', 'Return a synthetic Remotion render response without invoking Chromium. Use only for offline smoke checks.', ['false', 'true']),
       field('RENDER_SUBTITLE_STYLE', 'Render Subtitle Style', 'Subtitle style preset for the manifest.', ['cinematic_center_safe', 'clean_bottom_safe']),
       field('RENDER_TIMELINE_MODE', 'Render Timeline Mode', 'How scene durations should align to narration audio.', ['fit_to_narration', 'storyboard_exact']),
       field('RENDER_SCENE_MIN_SECONDS', 'Render Scene Min Seconds', 'Minimum scene duration used when rescaling a storyboard to match narration length.', ['2.5', '3']),
@@ -596,6 +671,21 @@ const CONFIG_SECTIONS = [
       field('BACKGROUND_MUSIC_DEFAULT_VOLUME', 'Background Music Volume', 'Default background music level under narration.', ['0.12', '0.1', '0.15']),
       field('BACKGROUND_MUSIC_FADE_IN_SECONDS', 'Background Music Fade In', 'Seconds for the music bed to ease in.', ['0.8', '1.2']),
       field('BACKGROUND_MUSIC_FADE_OUT_SECONDS', 'Background Music Fade Out', 'Seconds for the music bed to ease out.', ['2.5', '3']),
+    ],
+  },
+  {
+    id: 'avatar',
+    title: 'Avatar Video',
+    description: 'HeyGen avatar settings. Avatar runs still require per-content avatar_allowed policy plus consent metadata before provider calls.',
+    fields: [
+      field('HEYGEN_API_KEY', 'HeyGen API Key', 'Secret API key for HeyGen Direct Video API.', ['']),
+      field('HEYGEN_AVATAR_ID', 'HeyGen Avatar ID', 'Provider avatar ID used for avatar reel generation.', ['']),
+      field('HEYGEN_VOICE_ID', 'HeyGen Voice ID', 'Provider voice ID used for avatar reel generation.', ['']),
+      field('HEYGEN_CALLBACK_URL', 'HeyGen Callback URL', 'Optional provider callback URL. Polling is still supported without this.', ['']),
+      field('HEYGEN_POLL_INTERVAL_SECONDS', 'HeyGen Poll Interval', 'Seconds between provider status polls.', ['10', '15']),
+      field('HEYGEN_TIMEOUT_SECONDS', 'HeyGen Timeout Seconds', 'Maximum seconds to wait for a provider video completion.', ['900', '1200']),
+      field('HEYGEN_AVATAR_CONSENT_RECORD_URI', 'Avatar Consent Record URI', 'Optional fallback consent record URI. Account policy must still allow avatar usage.', ['']),
+      field('HEYGEN_MOCK_COMPLETED_URL', 'HeyGen Mock Completed URL', 'Offline test URL for a hosted MP4. Provider env and consent gate still apply.', ['']),
     ],
   },
 ];
@@ -656,6 +746,34 @@ function extractAbstractIdeaValue(payload = {}) {
   ).trim();
 }
 
+function extractReelTypeValue(payload = {}) {
+  return String(
+    payload.reel_type
+    || payload.reelType
+    || payload.source_payload_json?.reel_type
+    || '',
+  ).trim();
+}
+
+function normalizeReelTypeForRequest(value, { fallback = getDefaultReelType() } = {}) {
+  try {
+    return normalizeReelType(value, { fallback });
+  } catch (error) {
+    fail(400, error.message);
+  }
+}
+
+function avatarRuntimeRequirements() {
+  const requiredEnv = ['HEYGEN_API_KEY', 'HEYGEN_AVATAR_ID', 'HEYGEN_VOICE_ID'];
+  const missing = requiredEnv.filter((key) => !String(process.env[key] || '').trim());
+  return {
+    configured: missing.length === 0,
+    required_env: requiredEnv,
+    missing_env: missing,
+    consent_required: true,
+  };
+}
+
 async function parseAbstractIdeaWebhookRequest(request, url) {
   const rawBody = await readRequestBody(request);
   const queryIdea = String(
@@ -665,12 +783,14 @@ async function parseAbstractIdeaWebhookRequest(request, url) {
     || '',
   ).trim();
   const queryWorkflowKey = String(url.searchParams.get('workflow_key') || '').trim();
+  const queryReelType = String(url.searchParams.get('reel_type') || url.searchParams.get('reelType') || '').trim();
   const contentType = String(request.headers['content-type'] || '').trim().toLowerCase();
 
   if (!rawBody) {
     return {
       abstractIdea: queryIdea,
       workflowKey: queryWorkflowKey,
+      reelType: queryReelType,
     };
   }
 
@@ -684,12 +804,14 @@ async function parseAbstractIdeaWebhookRequest(request, url) {
     return {
       abstractIdea: extractAbstractIdeaValue(parsed) || queryIdea,
       workflowKey: String(parsed.workflow_key || queryWorkflowKey || '').trim(),
+      reelType: extractReelTypeValue(parsed) || queryReelType,
     };
   }
 
   return {
     abstractIdea: rawBody,
     workflowKey: queryWorkflowKey,
+    reelType: queryReelType,
   };
 }
 
@@ -1113,6 +1235,7 @@ async function createTopicFromAbstractIdea(abstractIdea, options = {}) {
   const topic = await createTopic({
     ...generated.generated_payload,
     abstract_idea: generated.abstract_idea,
+    reel_type: options.reel_type ?? options.reelType,
     character_reference: extractCharacterReferenceFromPayload(options),
     client_account_context: options.client_account_context ?? options.source_payload_json?.client_account_context,
   });
@@ -1131,6 +1254,7 @@ async function createTopicFromAbstractIdeaV2(abstractIdea, options = {}) {
   const topic = await createTopic({
     ...generated.generated_payload,
     abstract_idea: generated.abstract_idea,
+    reel_type: options.reel_type ?? options.reelType,
     character_reference: extractCharacterReferenceFromPayload(options),
     client_account_context: options.client_account_context ?? options.source_payload_json?.client_account_context,
   });
@@ -1183,27 +1307,38 @@ async function assertNoBlockingReelCandidates() {
 async function createTopicFromAbstractIdeaAndStartWorkflow(abstractIdea, workflowKey = DEFAULT_ABSTRACT_IDEA_WORKFLOW_KEY, options = {}) {
   await assertNoBlockingReelCandidates();
   const created = await createTopicFromAbstractIdea(abstractIdea, options);
-  const normalizedWorkflowKey = String(workflowKey || DEFAULT_ABSTRACT_IDEA_WORKFLOW_KEY).trim() || DEFAULT_ABSTRACT_IDEA_WORKFLOW_KEY;
-  const workflowJob = startWorkflowJob(normalizedWorkflowKey);
+  const pipelineRun = await createPipelineRun(pool, {
+    contentId: created.topic.content_id,
+    requestedAction: 'generate_reel',
+    reelType: options.reel_type ?? options.reelType ?? created.topic.reel_type,
+    source: 'studio_abstract_idea_fast_path',
+  });
 
   return {
     ...created,
-    automation_mode: 'generate_inject_publish',
-    workflow_job: workflowJob,
-    workflow_job_status_path: `/api/workflows/run/${encodeURIComponent(workflowJob.job_id)}`,
+    automation_mode: 'code_first_generate_reel',
+    legacy_workflow_key: String(workflowKey || DEFAULT_ABSTRACT_IDEA_WORKFLOW_KEY).trim() || DEFAULT_ABSTRACT_IDEA_WORKFLOW_KEY,
+    pipeline_run: pipelineRun,
+    pipeline_run_status_path: `/api/pipeline-runs/${encodeURIComponent(pipelineRun.pipeline_run_id)}`,
   };
 }
 
 async function createTopicFromAbstractIdeaAndStartWorkflowV2(abstractIdea, options = {}) {
   await assertNoBlockingReelCandidates();
   const created = await createTopicFromAbstractIdeaV2(abstractIdea, options);
-  const workflowJob = startWorkflowJob('wf_end_to_end_reel_generate_and_publish_v2');
+  const pipelineRun = await createPipelineRun(pool, {
+    contentId: created.topic.content_id,
+    requestedAction: 'generate_reel',
+    reelType: options.reel_type ?? options.reelType ?? created.topic.reel_type,
+    source: 'studio_abstract_idea_v2_fast_path',
+  });
 
   return {
     ...created,
-    automation_mode: 'generate_inject_publish_v2',
-    workflow_job: workflowJob,
-    workflow_job_status_path: `/api/workflows/run/${encodeURIComponent(workflowJob.job_id)}`,
+    automation_mode: 'code_first_generate_reel_v2',
+    legacy_workflow_key: 'wf_end_to_end_reel_generate_and_publish_v2',
+    pipeline_run: pipelineRun,
+    pipeline_run_status_path: `/api/pipeline-runs/${encodeURIComponent(pipelineRun.pipeline_run_id)}`,
   };
 }
 
@@ -1285,6 +1420,15 @@ async function ensurePublishApprovalSchema(clientOrPool = pool) {
 
 async function ensureClientAccountContextSchema(clientOrPool = pool) {
   await clientOrPool.query(CLIENT_ACCOUNT_CONTEXT_SCHEMA_SQL);
+}
+
+async function ensurePipelineSchemaForPool() {
+  const client = await pool.connect();
+  try {
+    await ensurePipelineSchema(client);
+  } finally {
+    client.release();
+  }
 }
 
 function firstNonEmptyString(...values) {
@@ -1729,13 +1873,18 @@ async function readEnvConfig() {
       id: section.id,
       title: section.title,
       description: section.description,
-      fields: section.fields.map((item) => ({
-        key: item.key,
-        label: item.label,
-        description: item.description,
-        examples: item.examples,
-        value: parsed.values[item.key] ?? '',
-      })),
+      fields: section.fields.map((item) => {
+        const sensitive = isSensitiveConfigKey(item.key);
+        const rawValue = parsed.values[item.key] ?? '';
+        return {
+          key: item.key,
+          label: item.label,
+          description: item.description,
+          examples: item.examples,
+          sensitive,
+          value: sensitive && rawValue ? SECRET_VALUE_MASK : rawValue,
+        };
+      }),
     })),
   };
 }
@@ -1745,6 +1894,9 @@ async function updateEnvConfig(updates) {
   for (const section of CONFIG_SECTIONS) {
     for (const item of section.fields) {
       if (item.key in updates) {
+        if (isSensitiveConfigKey(item.key) && String(updates[item.key] ?? '') === SECRET_VALUE_MASK) {
+          continue;
+        }
         sanitized[item.key] = updates[item.key];
       }
     }
@@ -1758,11 +1910,13 @@ async function updateEnvConfig(updates) {
 async function listTopics(limit = 25) {
   await ensurePublishApprovalSchema();
   await ensureClientAccountContextSchema();
+  await ensurePipelineSchemaForPool();
   const result = await pool.query(
     `select
       ci.content_id,
       ci.slug,
       ci.title,
+      ci.reel_type,
       coalesce(ci.category, '') as category,
       coalesce(ci.brand_profile, '') as brand_profile,
       ci.status,
@@ -1786,6 +1940,11 @@ async function listTopics(limit = 25) {
       coalesce(failed_run.workflow_name, '') as latest_failed_workflow_name,
       coalesce(failed_run.error_message, '') as latest_failed_error_message,
       failed_run.ended_at as latest_failed_at,
+      latest_pipeline.pipeline_run_id as latest_pipeline_run_id,
+      coalesce(latest_pipeline.requested_action, '') as latest_pipeline_action,
+      coalesce(latest_pipeline.reel_type, '') as latest_pipeline_reel_type,
+      coalesce(latest_pipeline.status, '') as latest_pipeline_status,
+      coalesce(latest_pipeline.current_stage, '') as latest_pipeline_stage,
       (
         select coalesce(sum(((wr.details_json->'cost'->>'total_usd')::float)), 0)
         from workflow_runs wr
@@ -1811,6 +1970,18 @@ async function listTopics(limit = 25) {
       order by coalesce(wr.ended_at, wr.started_at) desc
       limit 1
     ) failed_run on true
+    left join lateral (
+      select
+        pr.pipeline_run_id,
+        pr.requested_action,
+        pr.reel_type,
+        pr.status,
+        pr.current_stage
+      from pipeline_runs pr
+      where pr.content_id = ci.content_id
+      order by pr.created_at desc
+      limit 1
+    ) latest_pipeline on true
     order by ci.updated_at desc
     limit $1`,
     [Math.max(1, Math.min(Number(limit) || 25, 100))],
@@ -2220,6 +2391,10 @@ async function createTopic(payload) {
   }
   const category = String(payload.category || 'general').trim() || 'general';
   const confidenceLabel = String(payload.confidence_label || 'unverified').trim() || 'unverified';
+  const reelType = normalizeReelTypeForRequest(
+    payload.reel_type ?? payload.reelType ?? payload.source_payload_json?.reel_type,
+    { fallback: getDefaultReelType() },
+  );
   const rawTargetDuration = String(payload.target_duration_seconds || topicDurationConfig.defaultValue).trim();
   const targetDurationSeconds = Number.parseInt(rawTargetDuration, 10);
   if (!Number.isFinite(targetDurationSeconds)) {
@@ -2243,6 +2418,7 @@ async function createTopic(payload) {
   const clientAccountContextRef = buildClientAccountContextRef(clientAccountContext);
 
   const sourcePayloadJson = {
+    reel_type: reelType,
     source_urls: Array.isArray(payload.source_urls) ? payload.source_urls.filter(Boolean) : parseTextareaLines(payload.source_urls),
     summary: String(payload.summary || '').trim(),
     notes: Array.isArray(payload.notes) ? payload.notes.filter(Boolean) : parseTextareaLines(payload.notes),
@@ -2285,11 +2461,13 @@ async function createTopic(payload) {
   try {
     await client.query('begin');
     await ensureClientAccountContextSchema(client);
+    await ensurePipelineSchema(client);
     const result = await client.query(
       `insert into content_items (
         title,
         slug,
         category,
+        reel_type,
         confidence_label,
         target_duration_seconds,
         brand_profile,
@@ -2303,15 +2481,17 @@ async function createTopic(payload) {
         $4,
         $5,
         $6,
-        $7::jsonb,
+        $7,
+        $8::jsonb,
         'idea_approved',
         now()
       )
-      returning content_id, title, slug, category, confidence_label, target_duration_seconds, brand_profile, status, created_at, updated_at`,
+      returning content_id, title, slug, category, reel_type, confidence_label, target_duration_seconds, brand_profile, status, created_at, updated_at`,
       [
         title,
         slug,
         category,
+        reelType,
         confidenceLabel,
         targetDurationSeconds,
         clientAccountContext.brand_policy.brand_profile,
@@ -2608,7 +2788,42 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === 'GET' && url.pathname === '/api/workflows') {
-    sendJson(response, 200, { workflows: WORKFLOWS });
+    sendJson(response, 200, {
+      workflows: WORKFLOWS,
+      pipeline_actions: Object.entries(PIPELINE_ACTION_LABELS).map(([key, label]) => ({ key, label })),
+      reel_types: REEL_TYPES.map((key) => ({
+        key,
+        label: REEL_TYPE_LABELS[key] || key,
+        default: key === getDefaultReelType(),
+        ...(key === 'avatar' ? { setup: avatarRuntimeRequirements() } : {}),
+      })),
+    });
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/pipeline-runs') {
+    sendJson(response, 200, { pipeline_runs: await listPipelineRuns(pool, { limit: url.searchParams.get('limit') }) });
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/pipeline-runs') {
+    const body = await parseJsonBody(request);
+    const pipelineRun = await createPipelineRun(pool, {
+      contentId: body.content_id,
+      requestedAction: body.requested_action || 'generate_reel',
+      reelType: body.requested_action === 'publish_approved_reel'
+        ? null
+        : normalizeReelTypeForRequest(body.reel_type ?? body.reelType, { fallback: getDefaultReelType() }),
+      source: 'studio_api',
+      requestedBy: body.requested_by || '',
+    });
+    sendJson(response, pipelineRun.existing ? 200 : 202, { pipeline_run: pipelineRun });
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname.startsWith('/api/pipeline-runs/')) {
+    const pipelineRunId = decodeURIComponent(url.pathname.slice('/api/pipeline-runs/'.length).trim());
+    sendJson(response, 200, { pipeline_run: await getPipelineRunById(pool, pipelineRunId, { includeEvents: true }) });
     return;
   }
 
@@ -2694,6 +2909,7 @@ async function handleApi(request, response, url) {
       await createTopicFromAbstractIdeaAndStartWorkflow(
         payload.abstractIdea,
         payload.workflowKey || DEFAULT_ABSTRACT_IDEA_WORKFLOW_KEY,
+        { reel_type: payload.reelType },
       ),
     );
     return;

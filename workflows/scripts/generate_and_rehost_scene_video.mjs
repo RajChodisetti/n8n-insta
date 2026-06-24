@@ -2,6 +2,7 @@
 
 import crypto from 'node:crypto';
 import { uploadBinaryAsset } from './asset_host_adapters.mjs';
+import { selectVideoApiKey } from './adapter_config.mjs';
 import { computeVideoCost } from './cost_calculator.mjs';
 
 function fail(message) {
@@ -69,7 +70,7 @@ function sha256Hex(input) {
 }
 
 async function generateWanVideo(prompt, scene) {
-  const apiKey = ensureString('FAL_AI_API_KEY', process.env.FAL_AI_API_KEY || process.env.FAL_API_KEY);
+  const apiKey = ensureString('SCENE_VIDEO_FAL_AI_API_KEY or FAL_AI_API_KEY', selectVideoApiKey('scene_video', 'fal_ai'));
   const model = normalizeWanModel(process.env.WAN_VIDEO_MODEL || 'fal-ai/wan-t2v');
   const numFrames = Number.parseInt(String(process.env.WAN_VIDEO_NUM_FRAMES || '81'), 10);
   const frameRate = Number.parseInt(String(process.env.WAN_VIDEO_FRAME_RATE || '16'), 10);

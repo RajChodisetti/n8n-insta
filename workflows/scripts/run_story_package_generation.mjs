@@ -5,7 +5,15 @@ import { invokeStructuredTextStage } from './invoke_structured_text_adapter.mjs'
 import { mapStoryPackageV2ToLegacyResponse } from './story_package_v2_compat.mjs';
 
 const require = createRequire(import.meta.url);
-const { Client } = require('/usr/local/lib/node_modules/n8n/node_modules/pg');
+function loadPgModule() {
+  try {
+    return require('/usr/local/lib/node_modules/n8n/node_modules/pg');
+  } catch {
+    return require('pg');
+  }
+}
+const { Client } = loadPgModule();
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CLIENT_ACCOUNT_CONTEXT_SCHEMA_SQL = `
 create table if not exists client_account_contexts (
   account_context_id uuid primary key default gen_random_uuid(),
@@ -326,6 +334,10 @@ async function main() {
   await client.connect();
   try {
     await client.query(CLIENT_ACCOUNT_CONTEXT_SCHEMA_SQL);
+    const targetContentId = String(process.env.CODE_PIPELINE_CONTENT_ID || process.env.PIPELINE_CONTENT_ID || '').trim();
+    if (targetContentId && !UUID_PATTERN.test(targetContentId)) {
+      fail(`CODE_PIPELINE_CONTENT_ID must be a valid UUID when provided. Received: ${targetContentId}.`);
+    }
     const claim = await client.query(`
       with candidate as materialized (
         select
@@ -338,7 +350,10 @@ async function main() {
           coalesce(cac.context_snapshot_json, ci.source_payload_json->'client_account_context', '{}'::jsonb) as client_account_context
         from content_items ci
         left join content_account_contexts cac on cac.content_id = ci.content_id
-        where ci.status = 'idea_approved'
+        where (
+            ($1::uuid is null and ci.status = 'idea_approved')
+            or ($1::uuid is not null and ci.content_id = $1::uuid and ci.status in ('idea_approved', 'scripting'))
+          )
         order by ci.created_at asc
         limit 1
       ), claim as (
@@ -346,13 +361,16 @@ async function main() {
         set status = 'scripting',
             updated_at = now()
         where ci.content_id = (select content_id from candidate)
-          and ci.status = 'idea_approved'
+          and (
+            ci.status = 'idea_approved'
+            or ($1::uuid is not null and ci.status = 'scripting')
+          )
         returning ci.content_id
       )
       select c.*
       from candidate c
       join claim cl on cl.content_id = c.content_id
-    `);
+    `, [targetContentId || null]);
     if (claim.rowCount === 0) {
       fail('No idea_approved content item is available for story package generation.');
     }

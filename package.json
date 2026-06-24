@@ -1,0 +1,24 @@
+{
+  "name": "n8n-insta",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Instagram AI storytelling pipeline runtime and code-first orchestration worker.",
+  "scripts": {
+    "studio": "node studio-ui/server.mjs",
+    "worker": "node pipeline/worker.mjs",
+    "check": "node --check studio-ui/server.mjs && node --check pipeline/worker.mjs && node --check pipeline/stages.mjs && node --check pipeline/runs.mjs && node --check infra/remotion-renderer/server.mjs && node scripts/test_pipeline_reel_type_plans.mjs && node scripts/test_provider_key_resolution.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.481",
+    "@remotion/cli": "^4.0.481",
+    "@remotion/renderer": "^4.0.481",
+    "pg": "^8.13.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "remotion": "^4.0.481"
+  }
+}

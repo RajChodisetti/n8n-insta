@@ -16,6 +16,7 @@ import crypto from 'node:crypto';
 import { loadRenderedPromptAsset } from './prompt_utils.mjs';
 import { generateImageAsset } from './image_generation_adapters.mjs';
 import { uploadBinaryAsset } from './asset_host_adapters.mjs';
+import { selectVideoApiKey } from './adapter_config.mjs';
 import { getSceneImageRelevanceGuard, getSceneImageTextGuard } from './prompt_hard_rules.mjs';
 import { resolveStagePromptTemplateData } from './prompt_stage_defaults.mjs';
 import { computeImageCost, computeVideoCost } from './cost_calculator.mjs';
@@ -314,7 +315,7 @@ function objectKeyForSceneVideo(contentId, title, sceneNumber) {
 }
 
 async function generateWanVideo(videoPrompt) {
-  const apiKey = ensureString('FAL_AI_API_KEY', process.env.FAL_AI_API_KEY || process.env.FAL_API_KEY);
+  const apiKey = ensureString('SCENE_VIDEO_FAL_AI_API_KEY or FAL_AI_API_KEY', selectVideoApiKey('scene_video', 'fal_ai'));
   const model = normalizeWanModel(process.env.WAN_VIDEO_MODEL || 'fal-ai/wan-t2v');
   const numFrames = Number.parseInt(String(process.env.WAN_VIDEO_NUM_FRAMES || '81'), 10);
   const frameRate = Number.parseInt(String(process.env.WAN_VIDEO_FRAME_RATE || '16'), 10);
@@ -371,7 +372,7 @@ async function generateWanVideo(videoPrompt) {
 }
 
 async function generateWanReferenceVideo(videoPrompt, scene, characterReference) {
-  const apiKey = ensureString('FAL_AI_API_KEY', process.env.FAL_AI_API_KEY || process.env.FAL_API_KEY);
+  const apiKey = ensureString('WAN_REFERENCE_VIDEO_FAL_AI_API_KEY, SCENE_VIDEO_FAL_AI_API_KEY, or FAL_AI_API_KEY', selectVideoApiKey('wan_reference_video', 'fal_ai'));
   const model = normalizeWanReferenceModel(process.env.WAN_REFERENCE_VIDEO_MODEL || 'fal-ai/wan/v2.7/reference-to-video');
   const resolution = String(process.env.WAN_VIDEO_RESOLUTION || '720p').trim();
   const duration = clampSceneVideoDurationSeconds(scene?.duration_seconds, 5);

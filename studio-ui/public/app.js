@@ -1,5 +1,6 @@
 const state = {
   workflows: [],
+  reelTypes: [],
   promptFiles: [],
   selectedPromptPath: '',
   selectedPromptMeta: null,
@@ -20,6 +21,15 @@ const state = {
 };
 
 const RECOMMENDED_WORKFLOW_KEY = 'wf_end_to_end_reel_generate_and_publish';
+
+function reelTypeLabel(value) {
+  const normalized = String(value || 'video').trim().toLowerCase() || 'video';
+  return state.reelTypes.find((item) => item.key === normalized)?.label || {
+    image: 'Image Reel',
+    video: 'Video Reel',
+    avatar: 'Avatar Video',
+  }[normalized] || normalized;
+}
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -66,6 +76,25 @@ function getCharacterReferenceFields(form) {
     characterName: String(form?.querySelector('[name="character_name"]')?.value || '').trim(),
     characterDescription: String(form?.querySelector('[name="character_description"]')?.value || '').trim(),
   };
+}
+
+function getSelectedReelType(form) {
+  const value = String(new FormData(form).get('reel_type') || 'video').trim().toLowerCase();
+  return ['image', 'video', 'avatar'].includes(value) ? value : 'video';
+}
+
+function renderReelTypeSetupNotes() {
+  const avatarType = state.reelTypes.find((item) => item.key === 'avatar');
+  const missing = avatarType?.setup?.missing_env || [];
+  const note = avatarType && missing.length
+    ? `Avatar Video needs ${missing.join(', ')} plus consent policy before provider calls.`
+    : avatarType
+      ? 'Avatar Video also requires avatar_allowed policy and consent metadata.'
+      : '';
+  ['abstract-avatar-setup-note', 'topic-avatar-setup-note'].forEach((id) => {
+    const element = document.getElementById(id);
+    if (element) element.textContent = note;
+  });
 }
 
 function readFileAsDataUrl(file) {
@@ -151,6 +180,7 @@ function renderStatusPill(value, emptyLabel = '—') {
     tone = 'danger';
   } else if (
     normalized.includes('pending')
+    || normalized.includes('awaiting')
     || normalized.includes('generating')
     || normalized.includes('scripting')
     || normalized.includes('storyboarding')
@@ -213,6 +243,41 @@ async function pollWorkflowJob(jobId) {
     }
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+}
+
+async function pollPipelineRun(pipelineRunId) {
+  while (true) {
+    const payload = await api(`/api/pipeline-runs/${encodeURIComponent(pipelineRunId)}`);
+    const run = payload.pipeline_run || {};
+    const steps = Array.isArray(run.steps) ? run.steps : [];
+    const events = Array.isArray(run.events) ? run.events : [];
+    const stepLines = steps.map((step) => (
+      `${step.stage_order}. ${step.stage_key}: ${step.step_status}${step.error_message ? ` — ${step.error_message}` : ''}`
+    ));
+    const eventLines = events.slice(-8).map((event) => (
+      `${new Date(event.created_at).toLocaleTimeString()} ${event.event_level || 'info'} ${event.stage_key || event.event_type}: ${event.message}`
+    ));
+    setText(
+      'workflow-output',
+      [
+        `Code pipeline: ${run.requested_action}`,
+        `reel_type: ${reelTypeLabel(run.reel_type || run.content_reel_type || 'video')}`,
+        `run: ${run.pipeline_run_id}`,
+        `status: ${run.status}`,
+        run.current_stage ? `current_stage: ${run.current_stage}` : '',
+        run.last_error ? `error: ${run.last_error}` : '',
+        stepLines.length ? `steps:\n${stepLines.join('\n')}` : '',
+        eventLines.length ? `events:\n${eventLines.join('\n')}` : '',
+      ].filter(Boolean).join('\n\n'),
+    );
+
+    if (['awaiting_approval', 'completed', 'failed', 'cancelled'].includes(String(run.status || ''))) {
+      await loadTopics();
+      return run;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 }
 
@@ -288,7 +353,12 @@ function renderConfig(payload) {
                   aria-label="${escapeHtml(field.label)} help"
                 >?</button>
               </span>
-              <input data-config-key="${escapeHtml(field.key)}" value="${escapeHtml(field.value || '')}">
+              <input
+                data-config-key="${escapeHtml(field.key)}"
+                type="${field.sensitive ? 'password' : 'text'}"
+                autocomplete="off"
+                value="${escapeHtml(field.value || '')}"
+              >
               <small>${escapeHtml(field.description)}</small>
               ${renderFieldExamples(field)}
             </label>
@@ -518,7 +588,7 @@ async function loadTopics() {
   if (!payload.topics.length) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="8" class="table-empty-cell">
+        <td colspan="9" class="table-empty-cell">
           <div class="placeholder-empty">No pipeline items yet.</div>
         </td>
       </tr>
@@ -535,6 +605,10 @@ async function loadTopics() {
     const approvalStatus = topic.approval_status
       ? `${topic.approval_status}${topic.approval_qa_status ? ` / ${topic.approval_qa_status}` : ''}`
       : '';
+    const pipelineStatus = topic.latest_pipeline_status
+      ? `${topic.latest_pipeline_status}${topic.latest_pipeline_stage ? ` / ${topic.latest_pipeline_stage}` : ''}`
+      : '';
+    const reelType = topic.reel_type || topic.latest_pipeline_reel_type || 'video';
     const canApprove = topic.status === 'render_complete'
       && topic.render_status === 'success'
       && topic.output_video_url
@@ -544,10 +618,13 @@ async function loadTopics() {
     <tr data-topic-row="${escapeHtml(topic.content_id)}">
       <td>
         <strong>${escapeHtml(topic.title)}</strong>
-        <div class="subline">${escapeHtml(topic.slug)}</div>
+        <div class="subline">${escapeHtml(topic.slug)} • ${escapeHtml(reelTypeLabel(reelType))}</div>
         ${failureDetails}
       </td>
-      <td>${renderStatusPill(topic.status)}</td>
+      <td>
+        ${renderStatusPill(topic.status)}
+        ${pipelineStatus ? `<div class="subline">Pipeline: ${renderStatusPill(pipelineStatus)}</div>` : ''}
+      </td>
       <td>${escapeHtml(topic.category || '—')}</td>
       <td>${renderStatusPill(topic.render_status)}</td>
       <td>
@@ -767,6 +844,8 @@ async function toggleReelCosts(contentId, button) {
 
 async function loadWorkflows() {
   const payload = await api('/api/workflows');
+  state.reelTypes = Array.isArray(payload.reel_types) ? payload.reel_types : [];
+  renderReelTypeSetupNotes();
   state.workflows = [...payload.workflows].sort((left, right) => {
     if (left.key === RECOMMENDED_WORKFLOW_KEY) {
       return -1;
@@ -890,7 +969,7 @@ async function saveConfig() {
   });
   renderConfig(payload);
   applyTopicFormConfig(payload.topic_form);
-  setText('config-status', 'Saved. Recreate n8n, render-worker, and studio-ui before relying on changed env values.');
+  setText('config-status', 'Saved. Recreate studio-ui, pipeline-worker, and remotion-renderer before relying on changed env values.');
 }
 
 async function submitAbstractIdeaForm(event) {
@@ -907,14 +986,15 @@ async function submitAbstractIdea(useV2 = false) {
   }
 
   const pendingLabel = useV2
-    ? 'Generating payload, injecting, and starting V2 workflow...'
-    : 'Generating payload, injecting, and starting workflow...';
+    ? 'Generating payload, injecting, and queueing the V2 code pipeline...'
+    : 'Generating payload, injecting, and queueing the code pipeline...';
   setText('abstract-idea-status', pendingLabel);
   const characterReference = await uploadCharacterReferenceFromForm(form, 'abstract-idea-status', pendingLabel);
   const payload = await api(useV2 ? '/api/ideas/auto-publish-v2' : '/api/ideas/auto-publish', {
     method: 'POST',
     body: JSON.stringify({
       abstract_idea: abstractIdea,
+      reel_type: getSelectedReelType(form),
       workflow_key: useV2 ? 'wf_end_to_end_reel_generate_and_publish_v2' : RECOMMENDED_WORKFLOW_KEY,
       character_reference: characterReference,
     }),
@@ -938,11 +1018,25 @@ async function submitAbstractIdea(useV2 = false) {
   setText(
     'abstract-idea-status',
     useV2
-      ? `Created ${payload.topic?.title || 'topic'}${payload.generation_model ? ` with ${payload.generation_model}` : ''}, and queued the V2 premium story-package workflow.`
-      : `Created ${payload.topic?.title || 'topic'}${payload.generation_model ? ` with ${payload.generation_model}` : ''}, built the prompt profile${payload.prompt_profile_generation_model ? ` with ${payload.prompt_profile_generation_model}` : ''}, and queued the one-click workflow.`,
+      ? `Created ${payload.topic?.title || 'topic'}${payload.generation_model ? ` with ${payload.generation_model}` : ''}, and queued the V2 code pipeline.`
+      : `Created ${payload.topic?.title || 'topic'}${payload.generation_model ? ` with ${payload.generation_model}` : ''}, built the prompt profile${payload.prompt_profile_generation_model ? ` with ${payload.prompt_profile_generation_model}` : ''}, and queued the code pipeline.`,
   );
   form.reset();
   await loadTopics();
+
+  if (payload.pipeline_run?.pipeline_run_id) {
+    const finalRun = await pollPipelineRun(payload.pipeline_run.pipeline_run_id);
+    if (finalRun?.status === 'awaiting_approval') {
+      setText('abstract-idea-status', `Code pipeline reached approval for ${payload.topic?.title || 'the new Reel'}. Approve the selected render before publish.`);
+      return;
+    }
+    if (finalRun?.status === 'completed') {
+      setText('abstract-idea-status', `Code pipeline completed for ${payload.topic?.title || 'the new Reel'}.`);
+      return;
+    }
+    setText('abstract-idea-status', `Created ${payload.topic?.title || 'the new Reel'}, but the code pipeline failed. Inspect the pipeline output below.`);
+    return;
+  }
 
   if (payload.workflow_job?.job_id) {
     const finalJob = await pollWorkflowJob(payload.workflow_job.job_id);

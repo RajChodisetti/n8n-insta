@@ -3,7 +3,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { providerNotImplemented, selectTextProvider } from './adapter_config.mjs';
+import { providerNotImplemented, selectTextApiKey, selectTextProvider } from './adapter_config.mjs';
 import { getPromptBuilderHardRules } from './prompt_hard_rules.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -291,9 +291,9 @@ async function loadRenderedPromptAssetInternal(relativePath, templateData = {}, 
 }
 
 async function invokeOpenAiStructuredRequest(request) {
-  const apiKey = String(process.env.OPENAI_API_KEY || process.env.LLL_API_KEY || '').trim();
+  const apiKey = String(selectTextApiKey('prompt_builder', 'openai')).trim();
   if (!apiKey) {
-    throw new Error('Set OPENAI_API_KEY in the repo-root .env before using the runtime prompt builder. For backward compatibility, LLL_API_KEY is also accepted.');
+    throw new Error('Set PROMPT_BUILDER_OPENAI_API_KEY, TEXT_OPENAI_API_KEY, or OPENAI_API_KEY before using the runtime prompt builder. For backward compatibility, LLL_API_KEY is also accepted.');
   }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {

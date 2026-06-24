@@ -2,7 +2,7 @@
 
 import { buildStageRequest } from './build_prompt_request.mjs';
 import { decodeBase64JsonArg } from './prompt_utils.mjs';
-import { providerNotImplemented } from './adapter_config.mjs';
+import { providerNotImplemented, selectTextApiKey } from './adapter_config.mjs';
 import { computeLlmCost } from './cost_calculator.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -94,10 +94,10 @@ const RESPONSE_KEYS = {
   },
 };
 
-async function invokeOpenAi(request) {
-  const apiKey = String(process.env.OPENAI_API_KEY || process.env.LLL_API_KEY || '').trim();
+async function invokeOpenAi(request, stageKey) {
+  const apiKey = String(selectTextApiKey(stageKey, 'openai')).trim();
   if (!apiKey) {
-    fail('Set OPENAI_API_KEY in the repo-root .env before running the text generation workflows. For backward compatibility, LLL_API_KEY is also accepted.');
+    fail(`Set ${stageKey.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_OPENAI_API_KEY, TEXT_OPENAI_API_KEY, or OPENAI_API_KEY before running text stage '${stageKey}'. For backward compatibility, LLL_API_KEY is also accepted.`);
   }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -163,7 +163,7 @@ export async function invokeStructuredTextStage(stageKey, payload) {
   const provider = String(request.provider || built.llm_provider || 'openai').trim().toLowerCase();
   let result;
   if (provider === 'openai') {
-    result = await invokeOpenAi(request);
+    result = await invokeOpenAi(request, stageKey);
   } else {
     providerNotImplemented('text generation', provider, stageKey);
   }

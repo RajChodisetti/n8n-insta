@@ -4,10 +4,10 @@ This page documents the local browser UI for operating the pipeline.
 
 The UI is meant to cover the common local tasks without opening raw workflow JSON:
 
-- inject a new idea into the first pipeline step
+- inject a new idea and choose `image`, `video`, or `avatar` reel type
 - edit prompt files under `prompts/`
 - tune env-backed placeholder defaults, timing guidance, models, providers, voice, and host settings
-- launch one-click or individual workflows
+- queue code-first pipeline runs or launch legacy n8n fallback workflows
 - inspect recent pipeline items
 
 ## Start the UI
@@ -15,7 +15,7 @@ The UI is meant to cover the common local tasks without opening raw workflow JSO
 Bring the stack up with the new `studio-ui` service:
 
 ```bash
-docker compose --env-file infra/.env -f infra/docker-compose.yml up -d postgres redis minio minio-bootstrap n8n render-worker studio-ui
+docker compose --env-file infra/.env -f infra/docker-compose.yml up -d postgres redis minio minio-bootstrap remotion-renderer studio-ui pipeline-worker
 ```
 
 Open:
@@ -39,6 +39,7 @@ The `New Idea` form writes a new row directly into `content_items` with:
 - `status = idea_approved`
 - `title`, `category`, `confidence_label`
 - `target_duration_seconds`
+- `reel_type`
 - `source_payload_json`
 
 The target-duration field is configurable through these `.env` keys:
@@ -53,7 +54,7 @@ Current repo defaults:
 - maximum: `180`
 - default: `45`
 
-That means the next run of `wf_research_and_script` or the one-click Reel workflow can claim it immediately.
+That means the code-first pipeline worker or a legacy fallback workflow can claim it immediately.
 
 ### Prompt files
 
@@ -87,9 +88,14 @@ These settings are now split into collapsible sections for:
 - Studio UI range/default settings
 - global prompt defaults like `CONTENT_LANGUAGE`
 - stage-specific placeholder defaults for research, storyboard, scene images, narration, captions, and post images
+- model/provider selectors for text, image, video, narration, render, and reel type defaults
+- masked provider API keys, including stage-specific keys; blank stage keys fall back to component/global provider keys and then fail before a provider call if no key exists
 - adapter and model selection in a separate section
 - asset-host, publish, and render-timing settings
+- default reel type, Remotion endpoint/stub mode, and HeyGen avatar placeholders
 - Google Cloud Storage hosting fields for GCS-backed public delivery
+
+Secret-like keys are masked in the UI. Leaving the mask unchanged on save should not overwrite the existing secret value.
 
 Each editable env field now includes:
 
@@ -103,14 +109,15 @@ Env-backed changes do require recreating the relevant containers before workflow
 After changing `.env` through the UI, recreate:
 
 ```bash
-docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --force-recreate n8n render-worker studio-ui
+docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --force-recreate studio-ui pipeline-worker remotion-renderer
 ```
 
 Why:
 
-- `studio-ui` needs the new env if you launch workflows from the browser
-- `n8n` needs the new env if you launch workflows from the n8n editor
-- `render-worker` needs the new env for render-related settings
+- `studio-ui` needs the new env for UI defaults and API enqueue behavior
+- `pipeline-worker` needs the new env for provider, render, and avatar stage behavior
+- `remotion-renderer` needs the new env for render-related settings
+- recreate `n8n` or `render-worker` too if you intentionally use legacy fallback paths
 
 Google Cloud Storage note:
 
@@ -182,7 +189,7 @@ These are now consumed directly in:
 Prompt editing note:
 
 - prompt file edits in the Studio UI are hot-loaded and apply on the next workflow run
-- `.env` edits in the Studio UI still require recreating `n8n`, `render-worker`, and `studio-ui`
+- `.env` edits in the Studio UI still require recreating `studio-ui`, `pipeline-worker`, and affected renderer/provider services
 - the prompt list now shows only the prompt files that are actively wired into the live workflows, so the visible caption prompt is the one used by `wf_caption_and_hashtags`
 
 ## Practical sequence
@@ -192,7 +199,7 @@ For prompt-tuning plus live pipeline use:
 1. Open the Studio UI.
 2. Edit the relevant prompt file.
 3. If needed, edit runtime defaults, model, provider, voice, or host settings.
-4. Recreate `n8n`, `render-worker`, and `studio-ui` if you changed `.env`.
+4. Recreate `studio-ui`, `pipeline-worker`, and affected renderer/provider services if you changed `.env`.
 5. Inject a new topic.
-6. Run `wf_end_to_end_reel_generate_and_publish` or run stages one by one.
+6. Queue the code-first pipeline from the fast path, or use legacy n8n workflows only as fallback.
 7. Check the `Recent Pipeline Items` table in the UI or validate in Postgres.

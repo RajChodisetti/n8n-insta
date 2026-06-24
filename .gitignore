@@ -6,10 +6,17 @@ infra/.env
 
 # Optional secrets directory
 secrets/
+sa-key.json
 
 # Local runtime artifacts
 .DS_Store
+node_modules/
+.claude/
+.env.bak.*
 infra/state/
 storage/
+logs/
+__pycache__/
+infra/render-worker/__pycache__/
 *.lock
 workflows/exports/

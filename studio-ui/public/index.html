@@ -7,82 +7,110 @@
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
-    <div class="page-shell">
-      <header class="hero">
-        <div>
-          <p class="eyebrow">Workflow Control Room</p>
-          <h1>n8n Insta Studio</h1>
-          <p class="hero-copy">
-            Turn one rough idea into a pipeline item, run the Reel workflow, approve the selected render, and adjust prompts or runtime settings only when you need to.
-          </p>
-        </div>
-        <div class="hero-aside">
-          <div class="hero-note" id="system-note">
-            Loading studio status...
-          </div>
-          <div class="hero-tip">
-            <strong>Best default path</strong>
-            <p>Use the abstract idea box first. It creates the topic row, builds the runtime prompt profile, and starts the one-click Reel workflow automatically.</p>
-          </div>
-        </div>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand-mark" href="#create" aria-label="n8n Insta Studio home">
+          <span class="brand-glyph" aria-hidden="true">IS</span>
+          <span>
+            <strong>Insta Studio</strong>
+            <small>AI Reel Control Plane</small>
+          </span>
+        </a>
+        <nav class="topnav" aria-label="Studio sections">
+          <a href="#create">Create</a>
+          <a href="#operate">Operate</a>
+          <a href="#prompts">Prompts</a>
+          <a href="#pipeline">Pipeline</a>
+        </nav>
+        <div class="system-status" id="system-note" aria-live="polite">Loading studio status...</div>
       </header>
 
-      <section class="overview-strip" aria-label="How to use the studio">
-        <article class="overview-card">
-          <span class="overview-step">1</span>
-          <strong>Start With One Idea</strong>
-          <p>Paste a rough idea. The studio generates the injection JSON, builds the placeholder profile, and starts the Reel flow for you.</p>
-        </article>
-        <article class="overview-card">
-          <span class="overview-step">2</span>
-          <strong>Run The Workflow</strong>
-          <p>The fast path auto-runs the one-click workflow. Use the workflow panel only when debugging or rerunning a specific step manually.</p>
-        </article>
-        <article class="overview-card">
-          <span class="overview-step">3</span>
-          <strong>Tune Only When Needed</strong>
-          <p>Edit prompt files or runtime settings after you have a concrete reason to change behavior.</p>
-        </article>
-        <article class="overview-card">
-          <span class="overview-step">4</span>
-          <strong>Track Progress</strong>
-          <p>Use the recent items table and workflow console to see what ran, what changed, and what is waiting.</p>
-        </article>
+      <section class="command-center" aria-labelledby="page-title">
+        <div class="command-copy">
+          <p class="eyebrow">Workflow Control Room</p>
+          <h1 id="page-title">Create, render, review, and publish AI Reels from one workspace.</h1>
+          <p class="hero-copy">Start with an idea, choose a reel type, track the code-first pipeline, tune provider settings, and approve the final render before publish.</p>
+          <div class="hero-actions">
+            <a class="button-link primary" href="#create">Start New Reel</a>
+            <a class="button-link secondary" href="#pipeline">Review Pipeline</a>
+          </div>
+        </div>
+        <div class="command-metrics" aria-label="Pipeline checkpoints">
+          <article class="metric-card">
+            <span class="metric-step">Input</span>
+            <strong>Idea</strong>
+            <small>Fast path or manual topic</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-step">Build</span>
+            <strong>Assets</strong>
+            <small>Image, video, or avatar</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-step">Render</span>
+            <strong>Remotion</strong>
+            <small>Approval-gated output</small>
+          </article>
+          <article class="metric-card">
+            <span class="metric-step">Publish</span>
+            <strong>Safe</strong>
+            <small>Manual approval required</small>
+          </article>
+        </div>
       </section>
 
-      <main class="grid">
-        <section class="panel panel-wide">
+      <main class="workspace">
+        <section class="panel panel-wide" id="create">
           <div class="panel-header">
             <div>
-              <p class="panel-kicker">Step 1</p>
-              <h2>New Idea</h2>
-          <p>Most users should use the fast path. It runs from abstract idea through render, then waits for selected-render approval before publish. The manual form is only for cases where you want to inject a topic row without auto-running the workflow.</p>
+              <p class="panel-kicker">Create</p>
+              <h2>New Reel</h2>
+              <p>Use the fast path for normal runs. Manual topic entry is available for controlled test cases.</p>
             </div>
           </div>
+
           <div class="idea-layout">
-            <section class="mode-card mode-card-primary">
+            <section class="mode-card mode-card-primary" aria-labelledby="fast-path-title">
               <div class="mode-head">
                 <div>
                   <span class="mode-badge">Recommended</span>
-                  <h3>Fast Path: Abstract Idea</h3>
-                  <p>Paste one rough idea. The studio will generate the topic injection JSON, create the runtime prompt profile, insert the `idea_approved` row, and immediately continue through the one-click Reel workflow.</p>
+                  <h3 id="fast-path-title">Fast Path</h3>
+                  <p>Generate the topic payload, insert the content row, and queue the code-first Reel pipeline.</p>
                 </div>
               </div>
               <form id="abstract-idea-form" class="quick-idea-form">
                 <label class="span-2">
                   <span>Abstract Idea</span>
-                  <textarea name="abstract_idea" rows="4" placeholder="Example: a village that disappears under water for decades and reappears in a drought, told like a memory-and-history mystery."></textarea>
+                  <textarea name="abstract_idea" rows="4" placeholder="Example: a village that disappears under water for decades and reappears in a drought."></textarea>
                 </label>
+
+                <fieldset class="reel-type-selector span-2">
+                  <legend>Reel Type</legend>
+                  <label>
+                    <input type="radio" name="reel_type" value="image">
+                    <span>Image Reel</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="reel_type" value="video" checked>
+                    <span>Video Reel</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="reel_type" value="avatar">
+                    <span>Avatar Video</span>
+                  </label>
+                  <small id="abstract-avatar-setup-note"></small>
+                </fieldset>
+
                 <section class="character-reference-card span-2" aria-label="Optional primary character reference">
                   <div class="character-reference-copy">
-                    <strong>Optional Character Reference For Video Consistency</strong>
-                    <p>Upload one clear image of the recurring main character. The premium video path will use it only on scenes where that character is visibly present.</p>
+                    <strong>Character Reference</strong>
+                    <p>Optional image for scenes that need recurring character consistency.</p>
                   </div>
                   <div class="character-reference-grid">
                     <label class="span-2">
                       <span>Character Image</span>
                       <input id="abstract-character-reference-file" type="file" accept="image/png,image/jpeg,image/webp">
-                      <small>JPEG, PNG, or WebP. Keep it to one clean character view.</small>
+                      <small>JPEG, PNG, or WebP. Use one clean character view.</small>
                     </label>
                     <label>
                       <span>Character Name</span>
@@ -90,26 +118,29 @@
                     </label>
                     <label>
                       <span>Character Notes</span>
-                      <input name="character_description" placeholder="Example: blue-eyed child robot with a brass faceplate">
+                      <input name="character_description" placeholder="Example: blue-eyed robot with a brass faceplate">
                     </label>
                   </div>
                 </section>
+
                 <div class="form-actions span-2">
-                  <button type="submit" class="primary">Generate + Inject + Run</button>
-                  <button type="button" class="secondary" id="abstract-idea-v2">Generate + Inject + Run Video</button>
-                  <span class="inline-status" id="abstract-idea-status"></span>
+                  <button type="submit" class="primary">Generate + Run</button>
+                  <button type="button" class="secondary" id="abstract-idea-v2">Run Video Path</button>
+                  <span class="inline-status" id="abstract-idea-status" aria-live="polite"></span>
                 </div>
-                <p class="mode-note span-2">Webhook entrypoint: <code>POST /webhooks/abstract-idea</code> with JSON like <code>{"abstract_idea":"your idea"}</code> or a plain text body.</p>
+
+                <p class="mode-note span-2">Webhook: <code>POST /webhooks/abstract-idea</code></p>
+
                 <div class="result-grid span-2">
                   <label class="result-card">
                     <span>Generated Injection JSON</span>
-                    <small>Review the content item fields that were inserted.</small>
-                    <textarea id="abstract-idea-json" rows="10" spellcheck="false" placeholder="The generated topic injection payload will appear here." readonly></textarea>
+                    <small>Content item fields inserted by the fast path.</small>
+                    <textarea id="abstract-idea-json" rows="10" spellcheck="false" placeholder="Generated topic injection payload appears here." readonly></textarea>
                   </label>
                   <label class="result-card">
                     <span>Generated Prompt Profile</span>
-                    <small>These are the per-stage placeholder overrides that will be applied at runtime.</small>
-                    <textarea id="abstract-idea-prompt-profile" rows="12" spellcheck="false" placeholder="The generated per-stage placeholder overrides will appear here." readonly></textarea>
+                    <small>Per-stage placeholder overrides for this run.</small>
+                    <textarea id="abstract-idea-prompt-profile" rows="12" spellcheck="false" placeholder="Generated per-stage placeholder overrides appear here." readonly></textarea>
                   </label>
                 </div>
               </form>
@@ -118,8 +149,8 @@
             <details class="mode-card mode-card-advanced">
               <summary>
                 <span>
-                  <strong>Advanced: Manual Topic Form</strong>
-                  <small>Open this only when you want to enter every field yourself.</small>
+                  <strong>Manual Topic</strong>
+                  <small>Inject a topic row without queueing the fast path.</small>
                 </span>
               </summary>
               <form id="topic-form" class="topic-form">
@@ -145,13 +176,31 @@
                   <span>Target Duration</span>
                   <input name="target_duration_seconds" type="number" min="15" max="180" value="45" step="1">
                 </label>
+
+                <fieldset class="reel-type-selector span-2">
+                  <legend>Reel Type</legend>
+                  <label>
+                    <input type="radio" name="reel_type" value="image">
+                    <span>Image Reel</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="reel_type" value="video" checked>
+                    <span>Video Reel</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="reel_type" value="avatar">
+                    <span>Avatar Video</span>
+                  </label>
+                  <small id="topic-avatar-setup-note"></small>
+                </fieldset>
+
                 <label class="span-2">
                   <span>Summary</span>
                   <textarea name="summary" rows="3" placeholder="One short paragraph that explains the story angle."></textarea>
                 </label>
                 <label class="span-2">
                   <span>Notes</span>
-                  <textarea name="notes" rows="5" placeholder="One note per line. These become the factual boundary for scripting."></textarea>
+                  <textarea name="notes" rows="5" placeholder="One note per line."></textarea>
                 </label>
                 <label class="span-2">
                   <span>Source URLs</span>
@@ -159,18 +208,19 @@
                 </label>
                 <label class="span-2">
                   <span>Context</span>
-                  <textarea name="context" rows="4" placeholder="Extra details, caveats, or constraints for this topic."></textarea>
+                  <textarea name="context" rows="4" placeholder="Extra details, caveats, or constraints."></textarea>
                 </label>
+
                 <section class="character-reference-card span-2" aria-label="Optional primary character reference">
                   <div class="character-reference-copy">
-                    <strong>Optional Character Reference For Video Consistency</strong>
-                    <p>Use this when the reel follows one recurring character and scenes 2+ should keep that character visually stable.</p>
+                    <strong>Character Reference</strong>
+                    <p>Optional reference for recurring character video consistency.</p>
                   </div>
                   <div class="character-reference-grid">
                     <label class="span-2">
                       <span>Character Image</span>
                       <input id="topic-character-reference-file" type="file" accept="image/png,image/jpeg,image/webp">
-                      <small>JPEG, PNG, or WebP. The upload is stored once and then passed through the video-generation workflow.</small>
+                      <small>JPEG, PNG, or WebP. The upload is stored once and passed through generation.</small>
                     </label>
                     <label>
                       <span>Character Name</span>
@@ -178,71 +228,74 @@
                     </label>
                     <label>
                       <span>Character Notes</span>
-                      <input name="character_description" placeholder="Example: school-age service robot with a copper shell">
+                      <input name="character_description" placeholder="Example: school-age robot with a copper shell">
                     </label>
                   </div>
                 </section>
+
                 <div class="form-actions span-2">
                   <button type="submit" class="primary">Inject Topic</button>
-                  <span class="inline-status" id="topic-status"></span>
+                  <span class="inline-status" id="topic-status" aria-live="polite"></span>
                 </div>
               </form>
             </details>
           </div>
         </section>
 
-        <section class="panel">
+        <section class="panel" id="operate">
           <div class="panel-header">
             <div>
-              <p class="panel-kicker">Step 2</p>
+              <p class="panel-kicker">Operate</p>
               <h2>Workflow Launcher</h2>
-              <p>Run the full pipeline when you want normal behavior. Use individual stages when something needs inspection or rerun.</p>
+              <p>Use stage runs for debugging or fallback inspection.</p>
             </div>
           </div>
           <div class="helper-card">
-            <strong>Default recommendation</strong>
-            <p>Use the one-click workflow first. Stage workflows are mainly for debugging, prompt testing, or resuming a stuck item.</p>
+            <strong>Default Path</strong>
+            <p>The fast path above queues the code-first pipeline. Launch individual workflows only when resuming or inspecting a stage.</p>
           </div>
           <div id="workflow-list" class="workflow-list"></div>
           <pre id="workflow-output" class="console-output">Choose a workflow to start. The live run log will appear here.</pre>
         </section>
 
-        <section class="panel">
+        <section class="panel" id="settings">
           <div class="panel-header">
             <div>
-              <p class="panel-kicker">Step 3</p>
+              <p class="panel-kicker">Configure</p>
               <h2>Runtime Settings</h2>
-              <p>These values write to the repo-root <code>.env</code>. Change them only when you want to alter providers, models, timing defaults, or stage behavior across runs.</p>
+              <p>Shared provider, model, voice, render, and publish defaults.</p>
             </div>
             <button id="save-config" class="secondary">Save Settings</button>
           </div>
           <div class="helper-card subtle">
-            <strong>Use this for shared defaults</strong>
-            <p>If you only want one item to behave differently, prefer the abstract-idea flow. Use runtime settings for repo-wide defaults.</p>
+            <strong>Repo-wide Defaults</strong>
+            <p>Blank stage keys fall back to component or global provider keys.</p>
           </div>
           <div id="config-groups" class="config-groups"></div>
-          <p class="inline-status" id="config-status"></p>
+          <p class="inline-status" id="config-status" aria-live="polite"></p>
         </section>
 
-        <section class="panel panel-wide">
+        <section class="panel panel-wide" id="prompts">
           <div class="panel-header">
             <div>
-              <p class="panel-kicker">Step 3</p>
+              <p class="panel-kicker">Prompts</p>
               <h2>Prompt Editor</h2>
-              <p>Edit live prompt files directly from the repo. These changes affect the next run, so use them for structural prompt updates, not one-off topic adjustments.</p>
+              <p>Edit live prompt files and preview runtime prompt rewrites.</p>
             </div>
             <button id="save-prompt" class="secondary">Save Prompt</button>
           </div>
+
           <div class="editor-guide">
             <article class="helper-card subtle">
-              <strong>Prompt files</strong>
-              <p>Edit these when the template itself should change for every future run of that stage.</p>
+              <strong>Prompt Files</strong>
+              <p>Template changes apply on the next run.</p>
             </article>
             <article class="helper-card subtle">
-              <strong>Runtime builder</strong>
-              <p>This is a separate prompt-text rewrite tool. It is not the same as abstract-idea prompt profiles, which only change placeholder values.</p>
+              <strong>Runtime Builder</strong>
+              <p>Preview prompt rewrites without changing the saved file.</p>
             </article>
           </div>
+
           <div class="prompt-layout">
             <aside class="prompt-sidebar">
               <div class="sidebar-label">Prompt files by stage</div>
@@ -254,52 +307,54 @@
                   <strong id="prompt-path">Select a prompt file</strong>
                   <p id="prompt-placeholders">Select a prompt file to inspect its runtime placeholders.</p>
                 </div>
-                <span class="inline-status" id="prompt-status"></span>
+                <span class="inline-status" id="prompt-status" aria-live="polite"></span>
               </div>
+
               <div class="prompt-builder">
                 <div class="prompt-builder-head">
                   <div>
-                    <strong>Single Prompt Rewrite Preview</strong>
-                    <p>Use this only when you want to rewrite the selected prompt file at runtime. It does not change the abstract-idea placeholder profile system.</p>
+                    <strong>Prompt Rewrite Preview</strong>
+                    <p>Build a temporary revised prompt for selected target stages.</p>
                   </div>
                   <button id="generate-prompt-draft" class="secondary">Preview Selected Prompt</button>
                 </div>
                 <div class="prompt-builder-grid">
                   <label class="span-2">
                     <span>Idea</span>
-                    <textarea id="prompt-builder-idea" rows="3" placeholder="Example: make the first scene feel like a strong title-card hook, but keep the rest image-only and more documentary."></textarea>
+                    <textarea id="prompt-builder-idea" rows="3" placeholder="Example: make the first scene feel like a strong title-card hook."></textarea>
                   </label>
                   <label class="span-2">
                     <span>Extra Instructions</span>
-                    <textarea id="prompt-builder-instructions" rows="3" placeholder="Example: keep the placeholders unchanged, tighten the wording, and avoid generic visual adjectives."></textarea>
+                    <textarea id="prompt-builder-instructions" rows="3" placeholder="Example: keep placeholders unchanged and tighten generic visual language."></textarea>
                   </label>
                 </div>
                 <div id="prompt-hard-rules" class="hard-rule-list"></div>
                 <div class="prompt-builder-actions">
-                  <span class="inline-status" id="prompt-builder-status"></span>
+                  <span class="inline-status" id="prompt-builder-status" aria-live="polite"></span>
                   <div class="prompt-builder-button-row">
                     <button id="save-runtime-prompt-builder" class="secondary">Save Runtime Builder</button>
                     <button id="disable-runtime-prompt-builder" class="secondary">Disable Runtime Builder</button>
                   </div>
                 </div>
                 <p id="prompt-builder-summary" class="subline"></p>
-                <textarea id="prompt-builder-draft" rows="14" spellcheck="false" placeholder="Preview of the runtime-built prompt appears here."></textarea>
+                <textarea id="prompt-builder-draft" rows="14" spellcheck="false" placeholder="Runtime-built prompt preview appears here."></textarea>
               </div>
+
               <div id="prompt-placeholder-catalog" class="placeholder-catalog"></div>
               <textarea id="prompt-content" rows="22" spellcheck="false"></textarea>
             </div>
           </div>
         </section>
 
-        <section class="panel panel-wide">
+        <section class="panel panel-wide" id="pipeline">
           <div class="panel-header">
             <div>
-              <p class="panel-kicker">Step 4</p>
-              <h2>Recent Pipeline Items</h2>
-              <p>Use this table to see what the pipeline has already created and where each item is currently sitting.</p>
+              <p class="panel-kicker">Pipeline</p>
+              <h2>Recent Items</h2>
+              <p>Review status, cost, approval, and publish state for recent pipeline rows.</p>
             </div>
             <div class="panel-actions">
-              <span class="inline-status" id="topics-status"></span>
+              <span class="inline-status" id="topics-status" aria-live="polite"></span>
               <button id="refresh-topics" class="secondary">Refresh</button>
             </div>
           </div>
@@ -327,4 +382,4 @@
 
     <script src="/app.js" type="module"></script>
   </body>
-  </html>
+</html>

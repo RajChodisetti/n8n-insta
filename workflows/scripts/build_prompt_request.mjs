@@ -41,7 +41,7 @@ const STAGES = {
     user: 'idea_ingest/user.md',
     schema: 'idea_ingest/response-schema.json',
     outputKey: 'openai_request_idea_ingest',
-    modelEnvKeys: ['TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
+    modelEnvKeys: ['IDEA_INGEST_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
     fallbackModel: 'gpt-4o-mini',
   },
   idea_prompt_profile: {
@@ -49,7 +49,7 @@ const STAGES = {
     user: 'idea_prompt_profile/user.md',
     schema: 'idea_prompt_profile/response-schema.json',
     outputKey: 'openai_request_idea_prompt_profile',
-    modelEnvKeys: ['PROMPT_BUILDER_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
+    modelEnvKeys: ['IDEA_PROMPT_PROFILE_MODEL', 'PROMPT_BUILDER_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
     fallbackModel: 'gpt-4o-mini',
   },
   story_package_generation: {

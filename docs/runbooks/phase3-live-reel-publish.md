@@ -22,8 +22,9 @@ Use this runbook to validate the real narrated Reel path:
   - `RENDER_OUTPUT_HOST_PROVIDER=google_cloud_storage`
   - `GOOGLE_CLOUD_STORAGE_BUCKET=...`
   - `GOOGLE_CLOUD_STORAGE_SERVICE_ACCOUNT_KEY_PATH=/secrets/google/sa-key.json`
-- recreate `n8n` and `render-worker` after any `.env` changes:
-  - `docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --force-recreate n8n render-worker`
+- recreate code-first services after any `.env` changes:
+  - `docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --force-recreate studio-ui pipeline-worker remotion-renderer`
+- also recreate `n8n` or `render-worker` if you intentionally use legacy fallback paths
 - this live path assumes the render output is rehosted to a public MP4 URL before Instagram publish
 
 ## Combined preparation

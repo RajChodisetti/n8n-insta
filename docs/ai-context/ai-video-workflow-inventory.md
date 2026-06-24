@@ -4,6 +4,8 @@ Last reviewed: 2026-06-21 at git commit `d1e1bd0`.
 
 This inventory tracks the AI video workflow session plan as sessions change prompts, validators, provider routing, render manifests, or publish gates. It is based on `workflows/scripts/*.mjs`, `workflows/n8n/*.json`, and existing context docs.
 
+Runtime update: code-first `generate_reel` now supports `reel_type` values `image`, `video`, and `avatar`; Remotion is the default renderer through `infra/remotion-renderer/`; HeyGen avatar generation is wired behind a consent/env gate in `pipeline/stages.mjs`. Older Session 17/18 sections remain useful contract history, not the full current runtime picture.
+
 ## Read this when
 
 - Starting a session from `docs/roadmaps/ai-video-workflow-session-plan.md`.
@@ -400,11 +402,12 @@ Validation:
 
 | Boundary | Selector | Env priority | Fallback |
 |---|---|---|---|
+| Text, idea ingest | `selectTextProvider('idea_ingest')` | `IDEA_INGEST_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
 | Text, research | `selectTextProvider('research_and_script')` | `RESEARCH_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
 | Text, story package | `selectTextProvider('story_package_generation')` | `STORY_PACKAGE_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
 | Text, story package v2 | `selectTextProvider('story_package_generation_v2')` | `STORY_PACKAGE_V2_LLM_PROVIDER`, `STORY_PACKAGE_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
 | Text, director | `selectTextProvider('director'/'director_contract')` | `DIRECTOR_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
-| Text, prompt profile/builder | `selectTextProvider('idea_prompt_profile'/'prompt_builder')` | `PROMPT_BUILDER_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
+| Text, prompt profile/builder | `selectTextProvider('idea_prompt_profile'/'prompt_builder')` | `IDEA_PROMPT_PROFILE_LLM_PROVIDER`, `PROMPT_BUILDER_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
 | Text, storyboard | `selectTextProvider('storyboard_and_prompts')` | `STORYBOARD_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
 | Text, caption | `selectTextProvider('caption_and_hashtags')` | `CAPTION_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
 | Scene image | `selectImageProvider('scene_image')` | `SCENE_IMAGE_PROVIDER`, `IMAGE_GENERATION_PROVIDER` | `openai` |
@@ -414,7 +417,7 @@ Validation:
 | Post asset host | `selectAssetHostProvider('post_image')` | `POST_IMAGE_HOST_PROVIDER`, `ASSET_HOST_PROVIDER`, `IMAGE_HOST_PROVIDER` | `object_storage` |
 | Narration host | `selectAssetHostProvider('narration_audio')` | `NARRATION_HOST_PROVIDER`, `ASSET_HOST_PROVIDER`, `IMAGE_HOST_PROVIDER` | `object_storage` |
 | Render output host | `selectAssetHostProvider('render_output')` | `RENDER_OUTPUT_HOST_PROVIDER`, `ASSET_HOST_PROVIDER`, `IMAGE_HOST_PROVIDER` | `object_storage` |
-| Render | `selectRenderProvider()` | `RENDER_PROVIDER` | `local_ffmpeg` |
+| Render | `selectRenderProvider()` | `RENDER_PROVIDER` | configured default is `remotion`; helper fallback is `local_ffmpeg` |
 
 Implemented providers found in helper scripts:
 
@@ -423,7 +426,8 @@ Implemented providers found in helper scripts:
 - Scene video generation: Fal/Wan helper paths in `generate_and_rehost_scene_assets_v3.mjs` and `generate_and_rehost_scene_video.mjs`.
 - TTS: `openai`, `fish_audio` aliases, `smallest_ai` aliases.
 - Asset hosting: `object_storage`, `google_cloud_storage`; aliases map `gcs`/`google-cloud-storage` to `google_cloud_storage` and `minio`/`s3` to `object_storage`.
-- Render: current selector fallback is `local_ffmpeg`.
+- Render: configured code-first default is `remotion`; `local_ffmpeg` remains fallback/rollback.
+- Provider API keys now resolve by stage/component before falling back globally. Text stages use `*_OPENAI_API_KEY` then `TEXT_OPENAI_API_KEY` then `OPENAI_API_KEY`; image/video use component-specific OpenAI/Fal keys before global provider keys; narration uses `NARRATION_*_API_KEY` then `TTS_*_API_KEY` then provider-global keys.
 
 ## Do not change during later sessions without tests
 

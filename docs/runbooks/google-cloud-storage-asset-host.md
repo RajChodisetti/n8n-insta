@@ -74,8 +74,10 @@ Official references:
 After changing `.env`, recreate:
 
 ```bash
-docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --build --force-recreate n8n render-worker studio-ui
+docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --build --force-recreate studio-ui pipeline-worker remotion-renderer
 ```
+
+Also recreate `n8n` or `render-worker` if you are intentionally validating a legacy fallback path.
 
 ## First Validation
 

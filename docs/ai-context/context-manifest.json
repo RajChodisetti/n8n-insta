@@ -2,7 +2,7 @@
   "version": "1.0",
   "last_reviewed": "2026-06-21",
   "git_commit": "d1e1bd0",
-  "repo_summary": "Instagram-only AI storytelling pipeline orchestrated by n8n with file-backed prompts, Postgres state, provider adapter scripts, local FFmpeg render worker, Instagram publish/metrics workflows, shell smoke tests, and a local Studio UI.",
+  "repo_summary": "Instagram-only AI storytelling pipeline with code-first Studio/API and worker orchestration, typed image/video/avatar Reel stage plans, n8n workflow exports retained as fallback/reference, file-backed prompts, Postgres state, provider adapter scripts, Remotion rendering with FFmpeg fallback, Instagram publish/metrics paths, shell smoke tests, and a local Studio UI.",
   "entrypoint_docs": [
     {
       "path": "AGENTS.md",
@@ -146,6 +146,21 @@
       ]
     },
     {
+      "name": "pipeline",
+      "path_globs": [
+        "pipeline/**",
+        "package.json",
+        "package-lock.json"
+      ],
+      "related_context_doc": "pipeline/AGENTS.md",
+      "read_when": "Code-first orchestration, pipeline worker, run/step/event schema, Studio enqueue/status endpoints, or approval-gated publish work.",
+      "validation_commands": [
+        "npm run check",
+        "node -e \"await import('./pipeline/db.mjs'); await import('./pipeline/schema.mjs'); await import('./pipeline/runs.mjs'); await import('./pipeline/stages.mjs'); console.log('pipeline imports ok')\"",
+        "jq empty docs/ai-context/context-manifest.json"
+      ]
+    },
+    {
       "name": "fixtures",
       "path_globs": [
         "fixtures/**"
@@ -194,14 +209,19 @@
       "path_globs": [
         "infra/docker-compose.yml",
         "infra/postgres/init/**",
+        "infra/node-runtime/**",
+        "infra/remotion-renderer/**",
         "infra/render-worker/**",
         "infra/*.plist"
       ],
       "related_context_doc": "infra/AGENTS.md",
-      "read_when": "Docker, schema, render worker, service port, or local runtime work.",
+      "read_when": "Docker, schema, Remotion renderer, FFmpeg fallback render worker, service port, or local runtime work.",
       "validation_commands": [
+        "docker compose --env-file infra/.env -f infra/docker-compose.yml config --quiet",
         "docker compose --env-file infra/.env -f infra/docker-compose.yml ps",
         "docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c \"\\\\dt\"",
+        "npm run check",
+        "node -e \"import { bundle } from '@remotion/bundler'; const serveUrl = await bundle({entryPoint: 'infra/remotion-renderer/src/index.jsx', webpackOverride: (config) => ({...config, optimization: {...(config.optimization || {}), concatenateModules: false}})}); console.log(serveUrl ? 'remotion bundle ok' : 'remotion bundle missing');\"",
         "python3 -m py_compile infra/render-worker/app.py"
       ]
     },
@@ -211,9 +231,9 @@
         "studio-ui/**"
       ],
       "related_context_doc": "studio-ui/AGENTS.md",
-      "read_when": "Local UI, prompt editor, runtime settings, workflow launcher, or recent item inspection work.",
+      "read_when": "Local UI, reel-type selection, prompt editor, runtime settings, workflow launcher, or recent item inspection work.",
       "validation_commands": [
-        "docker compose --env-file infra/.env -f infra/docker-compose.yml up -d postgres redis minio minio-bootstrap n8n render-worker studio-ui",
+        "docker compose --env-file infra/.env -f infra/docker-compose.yml up -d postgres redis minio minio-bootstrap remotion-renderer studio-ui pipeline-worker",
         "node --check studio-ui/server.mjs"
       ]
     },
@@ -282,14 +302,29 @@
       "read_when": "Changing helper scripts, adapters, prompt rendering, client/account context loading, or orchestration."
     },
     {
+      "glob": "pipeline/**",
+      "related_context_doc": "pipeline/AGENTS.md",
+      "read_when": "Changing code-first orchestration, reel-type stage plans, pipeline state, worker behavior, or migrated stage handlers."
+    },
+    {
+      "glob": "package*.json",
+      "related_context_doc": "pipeline/AGENTS.md",
+      "read_when": "Changing Node runtime dependencies or scripts for Studio/API, pipeline worker, or Remotion renderer."
+    },
+    {
       "glob": "infra/postgres/init/*.sql",
       "related_context_doc": "infra/AGENTS.md",
-      "read_when": "Changing schema contracts, including publish approval and client/account context storage."
+      "read_when": "Changing schema contracts, including publish approval, client/account context storage, pipeline state, reel type, or avatar generation storage."
+    },
+    {
+      "glob": "infra/remotion-renderer/**",
+      "related_context_doc": "infra/AGENTS.md",
+      "read_when": "Changing default code-first Remotion rendering."
     },
     {
       "glob": "infra/render-worker/**",
       "related_context_doc": "infra/AGENTS.md",
-      "read_when": "Changing rendering, FFmpeg, or render output hosting."
+      "read_when": "Changing FFmpeg fallback rendering or fallback render output hosting."
     },
     {
       "glob": "studio-ui/**",
@@ -297,13 +332,18 @@
       "read_when": "Changing the local Studio UI."
     },
     {
-      "glob": "scripts/test_*.sh",
+      "glob": "scripts/test_*",
       "related_context_doc": "scripts/CONTEXT.md",
       "read_when": "Changing or running smoke tests."
     }
   ],
   "validation_commands": {
     "context_manifest": "jq empty docs/ai-context/context-manifest.json",
+    "node_pipeline_check": "npm run check && node -e \"await import('./pipeline/db.mjs'); await import('./pipeline/schema.mjs'); await import('./pipeline/runs.mjs'); await import('./pipeline/stages.mjs'); console.log('pipeline imports ok')\"",
+    "pipeline_reel_type_plans": "node scripts/test_pipeline_reel_type_plans.mjs",
+    "provider_key_resolution": "node scripts/test_provider_key_resolution.mjs",
+    "remotion_bundle": "node -e \"import { bundle } from '@remotion/bundler'; const serveUrl = await bundle({entryPoint: 'infra/remotion-renderer/src/index.jsx', webpackOverride: (config) => ({...config, optimization: {...(config.optimization || {}), concatenateModules: false}})}); console.log(serveUrl ? 'remotion bundle ok' : 'remotion bundle missing');\"",
+    "compose_config": "docker compose --env-file infra/.env -f infra/docker-compose.yml config --quiet",
     "infra_ps": "docker compose --env-file infra/.env -f infra/docker-compose.yml ps",
     "db_tables": "docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c \"\\\\dt\"",
     "phase2_storyboard": "bash scripts/test_phase2_topic_to_storyboard_smoke.sh",
@@ -382,6 +422,7 @@
     "storage/**",
     "workflows/exports/**",
     "logs/**",
+    "node_modules/**",
     "infra/render-worker/__pycache__/**",
     ".claude/worktrees/**",
     "sa-key.json"

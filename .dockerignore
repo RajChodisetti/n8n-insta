@@ -1,0 +1,12 @@
+.git
+.claude
+node_modules
+npm-debug.log
+.DS_Store
+.env
+.env.*
+sa-key.json
+logs
+infra/state
+infra/render-worker/__pycache__
+**/__pycache__

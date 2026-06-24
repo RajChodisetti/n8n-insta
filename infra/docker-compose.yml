@@ -107,8 +107,9 @@ services:
       REELS_STORAGE_BUCKET: ${MINIO_BUCKET}
       REELS_STORAGE_ENDPOINT: http://minio:9000
       RENDER_WORKER_MODE: ${RENDER_WORKER_MODE:-stub}
+      RENDER_PROVIDER: ${RENDER_PROVIDER:-remotion}
       RENDER_WORKER_URL: ${RENDER_WORKER_URL:-}
-      RENDER_WORKER_SYNC_URL: ${RENDER_WORKER_SYNC_URL:-http://render-worker:8080/render-sync}
+      RENDER_WORKER_SYNC_URL: ${RENDER_WORKER_SYNC_URL:-http://remotion-renderer:8081/render-sync}
       RENDER_CALLBACK_URL: ${RENDER_CALLBACK_URL:-http://n8n:5678/webhook/render-status-callback}
       RENDER_OUTPUT_PATH_PREFIX: ${RENDER_OUTPUT_PATH_PREFIX:-reels}
       PROMPTS_ROOT: ${PROMPTS_ROOT:-/prompts}
@@ -122,14 +123,17 @@ services:
       - ../sa-key.json:/secrets/google/sa-key.json:ro
 
   studio-ui:
-    image: n8nio/n8n:1.92.2
-    container_name: n8n-insta-studio-ui
+    build:
+      context: ..
+      dockerfile: infra/node-runtime/Dockerfile
+    image: n8n-insta-node-runtime:latest
+    container_name: n8n-insta-studio-api
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
-      n8n:
-        condition: service_started
+      minio-bootstrap:
+        condition: service_completed_successfully
     env_file:
       - ../.env
       - ./.env
@@ -163,10 +167,15 @@ services:
       REELS_STORAGE_BUCKET: ${MINIO_BUCKET}
       REELS_STORAGE_ENDPOINT: http://minio:9000
       RENDER_WORKER_MODE: ${RENDER_WORKER_MODE:-stub}
+      DEFAULT_REEL_TYPE: ${DEFAULT_REEL_TYPE:-video}
+      RENDER_PROVIDER: ${RENDER_PROVIDER:-remotion}
       RENDER_WORKER_URL: ${RENDER_WORKER_URL:-}
-      RENDER_WORKER_SYNC_URL: ${RENDER_WORKER_SYNC_URL:-http://render-worker:8080/render-sync}
+      RENDER_WORKER_SYNC_URL: ${RENDER_WORKER_SYNC_URL:-http://remotion-renderer:8081/render-sync}
       RENDER_CALLBACK_URL: ${RENDER_CALLBACK_URL:-http://n8n:5678/webhook/render-status-callback}
       RENDER_OUTPUT_PATH_PREFIX: ${RENDER_OUTPUT_PATH_PREFIX:-reels}
+      HEYGEN_API_KEY: ${HEYGEN_API_KEY:-}
+      HEYGEN_AVATAR_ID: ${HEYGEN_AVATAR_ID:-}
+      HEYGEN_VOICE_ID: ${HEYGEN_VOICE_ID:-}
       PROMPTS_ROOT: ${PROMPTS_ROOT:-/prompts}
       STUDIO_UI_PORT: 7780
     entrypoint:
@@ -176,10 +185,95 @@ services:
       - "${STUDIO_UI_HOST_PORT:-7780}:7780"
     volumes:
       - ../:/app
+      - /app/node_modules
       - ./state/files:/files
       - ../workflows:/workflows
       - ../prompts:/prompts
       - ../sa-key.json:/secrets/google/sa-key.json:ro
+
+  pipeline-worker:
+    build:
+      context: ..
+      dockerfile: infra/node-runtime/Dockerfile
+    image: n8n-insta-node-runtime:latest
+    container_name: n8n-insta-pipeline-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-bootstrap:
+        condition: service_completed_successfully
+      remotion-renderer:
+        condition: service_healthy
+      studio-ui:
+        condition: service_started
+    env_file:
+      - ../.env
+      - ./.env
+    environment:
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      REELS_STORAGE_BUCKET: ${MINIO_BUCKET}
+      REELS_STORAGE_ENDPOINT: http://minio:9000
+      DEFAULT_REEL_TYPE: ${DEFAULT_REEL_TYPE:-video}
+      RENDER_PROVIDER: ${RENDER_PROVIDER:-remotion}
+      RENDER_WORKER_MODE: ${RENDER_WORKER_MODE:-sync}
+      RENDER_WORKER_SYNC_URL: ${RENDER_WORKER_SYNC_URL:-http://remotion-renderer:8081/render-sync}
+      RENDER_WORKER_URL: ${RENDER_WORKER_URL:-}
+      RENDER_CALLBACK_URL: ${RENDER_CALLBACK_URL:-}
+      RENDER_OUTPUT_PATH_PREFIX: ${RENDER_OUTPUT_PATH_PREFIX:-reels}
+      HEYGEN_API_KEY: ${HEYGEN_API_KEY:-}
+      HEYGEN_AVATAR_ID: ${HEYGEN_AVATAR_ID:-}
+      HEYGEN_VOICE_ID: ${HEYGEN_VOICE_ID:-}
+      HEYGEN_CALLBACK_URL: ${HEYGEN_CALLBACK_URL:-}
+      HEYGEN_POLL_INTERVAL_SECONDS: ${HEYGEN_POLL_INTERVAL_SECONDS:-10}
+      HEYGEN_TIMEOUT_SECONDS: ${HEYGEN_TIMEOUT_SECONDS:-900}
+      PROMPTS_ROOT: ${PROMPTS_ROOT:-/prompts}
+      PIPELINE_WORKER_POLL_MS: ${PIPELINE_WORKER_POLL_MS:-5000}
+      PIPELINE_STALE_RUNNING_SECONDS: ${PIPELINE_STALE_RUNNING_SECONDS:-900}
+    entrypoint:
+      - node
+      - /app/pipeline/worker.mjs
+    volumes:
+      - ../:/app
+      - /app/node_modules
+      - ./state/files:/files
+      - ../workflows:/workflows
+      - ../prompts:/prompts
+      - ../sa-key.json:/secrets/google/sa-key.json:ro
+
+  remotion-renderer:
+    build:
+      context: ..
+      dockerfile: infra/remotion-renderer/Dockerfile
+    image: n8n-insta-remotion-renderer:latest
+    container_name: n8n-insta-remotion-renderer
+    restart: unless-stopped
+    depends_on:
+      minio-bootstrap:
+        condition: service_completed_successfully
+    env_file:
+      - ../.env
+      - ./.env
+    environment:
+      REELS_STORAGE_BUCKET: ${MINIO_BUCKET}
+      REELS_STORAGE_ENDPOINT: http://minio:9000
+      RENDER_OUTPUT_PATH_PREFIX: ${RENDER_OUTPUT_PATH_PREFIX:-reels}
+      REMOTION_RENDERER_PORT: 8081
+      REMOTION_RENDER_STUB: ${REMOTION_RENDER_STUB:-false}
+    volumes:
+      - ../:/app
+      - /app/node_modules
+      - ./state/files:/files
+      - ../sa-key.json:/secrets/google/sa-key.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8081/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
 
   render-worker:
     build:

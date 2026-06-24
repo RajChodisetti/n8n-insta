@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { providerNotImplemented, selectImageProvider } from './adapter_config.mjs';
+import { providerNotImplemented, selectImageApiKey, selectImageProvider } from './adapter_config.mjs';
 
 function fail(message) {
   throw new Error(message);
@@ -42,9 +42,10 @@ async function fetchWithContext(url, options, failureContext) {
 }
 
 async function generateWithOpenAi(prompt, request, contextLabel) {
-  const apiKey = String(process.env.OPENAI_API_KEY || process.env.LLL_API_KEY || '').trim();
+  const component = String(request?.component || request?.asset_component || request?.asset_role || '').trim() || 'scene_image';
+  const apiKey = String(selectImageApiKey(component, 'openai')).trim();
   if (!apiKey) {
-    fail(`Set OPENAI_API_KEY in the repo-root .env before running ${contextLabel}. For backward compatibility, LLL_API_KEY is also accepted.`);
+    fail(`Set ${component.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_OPENAI_API_KEY, IMAGE_OPENAI_API_KEY, or OPENAI_API_KEY before running ${contextLabel}. For backward compatibility, LLL_API_KEY is also accepted.`);
   }
 
   const model = ensureString('image_request.model', request.model);
@@ -119,9 +120,10 @@ function falAppIdFromModel(model) {
 }
 
 async function generateWithFalAi(prompt, request, contextLabel) {
-  const apiKey = String(process.env.FAL_AI_API_KEY || process.env.FAL_API_KEY || '').trim();
+  const component = String(request?.component || request?.asset_component || request?.asset_role || '').trim() || 'scene_image';
+  const apiKey = String(selectImageApiKey(component, 'fal_ai')).trim();
   if (!apiKey) {
-    fail(`Set FAL_AI_API_KEY in the repo-root .env before running ${contextLabel}.`);
+    fail(`Set ${component.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_FAL_AI_API_KEY, IMAGE_FAL_AI_API_KEY, or FAL_AI_API_KEY before running ${contextLabel}.`);
   }
 
   const rawPrompt = ensureString('image prompt', prompt);
@@ -193,11 +195,12 @@ async function generateWithFalAi(prompt, request, contextLabel) {
 
 export async function generateImageAsset(component, prompt, request, contextLabel) {
   const provider = String(request?.provider || selectImageProvider(component)).trim().toLowerCase();
+  const requestWithComponent = { ...(request || {}), component };
   if (provider === 'openai') {
-    return generateWithOpenAi(prompt, request, contextLabel);
+    return generateWithOpenAi(prompt, requestWithComponent, contextLabel);
   }
   if (provider === 'fal_ai' || provider === 'fal-ai' || provider === 'fal') {
-    return generateWithFalAi(prompt, request, contextLabel);
+    return generateWithFalAi(prompt, requestWithComponent, contextLabel);
   }
 
   providerNotImplemented('image generation', provider, component);

@@ -2,23 +2,24 @@
 
 Last reviewed: 2026-06-21 at git commit `0d0515b`.
 
-No `package.json`, JS lockfile, Makefile, pyproject, or CI workflow was found. Commands below come from README/runbooks, Docker files, and scripts present in the repo.
+Commands below come from `package.json`, README/runbooks, Docker files, and scripts present in the repo. No Makefile, pyproject, or CI workflow was found.
 
 ## Install/setup
 
 ```bash
 cp infra/.env.example infra/.env
+npm install
 docker compose --env-file infra/.env -f infra/docker-compose.yml up -d
 ```
 
-The render worker image installs Python dependencies from `infra/render-worker/requirements.txt` during Docker build. No local `pip install` command is documented for normal repo use.
+The FFmpeg fallback render worker image installs Python dependencies from `infra/render-worker/requirements.txt` during Docker build. The default Remotion renderer uses root `package.json` dependencies and `infra/remotion-renderer/Dockerfile`.
 
 ## Dev/start
 
 ```bash
 bash scripts/start.sh
 docker compose --env-file infra/.env -f infra/docker-compose.yml up -d
-docker compose --env-file infra/.env -f infra/docker-compose.yml up -d postgres redis minio minio-bootstrap n8n render-worker studio-ui
+docker compose --env-file infra/.env -f infra/docker-compose.yml up -d postgres redis minio minio-bootstrap remotion-renderer studio-ui pipeline-worker
 ```
 
 Default local URLs from docs:
@@ -30,11 +31,11 @@ Default local URLs from docs:
 ## Build/recreate
 
 ```bash
-docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --build --force-recreate n8n render-worker studio-ui
-docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --force-recreate n8n render-worker studio-ui
+docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --build --force-recreate studio-ui pipeline-worker remotion-renderer
+docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --force-recreate studio-ui pipeline-worker remotion-renderer
 ```
 
-Use recreate commands after `.env` changes that affect `n8n`, `render-worker`, or `studio-ui`.
+Use recreate commands after `.env` changes that affect `studio-ui`, `pipeline-worker`, `remotion-renderer`, `render-worker`, or legacy `n8n`.
 
 ## Smoke tests
 
@@ -66,6 +67,9 @@ Most smoke scripts:
 | Area | Command |
 | --- | --- |
 | Infra up | `docker compose --env-file infra/.env -f infra/docker-compose.yml ps` |
+| Node syntax/import check | `npm run check && node -e "await import('./pipeline/db.mjs'); await import('./pipeline/schema.mjs'); await import('./pipeline/runs.mjs'); await import('./pipeline/stages.mjs'); console.log('pipeline imports ok')"` |
+| Remotion bundle check | `node -e "import { bundle } from '@remotion/bundler'; const serveUrl = await bundle({entryPoint: 'infra/remotion-renderer/src/index.jsx', webpackOverride: (config) => ({...config, optimization: {...(config.optimization || {}), concatenateModules: false}})}); console.log(serveUrl ? 'remotion bundle ok' : 'remotion bundle missing');"` |
+| Compose config | `docker compose --env-file infra/.env -f infra/docker-compose.yml config --quiet` |
 | DB tables | `docker exec n8n-insta-postgres psql -U n8n_insta -d n8n_insta -c "\\dt"` |
 | Research/storyboard | `bash scripts/test_phase2_topic_to_storyboard_smoke.sh` |
 | Caption/hashtags | `bash scripts/test_phase2_caption_iteration_smoke.sh` |
@@ -136,7 +140,7 @@ Most smoke scripts:
 
 ## Lint/typecheck/format
 
-No dedicated lint, typecheck, or format command was discovered.
+No dedicated lint, typecheck, or format command was discovered. `npm run check` is a syntax check, not a linter or typecheck.
 
 ## Commands not to run casually
 
@@ -158,11 +162,12 @@ Run live publish or token commands only when the user explicitly requests them.
 
 Do not expose values. Key groups discovered from examples and code:
 
-- AI/model: `OPENAI_API_KEY`, `LLL_API_KEY`, `TEXT_LLM_PROVIDER`, `STORY_PACKAGE_LLM_PROVIDER`, `STORY_PACKAGE_V2_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_MODEL`, `RESEARCH_MODEL`, `STORY_PACKAGE_MODEL`, `STORY_PACKAGE_V2_MODEL`, `STORY_PACKAGE_GENERATION_STAGE`, `STORY_PACKAGE_STAGE`, `STORYBOARD_MODEL`, `CAPTION_MODEL`, `PROMPT_BUILDER_MODEL`
-- Image/video: `IMAGE_GENERATION_PROVIDER`, `SCENE_IMAGE_PROVIDER`, `POST_IMAGE_PROVIDER`, `FAL_AI_API_KEY`, `WAN_VIDEO_MODEL`, `WAN_REFERENCE_VIDEO_MODEL`
-- TTS: `NARRATION_PROVIDER`, `TTS_PROVIDER`, `OPENAI_TTS_MODEL`, `FISH_AUDIO_API_KEY`, `SMALLEST_AI_API_KEY`
+- AI/model: `OPENAI_API_KEY`, `LLL_API_KEY`, `TEXT_OPENAI_API_KEY`, stage text keys such as `IDEA_INGEST_OPENAI_API_KEY` and `STORY_PACKAGE_OPENAI_API_KEY`, `TEXT_LLM_PROVIDER`, `IDEA_INGEST_LLM_PROVIDER`, `IDEA_PROMPT_PROFILE_LLM_PROVIDER`, `STORY_PACKAGE_LLM_PROVIDER`, `STORY_PACKAGE_V2_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_MODEL`, `IDEA_INGEST_MODEL`, `IDEA_PROMPT_PROFILE_MODEL`, `RESEARCH_MODEL`, `DIRECTOR_MODEL`, `STORY_PACKAGE_MODEL`, `STORY_PACKAGE_V2_MODEL`, `STORY_PACKAGE_GENERATION_STAGE`, `STORY_PACKAGE_STAGE`, `STORYBOARD_MODEL`, `CAPTION_MODEL`, `PROMPT_BUILDER_MODEL`
+- Image/video: `IMAGE_GENERATION_PROVIDER`, `SCENE_IMAGE_PROVIDER`, `POST_IMAGE_PROVIDER`, `IMAGE_OPENAI_API_KEY`, `SCENE_IMAGE_OPENAI_API_KEY`, `IMAGE_FAL_AI_API_KEY`, `SCENE_IMAGE_FAL_AI_API_KEY`, `SCENE_VIDEO_FAL_AI_API_KEY`, `FAL_AI_API_KEY`, `WAN_VIDEO_MODEL`, `WAN_REFERENCE_VIDEO_MODEL`
+- TTS: `NARRATION_PROVIDER`, `TTS_PROVIDER`, `OPENAI_TTS_MODEL`, `NARRATION_OPENAI_API_KEY`, `TTS_OPENAI_API_KEY`, `FISH_AUDIO_API_KEY`, `NARRATION_FISH_AUDIO_API_KEY`, `SMALLEST_AI_API_KEY`, `NARRATION_SMALLEST_AI_API_KEY`
 - Hosting: `ASSET_HOST_PROVIDER`, `REELS_STORAGE_*`, `GOOGLE_CLOUD_STORAGE_*`
-- Render: `RENDER_PROVIDER`, `RENDER_WORKER_MODE`, `RENDER_WORKER_URL`, `RENDER_WORKER_SYNC_URL`, `RENDER_CALLBACK_URL`
+- Reel selection/render: `DEFAULT_REEL_TYPE`, `RENDER_PROVIDER`, `RENDER_WORKER_MODE`, `RENDER_WORKER_URL`, `RENDER_WORKER_SYNC_URL`, `RENDER_CALLBACK_URL`, `REMOTION_RENDER_STUB`, `FFMPEG_RENDER_FALLBACK_ENABLED`
+- Avatar/HeyGen: `HEYGEN_API_KEY`, `HEYGEN_AVATAR_ID`, `HEYGEN_VOICE_ID`, `HEYGEN_CALLBACK_URL`, `HEYGEN_POLL_INTERVAL_SECONDS`, `HEYGEN_TIMEOUT_SECONDS`, `HEYGEN_AVATAR_CONSENT_RECORD_URI`
 - Instagram: `INSTAGRAM_GRAPH_API_TOKEN`, `GRAPH_API_VERSION`, `INSTAGRAM_PUBLISH_ENABLED`, `INSTAGRAM_INSIGHTS_COLLECTION_MODE`
 - Infra: `POSTGRES_*`, `REDIS_*`, `MINIO_*`, `N8N_*`, `WEBHOOK_URL`
 - Studio UI: `STUDIO_UI_HOST_PORT`, `STUDIO_UI_PORT`, `STUDIO_TOPIC_TARGET_DURATION_*`

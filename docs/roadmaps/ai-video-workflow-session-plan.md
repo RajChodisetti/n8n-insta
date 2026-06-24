@@ -819,6 +819,8 @@ Do not do:
 
 Goal: Add Remotion-compatible planning without requiring Remotion as runtime.
 
+Historical note: this session was contract-only when written. Later runtime work added `infra/remotion-renderer/` and made Remotion the default code-first renderer while keeping FFmpeg fallback.
+
 Read first:
 
 - Session 16 render manifest contract
@@ -850,7 +852,7 @@ Exit criteria:
 
 Do not do:
 
-- Do not install Remotion yet.
+- Historical session rule: this contract-only session did not install Remotion.
 - Do not replace FFmpeg.
 
 ## Session 18 - Avatar and Presenter Selector

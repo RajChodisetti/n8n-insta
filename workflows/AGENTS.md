@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This folder stores n8n workflow exports, Node helper scripts used by n8n execute-command nodes, and small workflow assets such as placeholder images and the background music catalog.
+This folder stores n8n workflow exports, Node helper scripts used by n8n execute-command nodes and the code-first pipeline, and small workflow assets such as placeholder images and the background music catalog.
 
 ## When to read this
 
@@ -21,11 +21,11 @@ Read this for n8n workflow changes, pipeline stage changes, provider adapters, a
 
 ## Inputs
 
-Workflows consume Postgres rows, prompt files, `.env`/container env, n8n credentials, hosted asset URLs, and provider API responses.
+Workflows and code-first stage helpers consume Postgres rows, prompt files, `.env`/container env, n8n credentials where applicable, hosted asset URLs, and provider API responses.
 
 ## Outputs
 
-Workflows and helpers write DB rows, hosted image/audio/video URLs, render manifests, workflow logs, and publish/metrics metadata.
+Workflows, code-first pipeline stages, and helpers write DB rows, hosted image/audio/video URLs, render manifests, workflow logs, and publish/metrics metadata.
 
 ## Depends on
 
@@ -36,7 +36,7 @@ Workflows and helpers write DB rows, hosted image/audio/video URLs, render manif
 
 ## Used by
 
-n8n runtime, Studio UI launcher, shell smoke tests, render worker handoff, and live publish runbooks.
+n8n runtime, code-first pipeline stages, Studio UI launcher, shell smoke tests, render worker handoff, and live publish runbooks.
 
 ## Common change patterns
 
@@ -64,6 +64,7 @@ n8n runtime, Studio UI launcher, shell smoke tests, render worker handoff, and l
 ## Gotchas
 
 - Smoke scripts sync workflow exports into the n8n DB and bind the runtime Postgres credential.
+- Several DB-backed scripts now fall back to the root `pg` dependency when n8n's bundled `pg` is unavailable.
 - All workflow exports were inactive (`active: false`) at review time.
 - Working-tree v2/v3 workflow files exist and may be ahead of committed docs; check `git status` before deciding what is canonical.
 - The current code supports more providers than some older docs mention.

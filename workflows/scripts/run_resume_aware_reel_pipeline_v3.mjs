@@ -11,7 +11,14 @@ import {
 } from './prompt_profile_contract.mjs';
 
 const require = createRequire(import.meta.url);
-const { Client } = require('/usr/local/lib/node_modules/n8n/node_modules/pg');
+function loadPgModule() {
+  try {
+    return require('/usr/local/lib/node_modules/n8n/node_modules/pg');
+  } catch {
+    return require('pg');
+  }
+}
+const { Client } = loadPgModule();
 
 const WAIT_FOR_RENDER_STAGE = '__wait_for_render_completion__';
 const ACTIVE_PIPELINE_STATUSES = [

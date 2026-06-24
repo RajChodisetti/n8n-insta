@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { providerNotImplemented, selectNarrationProvider } from './adapter_config.mjs';
+import { providerNotImplemented, selectNarrationApiKey, selectNarrationProvider } from './adapter_config.mjs';
 
 function fail(message) {
   throw new Error(message);
@@ -47,9 +47,9 @@ function parseErrorPayload(text) {
 }
 
 async function generateWithOpenAi(payload, fallbackInstructionsLoader) {
-  const apiKey = String(process.env.OPENAI_API_KEY || process.env.LLL_API_KEY || '').trim();
+  const apiKey = String(selectNarrationApiKey('openai')).trim();
   if (!apiKey) {
-    fail('Set OPENAI_API_KEY in the repo-root .env before running wf_narration_generation. For backward compatibility, LLL_API_KEY is also accepted.');
+    fail('Set NARRATION_OPENAI_API_KEY, TTS_OPENAI_API_KEY, or OPENAI_API_KEY before running wf_narration_generation. For backward compatibility, LLL_API_KEY is also accepted.');
   }
 
   const request = payload.openai_tts_request ?? {};
@@ -106,9 +106,9 @@ async function generateWithOpenAi(payload, fallbackInstructionsLoader) {
 }
 
 async function generateWithFishAudio(payload) {
-  const apiKey = String(process.env.FISH_AUDIO_API_KEY || process.env.FISH_API_KEY || '').trim();
+  const apiKey = String(selectNarrationApiKey('fish_audio')).trim();
   if (!apiKey) {
-    fail('Set FISH_AUDIO_API_KEY in the repo-root .env before running wf_narration_generation with Fish Audio.');
+    fail('Set NARRATION_FISH_AUDIO_API_KEY, TTS_FISH_AUDIO_API_KEY, or FISH_AUDIO_API_KEY before running wf_narration_generation with Fish Audio.');
   }
 
   const request = payload.tts_request ?? {};
@@ -272,9 +272,9 @@ function concatenateWavBuffers(buffers) {
 }
 
 async function generateWithSmallestAi(payload) {
-  const apiKey = String(process.env.SMALLEST_AI_API_KEY || process.env.SMALLEST_API_KEY || '').trim();
+  const apiKey = String(selectNarrationApiKey('smallest_ai')).trim();
   if (!apiKey) {
-    fail('Set SMALLEST_AI_API_KEY in the repo-root .env before running wf_narration_generation with Smallest AI.');
+    fail('Set NARRATION_SMALLEST_AI_API_KEY, TTS_SMALLEST_AI_API_KEY, or SMALLEST_AI_API_KEY before running wf_narration_generation with Smallest AI.');
   }
 
   const request = payload.tts_request ?? {};

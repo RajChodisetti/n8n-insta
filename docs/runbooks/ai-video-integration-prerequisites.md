@@ -6,18 +6,16 @@ This runbook tracks what the repo owner needs to do before live provider, Remoti
 
 ## Current status
 
-For Sessions 0-20, no new account, API key, model selection, Remotion install, avatar provider setup, avatar video generation, or live publish setup is required.
+Sessions 0-20 were mostly contract/offline work. Current code-first runtime now includes reel-type selection, Remotion rendering, and a HeyGen avatar stage, but live provider calls still require explicit credentials and operator approval.
 
-The current sessions are mostly contract work: prompts, schemas, fixtures, local validators, publish gates, planning documents, and offline regression tests. They should run without paid provider calls.
+Offline checks should still run without paid provider calls. Live generation or publish tests require the relevant env keys and explicit approval.
 
 ## Do not do yet
 
-- Do not install Remotion yet.
-- Do not replace the current local FFmpeg render worker yet.
-- Do not create avatar videos yet.
 - Do not create provider accounts solely for contract fixtures.
 - Do not paste API keys into docs, prompts, fixtures, or chat.
 - Do not use a real person's likeness without consent metadata.
+- Do not run HeyGen, image/video, narration, render, or Instagram publish provider calls casually.
 
 ## Needed before live model/provider tests
 
@@ -25,29 +23,26 @@ Decide and provide credentials only when a live test session explicitly asks for
 
 | Area | Decision or account needed | Typical env keys | Needed now? |
 | --- | --- | --- | --- |
-| Text generation | OpenAI project and chosen text model. | `OPENAI_API_KEY`, `TEXT_MODEL`, stage-specific model envs | No |
-| Image generation | OpenAI image or Fal image provider choice. | `IMAGE_GENERATION_PROVIDER`, `SCENE_IMAGE_PROVIDER`, `OPENAI_API_KEY`, `FAL_AI_API_KEY` | No |
-| Video generation | Fal/Wan model choice for scene video generation. | `FAL_AI_API_KEY`, `WAN_VIDEO_MODEL`, `WAN_REFERENCE_VIDEO_MODEL` | No |
-| Narration/TTS | Fish Audio, Smallest AI, or OpenAI TTS choice and voice. | `NARRATION_PROVIDER`, `TTS_PROVIDER`, `FISH_AUDIO_API_KEY`, `SMALLEST_AI_API_KEY`, `OPENAI_API_KEY` | No |
+| Text generation | OpenAI project and chosen text model per stage. | `OPENAI_API_KEY`, `TEXT_OPENAI_API_KEY`, `IDEA_INGEST_MODEL`, `STORY_PACKAGE_MODEL`, `DIRECTOR_MODEL`, other stage-specific model/key envs | No |
+| Image generation | OpenAI image or Fal image provider choice. | `IMAGE_GENERATION_PROVIDER`, `SCENE_IMAGE_PROVIDER`, `IMAGE_OPENAI_API_KEY`, `SCENE_IMAGE_OPENAI_API_KEY`, `FAL_AI_API_KEY` | No |
+| Video generation | Fal/Wan model choice for scene video generation. | `FAL_AI_API_KEY`, `SCENE_VIDEO_FAL_AI_API_KEY`, `WAN_VIDEO_MODEL`, `WAN_REFERENCE_VIDEO_MODEL` | No |
+| Narration/TTS | Fish Audio, Smallest AI, or OpenAI TTS choice and voice. | `NARRATION_PROVIDER`, `TTS_PROVIDER`, `NARRATION_FISH_AUDIO_API_KEY`, `NARRATION_SMALLEST_AI_API_KEY`, `NARRATION_OPENAI_API_KEY` | No |
+| Avatar video | HeyGen account, avatar ID, voice ID, and consent policy. | `HEYGEN_API_KEY`, `HEYGEN_AVATAR_ID`, `HEYGEN_VOICE_ID`, `HEYGEN_AVATAR_CONSENT_RECORD_URI` | Only for live avatar runs |
 | Asset hosting | Local object storage or Google Cloud Storage. | `ASSET_HOST_PROVIDER`, `GOOGLE_CLOUD_STORAGE_*`, `REELS_STORAGE_*` | No |
 | Instagram publish | Instagram professional account, app/token, IG user ID. | `INSTAGRAM_GRAPH_API_TOKEN`, `INSTAGRAM_IG_USER_ID`, `INSTAGRAM_PUBLISH_ENABLED` | No |
 
-## Needed before Remotion runtime integration
+## Remotion runtime
 
-Session 17 only creates a Remotion edit-plan contract. A future runtime session should handle actual setup.
+Remotion now lives in this repo at `infra/remotion-renderer/` and is the default code-first render provider. The FFmpeg worker remains in `infra/render-worker/` as rollback fallback until parity is documented.
 
-Before that future session, decide:
+Operator checks:
 
-- whether Remotion should live inside this repo or a separate render package
-- whether Remotion should run locally only or also in a cloud render path
-- whether FFmpeg remains the fallback while Remotion reaches parity
-- which templates/components should exist first, such as `FounderExplainerComposition`
+- ensure Docker can build the `remotion-renderer` service
+- use `REMOTION_RENDER_STUB=true` only for offline smoke checks
+- keep `RENDER_WORKER_SYNC_URL=http://remotion-renderer:8081/render-sync` for default code-first runs
+- switch to the FFmpeg endpoint only as an intentional rollback
 
-Future install/setup commands should be run only in the Remotion runtime session. The contract fixtures may mention commands such as `npx create-video@latest`, but they are not instructions to run now.
-
-## Needed before avatar/presenter integration
-
-Session 18 adds a consent-gated selector contract only. Real avatar video generation comes later.
+## Needed before live avatar generation
 
 Before live avatar/provider work, collect:
 
@@ -84,4 +79,4 @@ Confirm:
 
 ## Current fallback
 
-Until a later Remotion runtime session changes behavior, the active renderer remains `local_ffmpeg` through `infra/render-worker/app.py`.
+The active code-first renderer is Remotion. `local_ffmpeg` through `infra/render-worker/app.py` remains the fallback path.
