@@ -627,6 +627,20 @@ export async function failPipelineStep(pool, step, error) {
       where pipeline_run_id = $1`,
       [step.pipeline_run_id, message],
     );
+    const skipped = await client.query(
+      `update pipeline_steps
+      set step_status = 'skipped',
+          error_message = coalesce(error_message, $3),
+          updated_at = now()
+      where pipeline_run_id = $1
+        and step_status = 'pending'
+        and stage_order > $2`,
+      [
+        step.pipeline_run_id,
+        Number(step.stage_order || 0),
+        `Skipped because ${step.stage_key || 'a previous stage'} failed.`,
+      ],
+    );
     await recordPipelineEvent(client, {
       pipelineRunId: step.pipeline_run_id,
       pipelineStepId: step.pipeline_step_id,
@@ -637,5 +651,16 @@ export async function failPipelineStep(pool, step, error) {
       message,
       details: { stack: String(error?.stack || '').slice(0, 12000) },
     });
+    if (skipped.rowCount > 0) {
+      await recordPipelineEvent(client, {
+        pipelineRunId: step.pipeline_run_id,
+        pipelineStepId: step.pipeline_step_id,
+        contentId: step.content_id,
+        eventType: 'downstream_steps_skipped',
+        eventLevel: 'warning',
+        stageKey: step.stage_key,
+        message: `Skipped ${skipped.rowCount} downstream step${skipped.rowCount === 1 ? '' : 's'} after ${step.stage_key} failed.`,
+      });
+    }
   });
 }

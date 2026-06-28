@@ -3651,43 +3651,63 @@ async function runRenderSyncCompletion({ pool, step }) {
   });
 
   const request = buildRenderRequest(row);
+  const fallbackCoverImageUrl = trimString(request.render_request?.cover?.cover_asset_url || row.cover_image_url);
+  const fallbackDurationSeconds = Number(row.duration_seconds ?? request.render_request?.output?.duration_seconds ?? 0);
+  const fallbackResolution = trimString(row.resolution || request.render_request?.output?.resolution);
   let renderResult;
   if (!request.worker_url) {
     renderResult = {
       render_status: 'failed',
       output_video_url: '',
-      cover_image_url: trimString(request.render_request?.cover?.cover_asset_url),
-      duration_seconds: 0,
-      resolution: '',
+      cover_image_url: fallbackCoverImageUrl,
+      duration_seconds: fallbackDurationSeconds,
+      resolution: fallbackResolution,
       render_log: '',
       error_message: 'Set RENDER_WORKER_SYNC_URL or RENDER_WORKER_URL before running render sync.',
     };
   } else {
-    const response = await fetch(request.worker_url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request.render_request),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (response.ok && trimString(body.render_status).toLowerCase() === 'success') {
-      renderResult = {
-        render_status: 'success',
-        output_video_url: trimString(body.output_video_url),
-        cover_image_url: trimString(body.cover_image_url || request.render_request?.cover?.cover_asset_url),
-        duration_seconds: Number(body.duration_seconds ?? 0),
-        resolution: trimString(body.resolution),
-        render_log: trimString(body.render_log),
-        error_message: '',
-      };
-    } else {
+    try {
+      const response = await fetch(request.worker_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request.render_request),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok && trimString(body.render_status).toLowerCase() === 'success') {
+        renderResult = {
+          render_status: 'success',
+          output_video_url: trimString(body.output_video_url),
+          cover_image_url: trimString(body.cover_image_url || fallbackCoverImageUrl),
+          duration_seconds: Number(body.duration_seconds ?? 0),
+          resolution: trimString(body.resolution),
+          render_log: trimString(body.render_log),
+          error_message: '',
+        };
+      } else {
+        const serializedBody = Object.keys(asObject(body)).length ? JSON.stringify(body) : '';
+        renderResult = {
+          render_status: 'failed',
+          output_video_url: '',
+          cover_image_url: trimString(body.cover_image_url || fallbackCoverImageUrl),
+          duration_seconds: Number(body.duration_seconds ?? fallbackDurationSeconds),
+          resolution: trimString(body.resolution || fallbackResolution),
+          render_log: trimString(body.render_log),
+          error_message: trimString(body.error_message || body.message || serializedBody || `Render worker request failed (${response.status}).`),
+        };
+      }
+    } catch (error) {
+      const errorMessage = [
+        String(error?.message || error || 'unknown error').trim(),
+        String(error?.cause?.message || '').trim(),
+      ].filter(Boolean).join(' | ');
       renderResult = {
         render_status: 'failed',
         output_video_url: '',
-        cover_image_url: trimString(body.cover_image_url || request.render_request?.cover?.cover_asset_url),
-        duration_seconds: Number(body.duration_seconds ?? 0),
-        resolution: trimString(body.resolution),
-        render_log: trimString(body.render_log),
-        error_message: trimString(body.error_message || body.message || JSON.stringify(body) || `Render worker request failed (${response.status}).`),
+        cover_image_url: fallbackCoverImageUrl,
+        duration_seconds: fallbackDurationSeconds,
+        resolution: fallbackResolution,
+        render_log: '',
+        error_message: `Render worker request failed before response: ${errorMessage}`,
       };
     }
   }
