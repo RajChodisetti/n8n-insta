@@ -28,5 +28,8 @@ Hard rules:
 - Default still-based scenes to `image_with_motion` so Remotion can create the storytelling motion with camera moves, pacing, overlays, and transitions.
 - Use `video` only when generated motion is genuinely needed or when the requested Reel type is Video Reel. Video scenes must explain why provider video is required and must set fallback_mode to `image_with_motion`.
 - Every scene must include `remotion` instructions matched to the scene beat: camera_move, pan_zoom_direction, transition_type, overlay_style, pacing, motion_layers, and a concise instruction for the renderer.
+- `scene_guidance_json` and `storyboard_json` must each contain 4 to 8 scenes, and they must contain the same number of scenes.
+- For a 45 to 75 second Reel, prefer 6 to 8 scenes unless the source material is extremely simple; never return fewer than 4 scenes.
+- Scene timings must be contiguous: scene 1 starts at 0 seconds, every scene starts where the previous scene ends, and the final scene ends close to `target_duration_seconds`.
 - Keep storyboard scenes ordered, duration-positive, and close to the target duration.
 - Keep subtitle_lines_json as renderer metadata, not image-model text.

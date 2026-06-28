@@ -116,11 +116,14 @@ try {
   const storyPackage = await buildStageRequest('story_package_generation', { prompt_template_data: sharedTemplateData() });
   assert.equal(storyPackage.openai_request_story_package_generation.provider, 'anthropic');
   assert.equal(storyPackage.openai_request_story_package_generation.model, 'claude-story-test');
+  assert.match(storyPackage.openai_request_story_package_generation.messages[0].content, /4 to 8 scenes/);
+  assert.match(storyPackage.openai_request_story_package_generation.messages[0].content, /same number of scenes/);
 
   resetEnv({ TEXT_LLM_PROVIDER: 'anthropic', STORY_PACKAGE_ANTHROPIC_MODEL: 'claude-story-test', TEXT_ANTHROPIC_MODEL: 'claude-text-test' });
   const storyPackageV2Fallback = await buildStageRequest('story_package_generation_v2', { prompt_template_data: sharedTemplateData() });
   assert.equal(storyPackageV2Fallback.openai_request_story_package_generation_v2.provider, 'anthropic');
   assert.equal(storyPackageV2Fallback.openai_request_story_package_generation_v2.model, 'claude-story-test');
+  assert.match(storyPackageV2Fallback.openai_request_story_package_generation_v2.messages[0].content, /4 to 8 scenes/);
 
   resetEnv({ TEXT_LLM_PROVIDER: 'anthropic', DIRECTOR_CONTRACT_ANTHROPIC_MODEL: 'claude-director-contract-test', DIRECTOR_ANTHROPIC_MODEL: 'claude-director-test' });
   const directorContract = await buildStageRequest('director_contract', { prompt_template_data: sharedTemplateData() });
