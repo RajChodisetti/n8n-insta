@@ -7,6 +7,8 @@ const state = {
   deletingTopicIds: new Set(),
   configValues: {},
   configSections: [],
+  modelRouting: null,
+  credentialGroups: [],
   savingSettings: false,
 };
 
@@ -97,7 +99,7 @@ function renderFieldExamples(field) {
   `;
 }
 
-function renderConfigField(field) {
+function renderConfigField(field, extraAttrs = '') {
   const inputId = configInputId(field.key);
   const examples = Array.isArray(field.examples)
     ? field.examples.map((item) => String(item || '').trim()).filter(Boolean)
@@ -107,9 +109,23 @@ function renderConfigField(field) {
   const placeholder = field.sensitive && value === '********'
     ? 'Stored. Enter a replacement or keep the mask.'
     : '';
-  return `
-    <label class="settings-field" for="${escapeHtml(inputId)}">
-      <span>${escapeHtml(field.label || field.key)}</span>
+  const options = Array.isArray(field.options) ? field.options : [];
+  const examplesMarkup = options.length ? '' : renderFieldExamples(field);
+  const control = options.length
+    ? `
+      <select
+        id="${escapeHtml(inputId)}"
+        data-config-key="${escapeHtml(field.key)}"
+        data-sensitive="${field.sensitive ? 'true' : 'false'}"
+        ${extraAttrs}
+      >
+        ${options.map((option) => {
+          const optionValue = String(option.value ?? '');
+          return `<option value="${escapeHtml(optionValue)}" ${optionValue === value ? 'selected' : ''}>${escapeHtml(option.label || optionValue || 'Use fallback')}</option>`;
+        }).join('')}
+      </select>
+    `
+    : `
       <input
         id="${escapeHtml(inputId)}"
         type="${field.sensitive ? 'password' : 'text'}"
@@ -120,8 +136,14 @@ function renderConfigField(field) {
         autocomplete="off"
         spellcheck="false"
         ${listAttr}
+        ${extraAttrs}
       >
-      ${renderFieldExamples(field)}
+    `;
+  return `
+    <label class="settings-field" for="${escapeHtml(inputId)}">
+      <span>${escapeHtml(field.label || field.key)}</span>
+      ${control}
+      ${examplesMarkup}
       <small>${escapeHtml(field.description || field.key)}</small>
     </label>
   `;
@@ -148,22 +170,172 @@ function renderConfigSection(section) {
 function applyConfigPayload(payload) {
   state.configValues = {};
   const sections = Array.isArray(payload.sections) ? payload.sections : [];
-  state.configSections = sections.filter((section) => section.studio_visible === true);
+  state.configSections = sections.filter((section) => (
+    section.studio_visible === true
+    && !['adapters', 'provider-keys'].includes(String(section.id || ''))
+  ));
+  state.modelRouting = payload.model_routing || null;
+  state.credentialGroups = Array.isArray(payload.credential_groups) ? payload.credential_groups : [];
   for (const section of sections) {
     for (const field of section.fields || []) {
       state.configValues[field.key] = field.value || '';
     }
   }
+  for (const group of state.modelRouting?.groups || []) {
+    for (const route of group.routes || []) {
+      const fields = [
+        route.provider_field,
+        ...(Array.isArray(route.model_fields) ? route.model_fields : []),
+      ].filter(Boolean);
+      for (const field of fields) {
+        state.configValues[field.key] = field.value || '';
+      }
+    }
+  }
+  for (const group of state.credentialGroups) {
+    for (const field of [...(group.primary_fields || []), ...(group.advanced_fields || [])]) {
+      state.configValues[field.key] = field.value || '';
+    }
+  }
+}
+
+function renderAdapterInventory(inventory = []) {
+  if (!Array.isArray(inventory) || inventory.length === 0) return '';
+  return `
+    <div class="adapter-inventory" aria-label="Adapter availability">
+      ${inventory.map((adapter) => `
+        <span class="adapter-chip ${adapter.configured ? 'adapter-chip-ready' : 'adapter-chip-missing'}" title="${escapeHtml((adapter.key_env || []).join(', ') || 'No key required')}">
+          <strong>${escapeHtml(adapter.label || adapter.value)}</strong>
+          <small>${escapeHtml(adapter.status_label || (adapter.configured ? 'ready' : 'missing key'))}</small>
+        </span>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderModelRoute(route) {
+  const providerField = route.provider_field;
+  const modelFields = Array.isArray(route.model_fields) ? route.model_fields : [];
+  const activeProvider = String(route.active_provider || '').trim();
+  return `
+    <div class="model-route-row" data-model-route data-active-provider="${escapeHtml(activeProvider)}">
+      <div class="model-route-copy">
+        <strong>${escapeHtml(route.label || 'Task')}</strong>
+        <small>${escapeHtml(route.description || '')}</small>
+      </div>
+      <div class="model-route-controls">
+        ${providerField ? renderConfigField(providerField, 'data-route-provider="true"') : ''}
+        <div class="model-field-list">
+          ${modelFields.map((field) => `
+            <div class="provider-model-field" data-model-provider="${escapeHtml(field.provider || '')}">
+              ${field.provider ? `<span class="model-provider-label">${escapeHtml(field.provider === 'anthropic' ? 'Claude model' : `${field.provider} model`)}</span>` : ''}
+              ${renderConfigField(field)}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderModelRouting(routing) {
+  if (!routing || !Array.isArray(routing.groups)) return '';
+  return `
+    <details class="settings-section settings-section-model-routing" open>
+      <summary>
+        <span>
+          <strong>${escapeHtml(routing.title || 'Task Model Routing')}</strong>
+          <small>${escapeHtml(routing.description || '')}</small>
+        </span>
+      </summary>
+      <div class="settings-panel-body">
+        ${renderAdapterInventory(routing.adapter_inventory || [])}
+        ${routing.groups.map((group) => `
+          <section class="model-route-group">
+            <div class="model-route-group-head">
+              <strong>${escapeHtml(group.title || group.id)}</strong>
+              <small>${escapeHtml(group.description || '')}</small>
+            </div>
+            <div class="model-route-table">
+              ${(group.routes || []).map(renderModelRoute).join('')}
+            </div>
+          </section>
+        `).join('')}
+      </div>
+    </details>
+  `;
+}
+
+function renderCredentialGroups(groups = []) {
+  if (!Array.isArray(groups) || groups.length === 0) return '';
+  return `
+    <details class="settings-section settings-section-secrets" open>
+      <summary>
+        <span>
+          <strong>Provider Credentials</strong>
+          <small>Set one provider-level key first. Task-specific keys are optional overrides.</small>
+        </span>
+      </summary>
+      <div class="settings-panel-body credential-groups">
+        ${groups.map((group) => `
+          <section class="credential-group">
+            <div class="credential-group-head">
+              <span>
+                <strong>${escapeHtml(group.title || group.id)}</strong>
+                <small>${escapeHtml(group.description || '')}</small>
+              </span>
+              ${renderStatus(group.configured ? 'key set' : 'not configured')}
+            </div>
+            <div class="settings-grid credential-primary">
+              ${(group.primary_fields || []).map(renderConfigField).join('')}
+            </div>
+            ${(group.advanced_fields || []).length ? `
+              <details class="credential-advanced">
+                <summary>Advanced task overrides</summary>
+                <div class="settings-grid">
+                  ${(group.advanced_fields || []).map(renderConfigField).join('')}
+                </div>
+              </details>
+            ` : ''}
+          </section>
+        `).join('')}
+      </div>
+    </details>
+  `;
+}
+
+function updateModelRouteVisibility(root = document) {
+  root.querySelectorAll('[data-model-route]').forEach((route) => {
+    const providerInput = route.querySelector('[data-route-provider]');
+    const activeProvider = String(providerInput?.value || route.dataset.activeProvider || '').trim();
+    route.querySelectorAll('[data-model-provider]').forEach((field) => {
+      const provider = String(field.dataset.modelProvider || '').trim();
+      field.hidden = Boolean(activeProvider && provider && provider !== activeProvider);
+    });
+  });
+}
+
+function bindSettingsInteractions(root) {
+  root.querySelectorAll('[data-route-provider]').forEach((input) => {
+    input.addEventListener('change', () => updateModelRouteVisibility(root));
+  });
+  updateModelRouteVisibility(root);
 }
 
 function renderSettings() {
   const root = document.getElementById('settings-form');
   if (!root) return;
-  if (!state.configSections.length) {
+  const renderedSections = [
+    renderModelRouting(state.modelRouting),
+    renderCredentialGroups(state.credentialGroups),
+    ...state.configSections.map(renderConfigSection),
+  ].filter(Boolean);
+  if (!renderedSections.length) {
     root.innerHTML = '<div class="empty-state">Runtime settings are unavailable.</div>';
     return;
   }
-  root.innerHTML = state.configSections.map(renderConfigSection).join('');
+  root.innerHTML = renderedSections.join('');
+  bindSettingsInteractions(root);
 }
 
 function renderStatus(value, emptyLabel = 'none') {
@@ -235,6 +407,9 @@ function renderTopicActions(topic) {
   const isDeleting = state.deletingTopicIds.has(contentId);
   return `
     <div class="topic-actions">
+      ${topic.output_video_url && topic.render_status === 'success' ? `
+        <a class="primary" href="${escapeHtml(topic.output_video_url)}" target="_blank" rel="noopener noreferrer">Open Video</a>
+      ` : ''}
       ${canReview ? `<a class="secondary" href="#reviews" data-focus-review="${escapeHtml(topic.pending_review_id)}">Review</a>` : ''}
       ${canApprove ? `
         <button type="button" class="secondary" data-approve-topic="${escapeHtml(contentId)}" data-title="${escapeHtml(topic.title || '')}" ${isApproving ? 'disabled' : ''}>
@@ -277,6 +452,9 @@ function renderTopics() {
         <div class="topic-meta">
           <span>Content: ${escapeHtml(topic.status || 'unknown')}</span>
           <span>Render: ${escapeHtml(topic.render_status || 'none')}</span>
+          ${topic.output_video_url && topic.render_status === 'success' ? `<span>Video: <a href="${escapeHtml(topic.output_video_url)}" target="_blank" rel="noopener noreferrer">ready</a></span>` : ''}
+          ${topic.render_duration_seconds ? `<span>Duration: ${escapeHtml(Number(topic.render_duration_seconds).toFixed(2))}s</span>` : ''}
+          ${topic.render_resolution ? `<span>${escapeHtml(topic.render_resolution)}</span>` : ''}
           <span>Publish: ${escapeHtml(topic.publish_status || 'draft')}</span>
           <span>Updated: ${escapeHtml(new Date(topic.updated_at).toLocaleString())}</span>
         </div>

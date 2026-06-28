@@ -427,6 +427,107 @@ const WORKFLOWS = [
 ];
 const DEFAULT_ABSTRACT_IDEA_WORKFLOW_KEY = 'wf_end_to_end_reel_generate_and_publish';
 const SECRET_VALUE_MASK = '********';
+const TEXT_PROVIDER_OPTIONS = Object.freeze([
+  { value: 'anthropic', label: 'Anthropic Claude', key_env: ['ANTHROPIC_API_KEY', 'TEXT_ANTHROPIC_API_KEY', 'PREMIUM_TEXT_ANTHROPIC_API_KEY'] },
+  { value: 'openai', label: 'OpenAI', key_env: ['OPENAI_API_KEY', 'TEXT_OPENAI_API_KEY', 'PREMIUM_TEXT_OPENAI_API_KEY', 'LLL_API_KEY'] },
+]);
+const MODEL_SUGGESTIONS = Object.freeze({
+  openai_text: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4o-mini'],
+  anthropic_text: ['claude-opus-4-5-20251101', 'claude-sonnet-4-5', 'claude-sonnet-4-5-20250929', 'claude-opus-4-1', 'claude-sonnet-4-20250514', 'claude-sonnet-4-6'],
+  openai_image: ['gpt-image-1', 'gpt-image-1-mini'],
+  fal_image: ['fal-ai/flux/schnell', 'fal-ai/flux/dev', 'fal-ai/imagen4/preview'],
+  fal_video: ['fal-ai/wan-t2v', 'fal-ai/wan/v2.7/reference-to-video'],
+  tts_fish_audio: ['s2-pro', 's1', 'speech-1.6'],
+  tts_openai: ['gpt-4o-mini-tts', 'tts-1', 'tts-1-hd'],
+  tts_smallest_ai: ['lightning-v3.1', 'lightning-v3'],
+  render: ['remotion', 'local_ffmpeg'],
+});
+const MODEL_ROUTE_GROUPS = Object.freeze([
+  {
+    id: 'defaults',
+    title: 'Fallback Defaults',
+    description: 'Used when a task-specific route is blank.',
+    routes: [
+      { label: 'Text fallback', providerKey: 'TEXT_LLM_PROVIDER', openaiModelKey: 'TEXT_MODEL', anthropicModelKey: 'TEXT_ANTHROPIC_MODEL', description: 'General fallback for structured text calls.' },
+      { label: 'Premium text fallback', providerKey: 'PREMIUM_TEXT_LLM_PROVIDER', openaiModelKey: 'PREMIUM_TEXT_MODEL', anthropicModelKey: 'PREMIUM_TEXT_ANTHROPIC_MODEL', description: 'Higher-quality fallback for creative and QA-heavy stages.' },
+      { label: 'Prompt builder fallback', providerKey: 'PROMPT_BUILDER_LLM_PROVIDER', openaiModelKey: 'PROMPT_BUILDER_MODEL', anthropicModelKey: 'PROMPT_BUILDER_ANTHROPIC_MODEL', description: 'Used by the Studio prompt/profile generator.' },
+    ],
+  },
+  {
+    id: 'story',
+    title: 'Story, Script, and Direction',
+    description: 'Creative text stages that shape the Reel.',
+    routes: [
+      { label: 'Idea ingest', providerKey: 'IDEA_INGEST_LLM_PROVIDER', openaiModelKey: 'IDEA_INGEST_MODEL', anthropicModelKey: 'IDEA_INGEST_ANTHROPIC_MODEL', description: 'Turns an abstract idea into a pipeline topic.' },
+      { label: 'Research script', providerKey: 'RESEARCH_LLM_PROVIDER', openaiModelKey: 'RESEARCH_MODEL', anthropicModelKey: 'RESEARCH_ANTHROPIC_MODEL', description: 'Research/script generation path.' },
+      { label: 'Story package', providerKey: 'STORY_PACKAGE_LLM_PROVIDER', openaiModelKey: 'STORY_PACKAGE_MODEL', anthropicModelKey: 'STORY_PACKAGE_ANTHROPIC_MODEL', description: 'Main one-pass story package generation.' },
+      { label: 'Story package V2', providerKey: 'STORY_PACKAGE_V2_LLM_PROVIDER', openaiModelKey: 'STORY_PACKAGE_V2_MODEL', anthropicModelKey: 'STORY_PACKAGE_V2_ANTHROPIC_MODEL', description: 'Optional V2 story package route.' },
+      { label: 'Director contract', providerKey: 'DIRECTOR_LLM_PROVIDER', openaiModelKey: 'DIRECTOR_CONTRACT_MODEL', anthropicModelKey: 'DIRECTOR_CONTRACT_ANTHROPIC_MODEL', description: 'Direction, style, voice, risk, and edit contract.' },
+      { label: 'Storyboard', providerKey: 'STORYBOARD_LLM_PROVIDER', openaiModelKey: 'STORYBOARD_MODEL', anthropicModelKey: 'STORYBOARD_ANTHROPIC_MODEL', description: 'Storyboard and prompt generation when that legacy stage is active.' },
+    ],
+  },
+  {
+    id: 'media',
+    title: 'Visual, Voice, Avatar, QA',
+    description: 'Stages where quality and consistency matter most.',
+    routes: [
+      { label: 'Visual prompt builder', providerKey: 'VISUAL_PROMPT_LLM_PROVIDER', openaiModelKey: 'VISUAL_PROMPT_MODEL', anthropicModelKey: 'VISUAL_PROMPT_ANTHROPIC_MODEL', description: 'Refines image/video prompts before provider calls.' },
+      { label: 'Voice performance', providerKey: 'VOICE_PERFORMANCE_LLM_PROVIDER', openaiModelKey: 'VOICE_PERFORMANCE_MODEL', anthropicModelKey: 'VOICE_PERFORMANCE_ANTHROPIC_MODEL', description: 'Adds human delivery direction without rewriting clean narration.' },
+      { label: 'Avatar selector', providerKey: 'AVATAR_LLM_PROVIDER', openaiModelKey: 'AVATAR_MODEL', anthropicModelKey: 'AVATAR_ANTHROPIC_MODEL', description: 'Avatar route, consent, fallback, disclosure, and presenter direction.' },
+      { label: 'Caption', providerKey: 'CAPTION_LLM_PROVIDER', openaiModelKey: 'CAPTION_MODEL', anthropicModelKey: 'CAPTION_ANTHROPIC_MODEL', description: 'Caption and hashtag generation when LLM captioning is active.' },
+      { label: 'Final QA', providerKey: 'FINAL_QA_LLM_PROVIDER', openaiModelKey: 'FINAL_QA_MODEL', anthropicModelKey: 'FINAL_QA_ANTHROPIC_MODEL', description: 'Strict publish-readiness validation.' },
+      { label: 'Performance feedback', providerKey: 'PERFORMANCE_FEEDBACK_LLM_PROVIDER', openaiModelKey: 'PERFORMANCE_FEEDBACK_MODEL', anthropicModelKey: 'PERFORMANCE_FEEDBACK_ANTHROPIC_MODEL', description: 'Reusable learnings from previous performance.' },
+    ],
+  },
+]);
+const NON_TEXT_MODEL_GROUPS = Object.freeze([
+  {
+    id: 'media-adapters',
+    title: 'Media, Voice, and Render Adapters',
+    description: 'Provider/model selectors outside structured text.',
+    routes: [
+      { label: 'Image fallback', providerKey: 'IMAGE_GENERATION_PROVIDER', modelKey: 'IMAGE_MODEL', providerOptions: ['openai', 'fal_ai'], modelSuggestions: { openai: MODEL_SUGGESTIONS.openai_image, fal_ai: MODEL_SUGGESTIONS.fal_image }, description: 'Global image generation fallback.' },
+      { label: 'Scene images', providerKey: 'SCENE_IMAGE_PROVIDER', modelKey: 'SCENE_IMAGE_MODEL', providerOptions: ['openai', 'fal_ai'], modelSuggestions: { openai: MODEL_SUGGESTIONS.openai_image, fal_ai: MODEL_SUGGESTIONS.fal_image }, description: 'Scene image provider and model.' },
+      { label: 'Reference images', providerKey: 'SCENE_REFERENCE_IMAGE_PROVIDER', modelKey: 'SCENE_REFERENCE_IMAGE_MODEL', providerOptions: ['openai'], modelSuggestions: { openai: MODEL_SUGGESTIONS.openai_image }, description: 'Reference-image path for character/reference workflows.' },
+      { label: 'Post image', providerKey: 'POST_IMAGE_PROVIDER', modelKey: 'POST_IMAGE_MODEL', providerOptions: ['openai', 'fal_ai'], modelSuggestions: { openai: MODEL_SUGGESTIONS.openai_image, fal_ai: MODEL_SUGGESTIONS.fal_image }, description: 'Single post or cover image generation.' },
+      { label: 'Scene video', providerKey: '', modelKey: 'WAN_VIDEO_MODEL', providerOptions: ['fal_ai'], modelSuggestions: { fal_ai: MODEL_SUGGESTIONS.fal_video }, description: 'Fal/Wan text-to-video scene generation.' },
+      { label: 'Reference video', providerKey: '', modelKey: 'WAN_REFERENCE_VIDEO_MODEL', providerOptions: ['fal_ai'], modelSuggestions: { fal_ai: MODEL_SUGGESTIONS.fal_video }, description: 'Fal/Wan reference-to-video model.' },
+      { label: 'Narration TTS', providerKey: 'NARRATION_PROVIDER', modelKey: 'NARRATION_MODEL', providerOptions: ['fish_audio', 'openai', 'smallest_ai'], modelSuggestions: { fish_audio: MODEL_SUGGESTIONS.tts_fish_audio, openai: MODEL_SUGGESTIONS.tts_openai, smallest_ai: MODEL_SUGGESTIONS.tts_smallest_ai }, description: 'Narration provider override.' },
+      { label: 'TTS fallback', providerKey: 'TTS_PROVIDER', modelKey: 'TTS_MODEL', providerOptions: ['fish_audio', 'openai', 'smallest_ai'], modelSuggestions: { fish_audio: MODEL_SUGGESTIONS.tts_fish_audio, openai: MODEL_SUGGESTIONS.tts_openai, smallest_ai: MODEL_SUGGESTIONS.tts_smallest_ai }, description: 'Global TTS fallback.' },
+      { label: 'Renderer', providerKey: '', modelKey: 'RENDER_PROVIDER', providerOptions: ['remotion', 'local_ffmpeg'], modelSuggestions: { remotion: MODEL_SUGGESTIONS.render, local_ffmpeg: MODEL_SUGGESTIONS.render }, description: 'Renderer used by code-first runs.' },
+    ],
+  },
+]);
+const CREDENTIAL_GROUPS = Object.freeze([
+  {
+    id: 'openai',
+    title: 'OpenAI',
+    description: 'Use the global key unless a component needs a separate billing/project boundary.',
+    primary: ['OPENAI_API_KEY', 'TEXT_OPENAI_API_KEY', 'IMAGE_OPENAI_API_KEY', 'TTS_OPENAI_API_KEY'],
+    advanced: ['LLL_API_KEY', 'PREMIUM_TEXT_OPENAI_API_KEY', 'IDEA_INGEST_OPENAI_API_KEY', 'IDEA_PROMPT_PROFILE_OPENAI_API_KEY', 'PROMPT_BUILDER_OPENAI_API_KEY', 'RESEARCH_OPENAI_API_KEY', 'DIRECTOR_OPENAI_API_KEY', 'DIRECTOR_CONTRACT_OPENAI_API_KEY', 'STORY_PACKAGE_OPENAI_API_KEY', 'STORY_PACKAGE_V2_OPENAI_API_KEY', 'STORYBOARD_OPENAI_API_KEY', 'CAPTION_OPENAI_API_KEY', 'VISUAL_PROMPT_OPENAI_API_KEY', 'VOICE_PERFORMANCE_OPENAI_API_KEY', 'AVATAR_OPENAI_API_KEY', 'FINAL_QA_OPENAI_API_KEY', 'PERFORMANCE_FEEDBACK_OPENAI_API_KEY', 'SCENE_IMAGE_OPENAI_API_KEY', 'POST_IMAGE_OPENAI_API_KEY', 'NARRATION_OPENAI_API_KEY'],
+  },
+  {
+    id: 'anthropic',
+    title: 'Anthropic Claude',
+    description: 'One Anthropic key is enough for all Claude text stages unless you intentionally override by task.',
+    primary: ['ANTHROPIC_API_KEY', 'TEXT_ANTHROPIC_API_KEY', 'PREMIUM_TEXT_ANTHROPIC_API_KEY'],
+    advanced: ['IDEA_INGEST_ANTHROPIC_API_KEY', 'IDEA_PROMPT_PROFILE_ANTHROPIC_API_KEY', 'PROMPT_BUILDER_ANTHROPIC_API_KEY', 'RESEARCH_ANTHROPIC_API_KEY', 'DIRECTOR_ANTHROPIC_API_KEY', 'DIRECTOR_CONTRACT_ANTHROPIC_API_KEY', 'STORY_PACKAGE_ANTHROPIC_API_KEY', 'STORY_PACKAGE_V2_ANTHROPIC_API_KEY', 'STORYBOARD_ANTHROPIC_API_KEY', 'CAPTION_ANTHROPIC_API_KEY', 'VISUAL_PROMPT_ANTHROPIC_API_KEY', 'VOICE_PERFORMANCE_ANTHROPIC_API_KEY', 'AVATAR_ANTHROPIC_API_KEY', 'FINAL_QA_ANTHROPIC_API_KEY', 'PERFORMANCE_FEEDBACK_ANTHROPIC_API_KEY'],
+  },
+  {
+    id: 'fal',
+    title: 'Fal AI',
+    description: 'Fal powers Flux images and Wan video. Use the global key first, then scene-specific keys only when needed.',
+    primary: ['FAL_AI_API_KEY', 'IMAGE_FAL_AI_API_KEY', 'SCENE_VIDEO_FAL_AI_API_KEY'],
+    advanced: ['SCENE_IMAGE_FAL_AI_API_KEY', 'POST_IMAGE_FAL_AI_API_KEY', 'WAN_REFERENCE_VIDEO_FAL_AI_API_KEY'],
+  },
+  {
+    id: 'voice-avatar',
+    title: 'Voice and Avatar',
+    description: 'Narration and HeyGen avatar credentials.',
+    primary: ['FISH_AUDIO_API_KEY', 'SMALLEST_AI_API_KEY', 'HEYGEN_API_KEY'],
+    advanced: ['TTS_FISH_AUDIO_API_KEY', 'NARRATION_FISH_AUDIO_API_KEY', 'TTS_SMALLEST_AI_API_KEY', 'NARRATION_SMALLEST_AI_API_KEY'],
+  },
+]);
 
 function isSensitiveConfigKey(key) {
   const normalized = String(key || '').trim().toUpperCase();
@@ -673,6 +774,7 @@ const CONFIG_SECTIONS = [
       field('SMALLEST_AI_API_KEY', 'Smallest AI API Key', 'Global fallback for Smallest AI narration.', ['']),
       field('TTS_SMALLEST_AI_API_KEY', 'TTS Smallest AI Key', 'Smallest AI key used by all TTS calls before the global Smallest key.', ['']),
       field('NARRATION_SMALLEST_AI_API_KEY', 'Narration Smallest AI Key', 'Smallest AI key used only for narration before the global Smallest key.', ['']),
+      field('HEYGEN_API_KEY', 'HeyGen API Key', 'Secret API key for HeyGen Direct Video API.', ['']),
     ],
   },
   {
@@ -725,7 +827,6 @@ const CONFIG_SECTIONS = [
     description: 'HeyGen avatar settings. HEYGEN_AVATAR_ID and HEYGEN_VOICE_ID from env are the authoritative runtime IDs. Avatar runs auto-downgrade to normal video when policy, consent, disclosure, or provider config is incomplete.',
     studio_visible: true,
     fields: [
-      field('HEYGEN_API_KEY', 'HeyGen API Key', 'Secret API key for HeyGen Direct Video API.', ['']),
       field('HEYGEN_AVATAR_ID', 'HeyGen Avatar ID', 'Provider avatar ID used for avatar reel generation.', ['']),
       field('HEYGEN_VOICE_ID', 'HeyGen Voice ID', 'Provider voice ID used for avatar reel generation.', ['']),
       field('HEYGEN_CALLBACK_URL', 'HeyGen Callback URL', 'Optional provider callback URL. Polling is still supported without this.', ['']),
@@ -1893,11 +1994,201 @@ function renderEnvFile(existingContent, updates) {
   return `${rendered.join('\n').replace(/\n{3,}/g, '\n\n').replace(/\s+$/g, '')}\n`;
 }
 
+function allConfigFieldDefinitions() {
+  return CONFIG_SECTIONS.flatMap((section) => section.fields || []);
+}
+
+function configFieldDefinition(key) {
+  return allConfigFieldDefinitions().find((item) => item.key === key)
+    || field(key, key.replaceAll('_', ' '), key, ['']);
+}
+
+function configFieldValue(item, values = {}) {
+  const sensitive = isSensitiveConfigKey(item.key);
+  const rawValue = values[item.key] ?? '';
+  return sensitive && rawValue ? SECRET_VALUE_MASK : rawValue;
+}
+
+function serializeConfigField(item, values = {}, extras = {}) {
+  const sensitive = isSensitiveConfigKey(item.key);
+  return {
+    key: item.key,
+    label: item.label,
+    description: item.description,
+    examples: item.examples,
+    width: item.width || '',
+    sensitive,
+    value: configFieldValue(item, values),
+    ...extras,
+  };
+}
+
+function hasConfiguredEnv(values = {}, keys = []) {
+  return keys.some((key) => normalizeHostedString(values[key]));
+}
+
+function providerKeyCandidates(provider) {
+  const normalized = normalizeHostedString(provider).toLowerCase();
+  if (normalized === 'anthropic') {
+    return ['ANTHROPIC_API_KEY', 'TEXT_ANTHROPIC_API_KEY', 'PREMIUM_TEXT_ANTHROPIC_API_KEY'];
+  }
+  if (normalized === 'openai') {
+    return ['OPENAI_API_KEY', 'TEXT_OPENAI_API_KEY', 'IMAGE_OPENAI_API_KEY', 'TTS_OPENAI_API_KEY', 'LLL_API_KEY'];
+  }
+  if (normalized === 'fal_ai') {
+    return ['FAL_AI_API_KEY', 'IMAGE_FAL_AI_API_KEY', 'SCENE_VIDEO_FAL_AI_API_KEY', 'SCENE_IMAGE_FAL_AI_API_KEY'];
+  }
+  if (normalized === 'fish_audio') {
+    return ['FISH_AUDIO_API_KEY', 'TTS_FISH_AUDIO_API_KEY', 'NARRATION_FISH_AUDIO_API_KEY'];
+  }
+  if (normalized === 'smallest_ai') {
+    return ['SMALLEST_AI_API_KEY', 'TTS_SMALLEST_AI_API_KEY', 'NARRATION_SMALLEST_AI_API_KEY'];
+  }
+  if (normalized === 'heygen') {
+    return ['HEYGEN_API_KEY'];
+  }
+  return [];
+}
+
+function providerLabel(provider) {
+  return {
+    anthropic: 'Anthropic Claude',
+    openai: 'OpenAI',
+    fal_ai: 'Fal AI',
+    fish_audio: 'Fish Audio',
+    smallest_ai: 'Smallest AI',
+    remotion: 'Remotion',
+    local_ffmpeg: 'Local FFmpeg',
+  }[provider] || provider;
+}
+
+function providerOptions(values = {}, providers = []) {
+  return providers.map((provider) => {
+    const keys = providerKeyCandidates(provider);
+    const needsKey = keys.length > 0;
+    const configured = !needsKey || hasConfiguredEnv(values, keys);
+    return {
+      value: provider,
+      label: providerLabel(provider),
+      configured,
+      needs_key: needsKey,
+      key_env: keys,
+      status_label: configured ? (needsKey ? 'key set' : 'built in') : 'key missing',
+    };
+  });
+}
+
+function modelSuggestionsFor(currentValue, suggestions = []) {
+  const current = normalizeHostedString(currentValue);
+  const unique = [...new Set([...suggestions, current].map((value) => normalizeHostedString(value)).filter(Boolean))];
+  return unique;
+}
+
+function buildTextModelRouting(values = {}) {
+  return MODEL_ROUTE_GROUPS.map((group) => ({
+    id: group.id,
+    title: group.title,
+    description: group.description,
+    adapter_type: 'text',
+    routes: group.routes.map((route) => {
+      const providerField = serializeConfigField(configFieldDefinition(route.providerKey), values, {
+        input_type: 'select',
+        options: [
+          { value: '', label: 'Use fallback chain' },
+          ...providerOptions(values, TEXT_PROVIDER_OPTIONS.map((option) => option.value)).map((option) => ({
+            value: option.value,
+            label: `${option.label} (${option.status_label})`,
+          })),
+        ],
+      });
+      const openaiField = serializeConfigField(configFieldDefinition(route.openaiModelKey), values, {
+        provider: 'openai',
+        examples: modelSuggestionsFor(values[route.openaiModelKey], MODEL_SUGGESTIONS.openai_text),
+      });
+      const anthropicField = serializeConfigField(configFieldDefinition(route.anthropicModelKey), values, {
+        provider: 'anthropic',
+        examples: modelSuggestionsFor(values[route.anthropicModelKey], MODEL_SUGGESTIONS.anthropic_text),
+      });
+      return {
+        label: route.label,
+        description: route.description,
+        provider_field: providerField,
+        model_fields: [anthropicField, openaiField],
+        active_provider: normalizeHostedString(values[route.providerKey]),
+      };
+    }),
+  }));
+}
+
+function buildMediaModelRouting(values = {}) {
+  return NON_TEXT_MODEL_GROUPS.map((group) => ({
+    id: group.id,
+    title: group.title,
+    description: group.description,
+    adapter_type: 'media',
+    routes: group.routes.map((route) => {
+      const activeProvider = normalizeHostedString(values[route.providerKey]) || route.providerOptions[0] || '';
+      const providerField = route.providerKey
+        ? serializeConfigField(configFieldDefinition(route.providerKey), values, {
+          input_type: 'select',
+          options: [
+            { value: '', label: 'Use fallback chain' },
+            ...providerOptions(values, route.providerOptions).map((option) => ({
+              value: option.value,
+              label: `${option.label} (${option.status_label})`,
+            })),
+          ],
+        })
+        : null;
+      const suggestions = Object.values(route.modelSuggestions || {}).flat();
+      const modelField = serializeConfigField(configFieldDefinition(route.modelKey), values, {
+        examples: modelSuggestionsFor(values[route.modelKey], suggestions),
+      });
+      return {
+        label: route.label,
+        description: route.description,
+        provider_field: providerField,
+        provider_options: providerOptions(values, route.providerOptions),
+        model_fields: [modelField],
+        active_provider: activeProvider,
+      };
+    }),
+  }));
+}
+
+function buildModelRouting(values = {}) {
+  return {
+    title: 'Task Model Routing',
+    description: 'Choose provider and model suggestions by pipeline task. Blank task providers inherit from the fallback chain.',
+    adapter_inventory: [
+      ...providerOptions(values, ['anthropic', 'openai', 'fal_ai', 'fish_audio', 'smallest_ai', 'heygen']),
+      ...providerOptions(values, ['remotion', 'local_ffmpeg']),
+    ],
+    groups: [
+      ...buildTextModelRouting(values),
+      ...buildMediaModelRouting(values),
+    ],
+  };
+}
+
+function buildCredentialGroups(values = {}) {
+  return CREDENTIAL_GROUPS.map((group) => ({
+    id: group.id,
+    title: group.title,
+    description: group.description,
+    configured: hasConfiguredEnv(values, [...group.primary, ...group.advanced]),
+    primary_fields: group.primary.map((key) => serializeConfigField(configFieldDefinition(key), values)),
+    advanced_fields: group.advanced.map((key) => serializeConfigField(configFieldDefinition(key), values)),
+  }));
+}
+
 async function readEnvConfig() {
   const content = await fs.readFile(ENV_FILE, 'utf8').catch(() => '');
   const parsed = parseEnvFile(content);
   return {
     topic_form: normalizeTopicDurationConfig(parsed.values),
+    model_routing: buildModelRouting(parsed.values),
+    credential_groups: buildCredentialGroups(parsed.values),
     sections: CONFIG_SECTIONS.map((section) => ({
       id: section.id,
       title: section.title,
@@ -1905,33 +2196,19 @@ async function readEnvConfig() {
       studio_visible: section.studio_visible === true,
       collapsed: section.collapsed === true,
       variant: section.variant || '',
-      fields: section.fields.map((item) => {
-        const sensitive = isSensitiveConfigKey(item.key);
-        const rawValue = parsed.values[item.key] ?? '';
-        return {
-          key: item.key,
-          label: item.label,
-          description: item.description,
-          examples: item.examples,
-          width: item.width || '',
-          sensitive,
-          value: sensitive && rawValue ? SECRET_VALUE_MASK : rawValue,
-        };
-      }),
+      fields: section.fields.map((item) => serializeConfigField(item, parsed.values)),
     })),
   };
 }
 
 async function updateEnvConfig(updates) {
   const sanitized = {};
-  for (const section of CONFIG_SECTIONS) {
-    for (const item of section.fields) {
-      if (item.key in updates) {
-        if (isSensitiveConfigKey(item.key) && String(updates[item.key] ?? '') === SECRET_VALUE_MASK) {
-          continue;
-        }
-        sanitized[item.key] = updates[item.key];
+  for (const item of allConfigFieldDefinitions()) {
+    if (item.key in updates) {
+      if (isSensitiveConfigKey(item.key) && String(updates[item.key] ?? '') === SECRET_VALUE_MASK) {
+        continue;
       }
+      sanitized[item.key] = updates[item.key];
     }
   }
   const existing = await fs.readFile(ENV_FILE, 'utf8').catch(() => '');
@@ -1965,6 +2242,8 @@ async function listTopics(limit = 25) {
       coalesce(r.render_status, '') as render_status,
       r.render_id as selected_video_id,
       coalesce(r.output_video_url, '') as output_video_url,
+      r.duration_seconds as render_duration_seconds,
+      coalesce(r.resolution, '') as render_resolution,
       coalesce(pa.approval_status, '') as approval_status,
       coalesce(pa.qa_status, '') as approval_qa_status,
       coalesce(pa.approved_by, '') as approved_by,
