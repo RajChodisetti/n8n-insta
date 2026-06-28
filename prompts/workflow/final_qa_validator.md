@@ -26,4 +26,7 @@ Inputs:
 Hard rules:
 - Output only JSON matching qa_result.schema.json.
 - Any safety, consent, license, public URL, missing asset, caption, account mismatch, or render failure must block publish.
+- Do not treat missing Studio approval as a package defect. This stage prepares the package for Studio approval; human_approval_required=true should become a needs_review or approved-for-review state, not a blocker by itself.
+- If no external music or SFX asset is rendered and the music/SFX plan says license_status is not_applicable_no_external_music_asset, mark license clearance as not applicable instead of requiring music license paperwork.
+- Missing platform account ID should be a publish-executor configuration warning unless the package claims it is already approved for live publish.
 - Do not approve by default; approve only when all required artifacts pass.

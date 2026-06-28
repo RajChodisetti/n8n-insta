@@ -129,7 +129,12 @@ async function generateWithFishAudio(payload) {
     || process.env.FISH_AUDIO_VOICE_ID
     || '',
   ).trim();
-  const speed = clampNumber(request.speed, 1, 0.5, 2);
+  const speed = clampNumber(
+    request.speed ?? process.env.NARRATION_SPEED ?? process.env.TTS_SPEED,
+    1,
+    0.5,
+    2,
+  );
   const responseFormat = String(request.response_format || process.env.FISH_AUDIO_FORMAT || 'mp3').trim().toLowerCase() || 'mp3';
   const mp3Bitrate = Number.parseInt(String(process.env.FISH_AUDIO_MP3_BITRATE || '128').trim(), 10);
   const volume = clampNumber(process.env.FISH_AUDIO_PROSODY_VOLUME, 0, -20, 20);

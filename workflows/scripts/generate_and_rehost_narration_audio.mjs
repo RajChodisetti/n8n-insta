@@ -130,6 +130,106 @@ function trimString(value) {
   return String(value ?? '').trim();
 }
 
+function clampNumber(value, fallback, min, max) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function parsePositiveNumber(value) {
+  const parsed = Number.parseFloat(String(value ?? '').trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseBooleanEnv(name, fallback = true) {
+  const normalized = String(process.env[name] ?? '').trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+}
+
+function estimateSpeechDurationSeconds(text) {
+  const words = String(text || '').match(/[A-Za-z0-9]+(?:['-][A-Za-z0-9]+)?/g) ?? [];
+  const wordSeconds = (words.length / 145) * 60;
+  const sentencePauses = (String(text || '').match(/[.!?]/g) ?? []).length * 0.18;
+  const dashPauses = (String(text || '').match(/[—:;]/g) ?? []).length * 0.22;
+  return Math.max(1, wordSeconds + sentencePauses + dashPauses);
+}
+
+function sceneNarrationText(scene) {
+  const dialogueLines = Array.isArray(scene.dialogue_lines) ? scene.dialogue_lines : [];
+  return dialogueLines.filter(Boolean).join(' ').trim()
+    || String(scene.narration_text || '').trim();
+}
+
+function narrationTailPaddingSeconds() {
+  const configured = parsePositiveNumber(process.env.NARRATION_SCENE_TAIL_SECONDS ?? process.env.RENDER_NARRATION_TAIL_SECONDS);
+  return Math.min(1.5, Math.max(0, configured ?? 0.35));
+}
+
+function reelMaxDurationSeconds() {
+  return parsePositiveNumber(
+    process.env.INSTAGRAM_REEL_MAX_SECONDS
+    ?? process.env.RENDER_MAX_DURATION_SECONDS
+    ?? process.env.REEL_MAX_DURATION_SECONDS,
+  ) ?? 60;
+}
+
+function configuredNarrationSpeed(payload) {
+  return clampNumber(
+    payload.tts_request?.speed
+      ?? payload.openai_tts_request?.speed
+      ?? process.env.NARRATION_SPEED
+      ?? process.env.TTS_SPEED
+      ?? process.env.OPENAI_TTS_SPEED,
+    1,
+    0.5,
+    2,
+  );
+}
+
+function resolveEffectiveNarrationSpeed(payload, scenes) {
+  const configuredSpeed = configuredNarrationSpeed(payload);
+  if (!parseBooleanEnv('NARRATION_AUTO_SPEED', true)) {
+    return Number(configuredSpeed.toFixed(2));
+  }
+
+  const narratedScenes = scenes.filter((scene) => sceneNarrationText(scene));
+  const targetSeconds = parsePositiveNumber(payload.target_duration_seconds);
+  const durationCapSeconds = Math.min(targetSeconds ?? reelMaxDurationSeconds(), reelMaxDurationSeconds());
+  const tailBudgetSeconds = narratedScenes.length * narrationTailPaddingSeconds();
+  const usableAudioBudgetSeconds = Math.max(1, durationCapSeconds - tailBudgetSeconds - 1);
+  const estimatedNeutralSeconds = narratedScenes.reduce(
+    (sum, scene) => sum + estimateSpeechDurationSeconds(sceneNarrationText(scene)),
+    0,
+  );
+  const estimatedNeededSpeed = estimatedNeutralSeconds > usableAudioBudgetSeconds
+    ? (estimatedNeutralSeconds / usableAudioBudgetSeconds) * 1.08
+    : 1;
+  const cappedReelMinimum = durationCapSeconds >= 55 && durationCapSeconds <= 60 ? 1.08 : 1;
+  const maxAutoSpeed = clampNumber(process.env.NARRATION_AUTO_MAX_SPEED, 1.18, 1, 2);
+  const upperBound = Math.max(configuredSpeed, maxAutoSpeed);
+  return Number(Math.min(upperBound, Math.max(configuredSpeed, cappedReelMinimum, estimatedNeededSpeed)).toFixed(2));
+}
+
+function applyNarrationSpeed(payload, speed) {
+  const nextPayload = {
+    ...payload,
+    tts_request: {
+      ...(payload.tts_request ?? {}),
+      speed,
+    },
+  };
+  if (payload.openai_tts_request && typeof payload.openai_tts_request === 'object') {
+    nextPayload.openai_tts_request = {
+      ...payload.openai_tts_request,
+      speed,
+    };
+  }
+  return nextPayload;
+}
+
 function voicePerformanceLinesForScene(voicePerformanceJson, sceneNumber) {
   return asArray(voicePerformanceJson.lines)
     .filter((line) => Number(line?.scene_number) === Number(sceneNumber));
@@ -175,7 +275,9 @@ async function main() {
     fail('storyboard_json is required and must contain at least one scene for per-scene narration generation.');
   }
 
-  const ttsRequest = payload.tts_request ?? payload.openai_tts_request ?? {};
+  const effectiveNarrationSpeed = resolveEffectiveNarrationSpeed(payload, scenes);
+  const payloadWithSpeed = applyNarrationSpeed(payload, effectiveNarrationSpeed);
+  const ttsRequest = payloadWithSpeed.tts_request ?? payloadWithSpeed.openai_tts_request ?? {};
   const responseFormat = String(ttsRequest.response_format || 'mp3').toLowerCase().replace(/[^a-z0-9]/g, '');
   const audioExt = responseFormat === 'wav' ? 'wav' : 'mp3';
   const contentType = responseFormat === 'wav' ? 'audio/wav' : 'audio/mpeg';
@@ -190,6 +292,7 @@ async function main() {
       title: String(payload.title || '').trim(),
       narration_script: String(payload.narration_script || '').trim(),
       target_duration_seconds: String(payload.target_duration_seconds || '').trim(),
+      narration_speed: String(effectiveNarrationSpeed),
       storyboard_json: scenes,
       scene_timing_plan: String(payload.scene_timing_plan || '').trim() || buildSceneTimingPlan(scenes),
     });
@@ -232,7 +335,7 @@ async function main() {
       return cachedGlobalInstructions;
     };
 
-    const scenePayload = { ...payload, narration_script: sceneScript };
+    const scenePayload = { ...payloadWithSpeed, narration_script: sceneScript };
     const generation = await generateNarrationAudio(scenePayload, sceneInstructionsLoader);
     const request = generation.request ?? ttsRequest;
     const actualDurationSeconds = await probeAudioDurationSeconds(generation.binary, audioExt);
@@ -255,6 +358,8 @@ async function main() {
       generation_model: String(request.model || ''),
       voice: String(request.voice || ''),
       speed: Number.isFinite(Number(request.speed)) ? Number(request.speed) : 1,
+      auto_speed_enabled: parseBooleanEnv('NARRATION_AUTO_SPEED', true),
+      effective_narration_speed: effectiveNarrationSpeed,
       narration_script: sceneScript,
       tts_instructions: sceneTtsInstructions,
       voice_performance_lines: voicePerformanceLinesForScene(payload.voice_performance_json, sceneNumber),

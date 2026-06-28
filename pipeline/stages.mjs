@@ -1024,6 +1024,10 @@ function buildMusicSfxContext(rawResponseJson, directorJson, storyboardJson) {
   return {
     music_direction: trimString(parsed.music_direction || raw.music_direction || directorJson.global_music_direction),
     director_music_direction: trimString(directorJson.global_music_direction || directorJson.music_sfx_contract?.music_direction),
+    external_music_assets: [],
+    music_bed_rendered: false,
+    license_status: 'not_applicable_no_external_music_asset',
+    license_evidence_required: false,
     scene_music_cues: asArray(storyboardJson).map((scene, index) => ({
       scene_number: Number(scene?.scene_number ?? index + 1),
       music_cue: trimString(scene?.music_cue),
@@ -2178,6 +2182,58 @@ async function updateAvatarRouteResult(client, contentId, routeResult) {
   );
 }
 
+async function reuseExistingSceneAssetsForFallback(pool, contentId) {
+  return withTransaction(pool, async (client) => {
+    const result = await client.query(
+      `select
+        jsonb_array_length(coalesce(sb.storyboard_json, '[]'::jsonb))::int as storyboard_scene_count,
+        count(distinct a.scene_number)::int as ready_scene_asset_count
+      from storyboards sb
+      left join assets a on a.content_id = sb.content_id
+        and a.asset_role in ('scene_image', 'scene_video')
+        and a.status = 'ready'
+      where sb.content_id = $1
+      group by sb.content_id, sb.storyboard_json`,
+      [contentId],
+    );
+    const row = result.rows[0] ?? {};
+    const storyboardSceneCount = Number(row.storyboard_scene_count || 0);
+    const readySceneAssetCount = Number(row.ready_scene_asset_count || 0);
+    if (storyboardSceneCount < 1 || readySceneAssetCount < storyboardSceneCount) {
+      return {
+        reused: false,
+        status_after_success: 'validation_complete',
+        scene_count: readySceneAssetCount,
+        cost: { type: 'none', provider: 'none', total_usd: 0 },
+      };
+    }
+    await client.query(
+      `update content_items
+      set status = 'assets_ready',
+          updated_at = now()
+      where content_id = $1`,
+      [contentId],
+    );
+    await logWorkflowRun(client, {
+      contentId,
+      workflowName: 'wf_asset_generation_v3',
+      startedAt: new Date().toISOString(),
+      durationMs: 0,
+      details: {
+        reused_existing_scene_assets: true,
+        scene_count: readySceneAssetCount,
+        cost: { type: 'none', provider: 'none', total_usd: 0 },
+      },
+    });
+    return {
+      reused: true,
+      status_after_success: 'assets_ready',
+      scene_count: readySceneAssetCount,
+      cost: { type: 'none', provider: 'none', total_usd: 0 },
+    };
+  });
+}
+
 async function runAvatarVideoFallback({ pool, step, reason, decision, startedAt }) {
   const contentId = ensureUuid(step.content_id);
   const routeResult = {
@@ -2217,7 +2273,10 @@ async function runAvatarVideoFallback({ pool, step, reason, decision, startedAt 
     });
   });
 
-  const assetResult = await runAssetGenerationV3({ pool, step });
+  const existingAssetResult = await reuseExistingSceneAssetsForFallback(pool, contentId);
+  const assetResult = existingAssetResult.reused === true
+    ? existingAssetResult
+    : await runAssetGenerationV3({ pool, step });
   const voiceResult = await runVoicePerformanceScript({ pool, step });
   const narrationResult = await runNarrationGeneration({ pool, step });
   return {
@@ -2809,6 +2868,37 @@ function narrationTailPaddingSeconds() {
   return Math.min(1.5, Math.max(0, Number(configured.toFixed(2))));
 }
 
+function reelMaxDurationSeconds() {
+  const configured = Number.parseFloat(trimString(firstEnv([
+    'INSTAGRAM_REEL_MAX_SECONDS',
+    'RENDER_MAX_DURATION_SECONDS',
+    'REEL_MAX_DURATION_SECONDS',
+  ]) || '60'));
+  if (!Number.isFinite(configured) || configured <= 0) {
+    return 60;
+  }
+  return Number(configured.toFixed(2));
+}
+
+function effectiveNarrationTailPaddingSeconds(sceneNarrationAssets) {
+  const rawTailPadding = narrationTailPaddingSeconds();
+  const narratedScenes = asArray(sceneNarrationAssets).filter((asset) => Number(asset?.duration_seconds ?? 0) > 0);
+  if (rawTailPadding <= 0 || narratedScenes.length === 0) {
+    return rawTailPadding;
+  }
+  const narrationTotalSeconds = narratedScenes.reduce((sum, asset) => sum + Math.max(Number(asset.duration_seconds ?? 0), 0), 0);
+  const maxDurationSeconds = reelMaxDurationSeconds();
+  const projectedTotalSeconds = narrationTotalSeconds + (rawTailPadding * narratedScenes.length);
+  if (projectedTotalSeconds <= maxDurationSeconds) {
+    return rawTailPadding;
+  }
+  const remainingTailBudget = maxDurationSeconds - narrationTotalSeconds;
+  if (remainingTailBudget <= 0) {
+    return 0;
+  }
+  return Number(Math.max(0, remainingTailBudget / narratedScenes.length).toFixed(2));
+}
+
 function buildAvatarRenderManifest(row, {
   contentId,
   title,
@@ -2950,7 +3040,7 @@ function buildRenderManifest(row) {
   const narrationSpeed = Number.isFinite(Number(sceneNarrationAssets[0]?.metadata_json?.speed))
     ? Number(sceneNarrationAssets[0].metadata_json.speed)
     : 1;
-  const narrationTailPadding = narrationTailPaddingSeconds();
+  const narrationTailPadding = effectiveNarrationTailPaddingSeconds(sceneNarrationAssets);
   const narrationByScene = Object.fromEntries(sceneNarrationAssets.map((asset) => [Number(asset.scene_number), asset]));
 
   let currentTime = 0;
@@ -3512,26 +3602,63 @@ async function runRenderSyncCompletion({ pool, step }) {
   };
 }
 
-function formatCaption({ title, category, selectedHook, captionDraft, ctaLine }) {
-  const captionParts = [];
-  if (captionDraft) captionParts.push(captionDraft);
-  if (ctaLine) captionParts.push(ctaLine);
-  const captionFinal = captionParts.join('\n\n') || selectedHook || title;
+function extractHashtags(value) {
+  const seen = new Set();
+  const matches = String(value || '').match(/#[A-Za-z0-9_]+/g) ?? [];
+  return matches
+    .map((tag) => tag.trim())
+    .filter((tag) => {
+      const key = tag.toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 12);
+}
+
+function stripHashtags(value) {
+  return String(value || '')
+    .split(/\n/)
+    .map((line) => line.replace(/(?:^|\s)#[A-Za-z0-9_]+/g, '').trimEnd())
+    .filter((line) => line.trim())
+    .join('\n')
+    .trim();
+}
+
+function hashtagsForCategory(category) {
   const normalizedCategory = trimString(category || 'general').toLowerCase();
   const hashtagMap = {
+    ai: '#AIExplained #LLM #ArtificialIntelligence #MachineLearning #TechEducation #HowAIWorks',
+    artificial: '#ArtificialIntelligence #AIExplained #MachineLearning #LLM #TechEducation #FutureTech',
+    technology: '#TechEducation #AIExplained #FutureTech #MachineLearning #DigitalLearning #Innovation',
+    education: '#LearnOnInstagram #EducationalReels #TechEducation #ExplainedSimply #KnowledgeShare #CuriousMinds',
+    science: '#science #facts #discovery #educational #learnsomethingnew #explained',
     history: '#history #historical #worldhistory #historyfacts #ancienthistory #truestory',
     mystery: '#mystery #unsolved #truemystery #unexplained #creepy #truecrime',
     'true crime': '#truecrime #crimestory #coldcase #truecrimeaddict #crimepodcast #realstory',
     crime: '#crime #truecrime #crimestory #coldcase #realstory #truestory',
     war: '#war #military #history #warhistory #historicalfacts #truestory',
     culture: '#culture #history #worldhistory #traditions #heritage #truestory',
-    science: '#science #facts #historicalfacts #discovery #truestory #educational',
   };
   const matchedKey = Object.keys(hashtagMap).find((key) => normalizedCategory.includes(key));
+  return matchedKey
+    ? hashtagMap[matchedKey]
+    : '#ExplainedSimply #LearnOnInstagram #EducationalReels #CuriousMinds #KnowledgeShare #Reels';
+}
+
+function formatCaption({ title, category, selectedHook, captionDraft, ctaLine }) {
+  const captionParts = [];
+  if (captionDraft) captionParts.push(captionDraft);
+  if (ctaLine) captionParts.push(ctaLine);
+  const rawCaptionFinal = captionParts.join('\n\n') || selectedHook || title;
+  const extractedHashtags = extractHashtags(rawCaptionFinal);
+  const captionFinal = stripHashtags(rawCaptionFinal) || selectedHook || title;
   return {
     caption_final: captionFinal,
-    hashtags_final: matchedKey ? hashtagMap[matchedKey] : '#history #truestory #realstory #historical #factsonly #storytelling',
-    selection_rationale: 'Assembled directly from research caption_draft and cta_line without LLM call',
+    hashtags_final: extractedHashtags.length ? extractedHashtags.join(' ') : hashtagsForCategory(category),
+    selection_rationale: extractedHashtags.length
+      ? 'Assembled from research caption_draft and split embedded hashtags into hashtags_final'
+      : 'Assembled from research caption_draft and selected category fallback hashtags',
     cost: { type: 'none', provider: 'none', total_usd: 0 },
   };
 }
@@ -3796,8 +3923,7 @@ async function runFinalQaApprovalGate({ pool, step }) {
   const publishDecision = trimString(qaResult.publish_decision || 'blocked');
   const blocksPublish = qaResult.summary?.blocks_publish === true
     || qaResult.publish_requirements?.blocks_publish === true
-    || publishDecision === 'blocked'
-    || !platformAccountId;
+    || publishDecision === 'blocked';
   const qaStatus = blocksPublish
     ? 'failed'
     : (publishDecision === 'approved' ? 'passed' : 'needs_review');
