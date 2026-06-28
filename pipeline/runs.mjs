@@ -118,11 +118,80 @@ export function getDefaultReelType() {
   return normalizeReelType(firstEnv(['DEFAULT_REEL_TYPE']), { fallback: 'video' });
 }
 
-export function getPipelineStagesForAction(actionValue, { reelType } = {}) {
+function firstStagePresent(stages, candidates) {
+  return candidates.find((stageKey) => stages.includes(stageKey)) || '';
+}
+
+export function getGenerateReelResumeStage(contentStatus, { stages = [], reelType = 'video' } = {}) {
+  const status = String(contentStatus || '').trim();
+  if (!status) {
+    return '';
+  }
+  const normalizedReelType = normalizeReelType(reelType, { fallback: 'video' });
+  if (['idea_approved', 'scripting'].includes(status)) {
+    return firstStagePresent(stages, ['story_package_generation']);
+  }
+  if (['storyboard_complete', 'validating'].includes(status)) {
+    return firstStagePresent(stages, ['story_package_quality_gate']);
+  }
+  if (status === 'validation_complete') {
+    return firstStagePresent(stages, ['director_contract']);
+  }
+  if (status === 'selecting_avatar_route' || status === 'checking_avatar_consent') {
+    return firstStagePresent(stages, ['avatar_presenter_selector', 'avatar_media_generation']);
+  }
+  if (['avatar_route_ready', 'avatar_consent_ready', 'generating_avatar_media'].includes(status)) {
+    return firstStagePresent(stages, ['avatar_media_generation']);
+  }
+  if (status === 'avatar_ready') {
+    return firstStagePresent(stages, ['remotion_manifest']);
+  }
+  if (status === 'planning_hybrid_media') {
+    return firstStagePresent(stages, ['hybrid_media_planner', 'hybrid_media_generation']);
+  }
+  if (['hybrid_media_plan_ready', 'generating_hybrid_media'].includes(status)) {
+    return firstStagePresent(stages, ['hybrid_media_generation']);
+  }
+  if (['generating_assets'].includes(status)) {
+    return firstStagePresent(stages, ['image_asset_generation', 'asset_generation_v3', 'hybrid_media_generation']);
+  }
+  if (status === 'assets_ready') {
+    return normalizedReelType === 'avatar'
+      ? firstStagePresent(stages, ['avatar_media_generation', 'remotion_manifest'])
+      : firstStagePresent(stages, ['voice_performance_script', 'narration_generation']);
+  }
+  if (status === 'generating_narration') {
+    return firstStagePresent(stages, ['narration_generation']);
+  }
+  if (status === 'narration_ready') {
+    return firstStagePresent(stages, ['remotion_manifest']);
+  }
+  if (status === 'render_manifest_ready' || status === 'dispatching_render') {
+    return firstStagePresent(stages, ['remotion_render']);
+  }
+  if (status === 'render_failed') {
+    return firstStagePresent(stages, ['remotion_manifest']);
+  }
+  if (status === 'render_complete') {
+    return firstStagePresent(stages, ['caption_and_hashtags', 'final_qa_approval_gate']);
+  }
+  return '';
+}
+
+function trimStagesForResume(stages, resumeStage) {
+  const index = stages.indexOf(resumeStage);
+  return index > 0 ? stages.slice(index) : [...stages];
+}
+
+export function getPipelineStagesForAction(actionValue, { reelType, contentStatus } = {}) {
   const action = normalizeAction(actionValue);
   if (action === 'generate_reel') {
     const normalizedReelType = normalizeReelType(reelType, { fallback: getDefaultReelType() });
-    return [...PIPELINE_STAGE_PLANS.generate_reel[normalizedReelType]];
+    const stages = [...PIPELINE_STAGE_PLANS.generate_reel[normalizedReelType]];
+    return trimStagesForResume(
+      stages,
+      getGenerateReelResumeStage(contentStatus, { stages, reelType: normalizedReelType }),
+    );
   }
   return [...PIPELINE_STAGE_PLANS[action]];
 }
@@ -193,7 +262,15 @@ export async function createPipelineRun(pool, {
     const normalizedReelType = action === 'generate_reel'
       ? normalizeReelType(reelType ?? contentResult.rows[0].reel_type, { fallback: getDefaultReelType() })
       : null;
-    const stages = getPipelineStagesForAction(action, { reelType: normalizedReelType });
+    const contentStatusAtEnqueue = String(contentResult.rows[0].status || '').trim();
+    const stages = getPipelineStagesForAction(action, {
+      reelType: normalizedReelType,
+      contentStatus: contentStatusAtEnqueue,
+    });
+    const fullStagePlan = action === 'generate_reel'
+      ? getPipelineStagesForAction(action, { reelType: normalizedReelType })
+      : [...stages];
+    const resumedFromStage = stages[0] !== fullStagePlan[0] ? stages[0] : '';
 
     const existingResult = await client.query(
       `select pipeline_run_id, reel_type
@@ -246,7 +323,9 @@ export async function createPipelineRun(pool, {
           review_mode: Boolean(reviewMode),
           reel_type: normalizedReelType,
           content_title: String(contentResult.rows[0].title || '').trim(),
-          content_status_at_enqueue: String(contentResult.rows[0].status || '').trim(),
+          content_status_at_enqueue: contentStatusAtEnqueue,
+          full_stage_plan: fullStagePlan,
+          resumed_from_stage: resumedFromStage || null,
         }),
       ],
     );
@@ -270,7 +349,15 @@ export async function createPipelineRun(pool, {
       contentId: normalizedContentId,
       eventType: 'run_queued',
       message: `Queued ${PIPELINE_ACTION_LABELS[action] || action}.`,
-      details: { requested_action: action, reel_type: normalizedReelType, stage_plan: stages, review_mode: Boolean(reviewMode) },
+      details: {
+        requested_action: action,
+        reel_type: normalizedReelType,
+        stage_plan: stages,
+        full_stage_plan: fullStagePlan,
+        resumed_from_stage: resumedFromStage || null,
+        content_status_at_enqueue: contentStatusAtEnqueue,
+        review_mode: Boolean(reviewMode),
+      },
     });
 
     if (action === 'generate_reel' && reviewMode) {
