@@ -78,7 +78,13 @@ function runNodeScript(relativeScriptPath, args = [], { env = {}, label = relati
   if (result.status !== 0) {
     const stderr = trimString(result.stderr);
     const stdout = trimString(result.stdout);
-    fail(`${label} failed${stderr ? `: ${stderr}` : stdout ? `: ${stdout}` : '.'}`);
+    const diagnostics = [
+      result.error?.message ? `spawn error: ${result.error.message}` : '',
+      result.signal ? `signal: ${result.signal}` : '',
+      stderr,
+      stdout,
+    ].filter(Boolean);
+    fail(`${label} failed${diagnostics.length ? `: ${diagnostics.join(' | ')}` : '.'}`);
   }
   return parseJsonOutput(result.stdout, label);
 }
