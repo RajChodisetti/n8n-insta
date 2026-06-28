@@ -157,6 +157,25 @@ function estimateSpeechDurationSeconds(text) {
   return Math.max(1, wordSeconds + sentencePauses + dashPauses);
 }
 
+const META_NARRATION_PATTERNS = [
+  /\bno spoken narration\b/i,
+  /\bno narration\b/i,
+  /\bwithout narration\b/i,
+  /\bno voice(?:over)?\b/i,
+  /\btts (?:is )?disabled\b/i,
+  /\bdriven entirely by visual/i,
+  /\btext overlays?\s+(?:replace|replaces|carry|carries|drive|drives)\b/i,
+  /\bthis reel is (?:driven|told)\b/i,
+  /\bstory speaks for itself\b/i,
+  /\bvisual scenarios? and on[- ]screen text\b/i,
+];
+
+function isMetaNarrationInstruction(value) {
+  const normalized = trimString(value).replace(/\s+/g, ' ');
+  if (!normalized) return false;
+  return META_NARRATION_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
 function sceneNarrationText(scene) {
   const dialogueLines = Array.isArray(scene.dialogue_lines) ? scene.dialogue_lines : [];
   return dialogueLines.filter(Boolean).join(' ').trim()
@@ -318,6 +337,9 @@ async function main() {
         continue;
       }
       fail(`Scene ${sceneNumber} has no dialogue_lines or narration_text to narrate.`);
+    }
+    if (isMetaNarrationInstruction(sceneScript)) {
+      fail(`Scene ${sceneNumber} contains pipeline-meta no-narration text; refusing to synthesize it as TTS.`);
     }
 
     const directorScene = directorByScene[sceneNumber] ?? null;

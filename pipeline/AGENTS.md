@@ -66,7 +66,7 @@ With a running stack, also check `docker compose --env-file infra/.env -f infra/
 - `director_contract` and `visual_prompt_builder` now run before media generation; `voice_performance_script` runs before image/video narration and must keep spoken text separate from delivery instructions.
 - `final_qa_approval_gate` invokes the `final_qa_validator` prompt and only `qa_status = 'passed'` records are publishable. `analyze_performance` is a separate action for stored insight snapshots and future account guidance.
 - `image`, `video`, and `avatar` use different stage lists. `video` remains the default for backward compatibility.
-- `avatar` runs use `avatar_presenter_selector` and `avatar_media_generation`; approved routes rely on HeyGen's embedded avatar audio/video asset, while blocked or unavailable routes auto-downgrade to the normal video asset, voice performance, and narration path before Remotion finishing.
+- `avatar` runs use `avatar_presenter_selector` and `avatar_media_generation`; approved routes rely on HeyGen's embedded avatar audio/video asset, while blocked or unavailable routes auto-downgrade to the normal video asset, voice performance, and narration path before Remotion finishing. Avatar fallback preserves storyboard asset plans and may use `image_with_motion`; do not force every fallback scene to provider video unless the storyboard already requested it.
 - Existing `content_items.status` remains `render_complete` after generation so Studio's selected-render approval route keeps working.
 - Existing Postgres volumes do not automatically rerun init SQL; `ensurePipelineSchema` applies the new schema from Studio/worker startup paths.
 

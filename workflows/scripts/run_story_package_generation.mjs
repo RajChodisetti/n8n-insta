@@ -198,8 +198,45 @@ const VISIBLE_TEXT_PROMPT_PATTERNS = [
 
 const TEXT_FREE_VISUAL_FALLBACK = 'Concrete text-free documentary scene matching the narrated beat, using unmarked physical subjects, architecture, water, stone, tools, landscape, people, lighting, and composition instead of written surfaces.';
 
+const META_NARRATION_PATTERNS = [
+  /\bno spoken narration\b/i,
+  /\bno narration\b/i,
+  /\bwithout narration\b/i,
+  /\bno voice(?:over)?\b/i,
+  /\btts (?:is )?disabled\b/i,
+  /\bdriven entirely by visual/i,
+  /\btext overlays?\s+(?:replace|replaces|carry|carries|drive|drives)\b/i,
+  /\bthis reel is (?:driven|told)\b/i,
+  /\bstory speaks for itself\b/i,
+  /\bvisual scenarios? and on[- ]screen text\b/i,
+];
+
 function normalizeWhitespace(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function wordCount(value) {
+  return normalizeWhitespace(value).split(/\s+/).filter(Boolean).length;
+}
+
+function isMetaNarrationInstruction(value) {
+  const normalized = normalizeWhitespace(value);
+  if (!normalized) {
+    return false;
+  }
+  return META_NARRATION_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+function sceneArrayCount(value) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function assertStoryPackageSceneArrays(response) {
+  const guidanceCount = sceneArrayCount(response.scene_guidance_json);
+  const storyboardCount = sceneArrayCount(response.storyboard_json);
+  if (guidanceCount === 0 || storyboardCount === 0) {
+    fail(`story package returned empty scene arrays (scene_guidance_json=${guidanceCount}, storyboard_json=${storyboardCount}); refusing to repair missing scenes from narration text.`);
+  }
 }
 
 function splitFaceImageTitleWords(value) {
@@ -638,6 +675,22 @@ function validateScenes(sceneGuidanceJson, storyboardJson, targetDurationSeconds
     if (!storyboardJson[index].narration_text || !storyboardJson[index].dialogue_lines.length || !storyboardJson[index].visual_prompt || !storyboardJson[index].transition || !storyboardJson[index].mood || !storyboardJson[index].music_cue) {
       fail(`storyboard_json scene ${index + 1} is incomplete.`);
     }
+    const sceneTextValues = [
+      scene.narration_text,
+      ...scene.dialogue_lines,
+      storyboardJson[index].narration_text,
+      ...storyboardJson[index].dialogue_lines,
+    ];
+    if (sceneTextValues.some((value) => isMetaNarrationInstruction(value))) {
+      fail(`story package scene ${index + 1} contains pipeline-meta narration text instead of concrete scene content.`);
+    }
+    const promptTextValues = [
+      scene.image_prompt,
+      storyboardJson[index].visual_prompt,
+    ];
+    if (promptTextValues.some((value) => isMetaNarrationInstruction(value))) {
+      fail(`story package scene ${index + 1} visual prompt contains pipeline-meta text instead of a concrete visual beat.`);
+    }
     if (scene.start_time_seconds < 0 || scene.end_time_seconds <= scene.start_time_seconds || scene.duration_seconds <= 0) {
       fail(`scene_guidance_json scene ${index + 1} has invalid timing.`);
     }
@@ -782,6 +835,10 @@ async function main() {
         fail(`story package returned an empty ${field}.`);
       }
     }
+    if (isMetaNarrationInstruction(response.narration_script) && wordCount(response.short_script) >= 12) {
+      fail('story package narration_script is a pipeline-meta no-narration instruction instead of usable spoken/story content.');
+    }
+    assertStoryPackageSceneArrays(response);
     const repairedSceneTargetCount = targetSceneCountForRepair(
       response.scene_guidance_json,
       response.storyboard_json,

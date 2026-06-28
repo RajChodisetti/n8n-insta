@@ -154,6 +154,25 @@ const GENERIC_SCENE_PROMPT_PATTERNS = [
   /\bgeneric mood\b/i,
 ];
 
+const META_NARRATION_PATTERNS = [
+  /\bno spoken narration\b/i,
+  /\bno narration\b/i,
+  /\bwithout narration\b/i,
+  /\bno voice(?:over)?\b/i,
+  /\btts (?:is )?disabled\b/i,
+  /\bdriven entirely by visual/i,
+  /\btext overlays?\s+(?:replace|replaces|carry|carries|drive|drives)\b/i,
+  /\bthis reel is (?:driven|told)\b/i,
+  /\bstory speaks for itself\b/i,
+  /\bvisual scenarios? and on[- ]screen text\b/i,
+];
+
+function isMetaNarrationInstruction(value) {
+  const normalized = String(value ?? '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return false;
+  return META_NARRATION_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
 function ensureScenePromptSpecificity(scene) {
   const sceneNumber = Number(scene?.scene_number ?? 0);
   const visualPrompt = String(scene?.visual_prompt ?? '').trim();
@@ -162,6 +181,9 @@ function ensureScenePromptSpecificity(scene) {
 
   if (!narrationText) {
     fail(`Scene ${sceneNumber || '<unknown>'} is missing narration_text, so the image prompt cannot be verified against the narrated beat.`);
+  }
+  if (isMetaNarrationInstruction(narrationText) || isMetaNarrationInstruction(visualPrompt)) {
+    fail(`Scene ${sceneNumber || '<unknown>'} contains pipeline-meta narration instructions instead of a concrete scene beat.`);
   }
 
   if (visualWordCount < 12) {

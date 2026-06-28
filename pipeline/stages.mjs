@@ -179,6 +179,18 @@ const VISIBLE_TEXT_RISK_PATTERNS = [
   /\b(with|showing|featuring|displaying|include|including|add|adding)\s+(?:a\s+)?(?:readable\s+)?(?:title|text|label|logo|sign|caption|subtitle|headline|watermark)\b/i,
   /\b(title text|text overlay|words on screen|readable headline|newspaper headline|labeled map|map labels|UI text|speech bubble)\b/i,
 ];
+const META_NARRATION_PATTERNS = [
+  /\bno spoken narration\b/i,
+  /\bno narration\b/i,
+  /\bwithout narration\b/i,
+  /\bno voice(?:over)?\b/i,
+  /\btts (?:is )?disabled\b/i,
+  /\bdriven entirely by visual/i,
+  /\btext overlays?\s+(?:replace|replaces|carry|carries|drive|drives)\b/i,
+  /\bthis reel is (?:driven|told)\b/i,
+  /\bstory speaks for itself\b/i,
+  /\bvisual scenarios? and on[- ]screen text\b/i,
+];
 const TEXT_POLICY_NEGATION_PATTERN = /\b(no|without|avoid|exclude|free of|text[- ]free|do not include|must not include|absolutely no)\b.{0,80}\b(readable text|visible text|text|subtitles?|captions?|logos?|labels?|watermarks?|signage|typography)\b/i;
 const QUALITY_ASSET_PLAN_MODES = new Set(['image', 'video', 'image_with_motion']);
 const QUALITY_MOTION_REQUIREMENTS = new Set(['low', 'medium', 'high']);
@@ -190,6 +202,14 @@ const QUALITY_PACING_VALUES = new Set(['quick', 'steady', 'slow', 'linger']);
 
 function wordCount(value) {
   return trimString(value).split(/\s+/).filter(Boolean).length;
+}
+
+function isMetaNarrationInstruction(value) {
+  const normalized = trimString(value).replace(/\s+/g, ' ');
+  if (!normalized) {
+    return false;
+  }
+  return META_NARRATION_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
 function isGenericVisualPrompt(value) {
@@ -209,6 +229,9 @@ function visualPromptQuality(value) {
   const prompt = trimString(value);
   if (!prompt) {
     return { score: 0, strong: false, reason: 'missing' };
+  }
+  if (isMetaNarrationInstruction(prompt)) {
+    return { score: 0, strong: false, reason: 'pipeline_meta' };
   }
   const words = wordCount(prompt);
   if (words < STRONG_VISUAL_PROMPT_MIN_WORDS) {
@@ -248,6 +271,9 @@ function sanitizeGeneratedAssetPrompt(value, {
   if (!prompt) {
     prompt = narration;
   }
+  if (isMetaNarrationInstruction(prompt)) {
+    prompt = '';
+  }
 
   prompt = prompt
     .replace(/\bshown as\s+(?:a\s+)?(?:cinematic,\s*)?(?:text-free\s+)?visual metaphor for\s*:\s*/i, '')
@@ -264,7 +290,7 @@ function sanitizeGeneratedAssetPrompt(value, {
     .replace(/\s{2,}/g, ' ')
     .trim();
 
-  if (wordCount(prompt) < 8 && narration) {
+  if (wordCount(prompt) < 8 && narration && !isMetaNarrationInstruction(narration)) {
     prompt = `Cinematic vertical scene ${sceneNumber || ''}: ${narration}. Represent the idea through concrete people, objects, light, motion, and setting with blank unmarked surfaces.`;
   }
 
@@ -403,6 +429,8 @@ function normalizeStoryPackageQuality(row) {
   }
   if (!trimString(row.narration_script)) {
     blockingIssues.push('narration_script is empty.');
+  } else if (isMetaNarrationInstruction(row.narration_script)) {
+    blockingIssues.push('narration_script is a pipeline-meta no-narration instruction instead of usable spoken/story content.');
   }
 
   let currentStartSeconds = 0;
@@ -428,6 +456,8 @@ function normalizeStoryPackageQuality(row) {
     const nextDialogueLines = dialogueLines.length ? dialogueLines : [narrationText].filter(Boolean);
     if (!narrationText || nextDialogueLines.length === 0) {
       blockingIssues.push(`scene ${sceneNumber}: narration_text and dialogue_lines are required.`);
+    } else if (isMetaNarrationInstruction(narrationText) || nextDialogueLines.some((line) => isMetaNarrationInstruction(line))) {
+      blockingIssues.push(`scene ${sceneNumber}: narration_text/dialogue_lines contain pipeline-meta instructions instead of concrete scene content.`);
     }
 
     const visualPrompt = sanitizeGeneratedAssetPrompt(scene.visual_prompt, {
@@ -465,6 +495,9 @@ function normalizeStoryPackageQuality(row) {
     const selectedQuality = visualPromptQuality(nextVisualPrompt);
     if (!selectedQuality.strong) {
       blockingIssues.push(`scene ${sceneNumber}: visual_prompt is ${selectedQuality.reason}. Add a concrete subject, action, and setting.`);
+    }
+    if (nextImagePrompt && isMetaNarrationInstruction(nextImagePrompt)) {
+      blockingIssues.push(`scene ${sceneNumber}: image_prompt contains pipeline-meta instructions instead of a concrete visual beat.`);
     }
     if (nextImagePrompt && hasVisibleTextRisk(nextImagePrompt)) {
       blockingIssues.push(`scene ${sceneNumber}: image_prompt appears to request visible text.`);
@@ -1205,9 +1238,16 @@ async function runVoicePerformanceScript({ pool, step }) {
   const storyboardJson = asArray(row.storyboard_json);
   const directorJson = asObject(row.director_json);
   const rawResponseJson = asObject(row.raw_response_json);
+  if (isMetaNarrationInstruction(row.narration_script)) {
+    fail('voice_performance_script requires usable spoken/story content; narration_script contains a pipeline-meta no-narration instruction.');
+  }
   const voiceLineMap = buildVoiceLineMap(storyboardJson);
   if (voiceLineMap.length === 0) {
     fail('voice_performance_script requires at least one narration line.');
+  }
+  const metaLine = voiceLineMap.find((line) => isMetaNarrationInstruction(line.line_text));
+  if (metaLine) {
+    fail(`voice_performance_script scene ${metaLine.scene_number} line ${metaLine.line_index} contains a pipeline-meta no-narration instruction.`);
   }
   const voiceResult = await invokeStructuredTextStage('voice_performance_script', {
     content_id: contentId,
@@ -1289,14 +1329,20 @@ async function runVoicePerformanceScript({ pool, step }) {
 function buildAssetGenerationPayload(candidate, workflowName) {
   const directorJson = asObject(candidate.director_json);
   const reelType = trimString(candidate.reel_type || 'video').toLowerCase() || 'video';
+  const sourcePayload = asObject(candidate.source_payload_json);
+  const isAvatarFallbackRender = sourcePayload.avatar_fallback_preserve_asset_plan === true
+    || (trimString(sourcePayload.requested_reel_type).toLowerCase() === 'avatar'
+      && trimString(sourcePayload.effective_reel_type).toLowerCase() === 'video');
   return {
     ...candidate,
     scenes: asArray(candidate.storyboard_json),
     reel_type: reelType,
     strict_video_assets: reelType === 'video'
+      && !isAvatarFallbackRender
       && trimString(process.env.ALLOW_VIDEO_TO_IMAGE_FALLBACK).toLowerCase() !== 'true',
-    character_reference: asObject(candidate.source_payload_json)?.character_reference ?? null,
-    prompt_profile: asObject(asObject(candidate.source_payload_json).prompt_profile),
+    avatar_fallback_preserve_asset_plan: isAvatarFallbackRender,
+    character_reference: sourcePayload.character_reference ?? null,
+    prompt_profile: asObject(sourcePayload.prompt_profile),
     director_global_visual_style: trimString(directorJson.global_visual_style),
     director_avoid_rules: [
       trimString(directorJson.global_avoid_rules),
@@ -1726,8 +1772,15 @@ function storyPackageContextFrom(row) {
   };
 }
 
-function directorAvatarContractFrom(directorJson) {
+function directorAvatarContractFrom(directorJson, { requestedReelType = '', sourcePayload = {} } = {}) {
   const director = asObject(directorJson);
+  const explicitAvatarRequest = trimString(requestedReelType).toLowerCase() === 'avatar'
+    || asObject(sourcePayload).avatar_consent_confirmed === true
+    || /\b(my\s+avatar|avatar\s+reel|heygen\s+avatar|configured\s+avatar)\b/i.test([
+      sourcePayload?.abstract_idea,
+      sourcePayload?.summary,
+      sourcePayload?.context,
+    ].map((value) => trimString(value)).filter(Boolean).join(' '));
   const avatarContract = asObject(
     director.avatar_contract
     ?? director.avatar_presenter_contract
@@ -1735,10 +1788,21 @@ function directorAvatarContractFrom(directorJson) {
     ?? director.avatar,
   );
   if (Object.keys(avatarContract).length > 0) {
-    return avatarContract;
+    if (!explicitAvatarRequest) {
+      return avatarContract;
+    }
+    return {
+      ...avatarContract,
+      avatar_required: avatarContract.avatar_required === true || explicitAvatarRequest,
+      requested_reel_type: 'avatar',
+      source_avatar_intent: true,
+      selector_instruction: 'The source run explicitly requested an avatar. Preserve this intent for avatar routing; only consent, provider config, disclosure, safety, or suitability should force fallback.',
+    };
   }
   return {
     avatar_requested: true,
+    requested_reel_type: explicitAvatarRequest ? 'avatar' : requestedReelType,
+    source_avatar_intent: explicitAvatarRequest,
     request_type: 'synthetic_presenter',
     disclosure_required: true,
     notes: 'No dedicated director avatar contract was found; selector must decide conservatively from account policy, story, and provider inventory.',
@@ -2002,6 +2066,10 @@ async function runAvatarPresenterSelector({ pool, step }) {
   const clientAccountContext = asObject(row.client_account_context);
   const directorJson = asObject(row.director_json);
   const storyboardJson = asArray(row.storyboard_json);
+  const directorAvatarContract = directorAvatarContractFrom(directorJson, {
+    requestedReelType: row.reel_type,
+    sourcePayload,
+  });
   const selectorResult = await invokeStructuredTextStage('avatar_presenter_selector', {
     content_id: contentId,
     title: trimString(row.title),
@@ -2017,8 +2085,8 @@ async function runAvatarPresenterSelector({ pool, step }) {
       client_account_context_json: stringifyPromptJson(clientAccountContext),
       story_package_context: storyPackageContextFrom(row),
       story_package_context_json: stringifyPromptJson(storyPackageContextFrom(row)),
-      director_avatar_contract: directorAvatarContractFrom(directorJson),
-      director_avatar_contract_json: stringifyPromptJson(directorAvatarContractFrom(directorJson)),
+      director_avatar_contract: directorAvatarContract,
+      director_avatar_contract_json: stringifyPromptJson(directorAvatarContract),
       storyboard_plan: storyboardJson,
       storyboard_plan_json: stringifyPromptJson(storyboardJson, []),
       character_reference_context: asObject(sourcePayload.character_reference),
@@ -2271,7 +2339,7 @@ async function reuseExistingSceneAssetsForFallback(pool, contentId) {
     const result = await client.query(
       `select
         jsonb_array_length(coalesce(sb.storyboard_json, '[]'::jsonb))::int as storyboard_scene_count,
-        count(distinct a.scene_number) filter (where a.asset_role = 'scene_video')::int as ready_scene_video_count
+        count(distinct a.scene_number) filter (where a.asset_role in ('scene_image', 'scene_video'))::int as ready_scene_asset_count
       from storyboards sb
       left join assets a on a.content_id = sb.content_id
         and a.asset_role in ('scene_image', 'scene_video')
@@ -2282,12 +2350,12 @@ async function reuseExistingSceneAssetsForFallback(pool, contentId) {
     );
     const row = result.rows[0] ?? {};
     const storyboardSceneCount = Number(row.storyboard_scene_count || 0);
-    const readySceneVideoCount = Number(row.ready_scene_video_count || 0);
-    if (storyboardSceneCount < 1 || readySceneVideoCount < storyboardSceneCount) {
+    const readySceneAssetCount = Number(row.ready_scene_asset_count || 0);
+    if (storyboardSceneCount < 1 || readySceneAssetCount < storyboardSceneCount) {
       return {
         reused: false,
         status_after_success: 'validation_complete',
-        scene_count: readySceneVideoCount,
+        scene_count: readySceneAssetCount,
         cost: { type: 'none', provider: 'none', total_usd: 0 },
       };
     }
@@ -2304,18 +2372,49 @@ async function reuseExistingSceneAssetsForFallback(pool, contentId) {
       startedAt: new Date().toISOString(),
       durationMs: 0,
       details: {
-        reused_existing_scene_video_assets: true,
-        scene_count: readySceneVideoCount,
+        reused_existing_scene_assets: true,
+        scene_count: readySceneAssetCount,
         cost: { type: 'none', provider: 'none', total_usd: 0 },
       },
     });
     return {
       reused: true,
       status_after_success: 'assets_ready',
-      scene_count: readySceneVideoCount,
+      scene_count: readySceneAssetCount,
       cost: { type: 'none', provider: 'none', total_usd: 0 },
     };
   });
+}
+
+function fallbackPreservedAssetPlan(scene, index, repairs) {
+  const raw = asObject(scene.asset_plan);
+  const rawMode = trimString(raw.mode || scene.asset_type).toLowerCase();
+  const mode = QUALITY_ASSET_PLAN_MODES.has(rawMode)
+    ? rawMode
+    : (index === 0 ? 'image' : 'image_with_motion');
+  if (!QUALITY_ASSET_PLAN_MODES.has(rawMode)) {
+    repairs.push(`scene ${index + 1}: filled missing fallback asset_plan mode`);
+  }
+  const motionRequirement = normalizeQualityEnum(
+    raw.motion_requirement || inferQualityMotionRequirement(scene),
+    QUALITY_MOTION_REQUIREMENTS,
+    inferQualityMotionRequirement(scene),
+  );
+  return {
+    ...raw,
+    mode,
+    provider_intent: mode === 'video' ? 'provider_video' : (mode === 'image' ? 'static_image' : 'remotion_motion'),
+    motion_requirement: motionRequirement,
+    video_generation_required: mode === 'video',
+    video_generation_reason: trimString(raw.video_generation_reason)
+      || (mode === 'video'
+        ? 'Storyboard requested provider video for this scene before avatar fallback.'
+        : 'Avatar fallback preserves the storyboard still asset and lets Remotion provide motion.'),
+    fallback_mode: 'image_with_motion',
+    budget_priority: mode === 'video' ? 'premium' : 'standard',
+    review_required: raw.review_required === true || mode === 'video',
+    avatar_fallback_preserved: true,
+  };
 }
 
 async function promoteStoryboardForFallbackVideo(client, contentId) {
@@ -2343,24 +2442,15 @@ async function promoteStoryboardForFallbackVideo(client, contentId) {
       narrationText,
       sceneNumber,
     });
-    const assetPlan = normalizeQualityAssetPlan(
+    const assetPlan = fallbackPreservedAssetPlan(
       {
         ...scene,
         visual_prompt: visualPrompt,
         image_prompt: trimString(scene.image_prompt)
           ? sanitizeGeneratedAssetPrompt(scene.image_prompt, { title: row.title, narrationText, sceneNumber })
           : '',
-        asset_type: 'video',
-        asset_plan: {
-          ...asObject(scene.asset_plan),
-          mode: 'video',
-          provider_intent: 'provider_video',
-          video_generation_required: true,
-          video_generation_reason: 'Avatar route downgraded to video; generate a real provider video scene instead of a still fallback.',
-        },
       },
       index,
-      'video',
       repairs,
     );
     const remotion = normalizeQualityRemotion(scene, index, assetPlan, repairs);
@@ -2370,7 +2460,7 @@ async function promoteStoryboardForFallbackVideo(client, contentId) {
       visual_prompt: visualPrompt,
       image_prompt: visualPrompt,
       fallback_prompt: visualPrompt,
-      asset_type: 'video',
+      asset_type: assetPlan.mode === 'video' ? 'video' : 'image',
       asset_plan: assetPlan,
       remotion,
       is_face_image: false,
@@ -2405,10 +2495,19 @@ async function runAvatarVideoFallback({ pool, step, reason, decision, startedAt 
     await client.query(
       `update content_items
       set reel_type = 'video',
+          source_payload_json = coalesce(source_payload_json, '{}'::jsonb) || $2::jsonb,
           status = 'validation_complete',
           updated_at = now()
       where content_id = $1`,
-      [contentId],
+      [
+        contentId,
+        JSON.stringify({
+          requested_reel_type: 'avatar',
+          effective_reel_type: 'video',
+          avatar_fallback_preserve_asset_plan: true,
+          avatar_fallback_reason: routeResult.avatar_fallback_reason,
+        }),
+      ],
     );
     await updateAvatarRunSummary(client, step, {
       requested_reel_type: 'avatar',
@@ -3160,6 +3259,26 @@ function buildAvatarRenderManifest(row, {
   };
 }
 
+function plannedSceneDurationSeconds(scene, seed, index) {
+  const seedTimeline = asArray(seed?.timeline);
+  const sceneNumber = Number(scene?.scene_number ?? index + 1);
+  const seedScene = seedTimeline.find((entry) => Number(entry?.scene_number ?? 0) === sceneNumber) ?? seedTimeline[index];
+  const candidates = [
+    scene?.duration_seconds,
+    Number.isFinite(Number(scene?.end_time_seconds)) && Number.isFinite(Number(scene?.start_time_seconds))
+      ? Number(scene.end_time_seconds) - Number(scene.start_time_seconds)
+      : null,
+    seedScene?.duration_seconds,
+  ];
+  for (const value of candidates) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return roundToHundredths(parsed);
+    }
+  }
+  return 0;
+}
+
 function buildRenderManifest(row) {
   const contentId = ensureUuid(row.content_id);
   const title = trimString(row.title);
@@ -3204,7 +3323,8 @@ function buildRenderManifest(row) {
     const narrationAsset = narrationByScene[sceneNumber] ?? null;
     if (!narrationAsset) fail(`Missing scene_narration asset for scene ${sceneNumber}.`);
     const narrationDurationSeconds = roundToHundredths(Math.max(Number(narrationAsset.duration_seconds ?? 0), 0.5));
-    const durationSeconds = roundToHundredths(Math.max(narrationDurationSeconds + narrationTailPadding, 0.5));
+    const plannedDurationSeconds = plannedSceneDurationSeconds(scene, seed, index);
+    const durationSeconds = roundToHundredths(Math.max(plannedDurationSeconds, narrationDurationSeconds + narrationTailPadding, 0.5));
     const matchingAsset = sceneAssets.find((asset) => Number(asset?.scene_number ?? 0) === sceneNumber);
     if (!matchingAsset) fail(`Missing scene asset for scene ${sceneNumber}.`);
     if (!trimString(matchingAsset.storage_url)) fail(`Scene ${sceneNumber} asset is missing storage_url.`);
@@ -3229,6 +3349,7 @@ function buildRenderManifest(row) {
       narration_text: trimString(scene?.narration_text),
       narration_url: trimString(narrationAsset.storage_url),
       narration_duration_seconds: narrationDurationSeconds,
+      planned_duration_seconds: plannedDurationSeconds || null,
       narration_tail_padding_seconds: narrationTailPadding,
       asset: {
         asset_role: trimString(matchingAsset.asset_role),
@@ -3293,6 +3414,7 @@ function buildRenderManifest(row) {
       asset_type: scene.asset.asset_type,
       narration_url: scene.narration_url,
       narration_duration_seconds: scene.narration_duration_seconds,
+      planned_duration_seconds: scene.planned_duration_seconds,
       narration_tail_padding_seconds: scene.narration_tail_padding_seconds,
       transition: scene.transition,
       asset_plan: scene.asset_plan,
@@ -4893,6 +5015,9 @@ export const __avatarRuntimeTestHooks = Object.freeze({
   buildHeygenRequestBody,
   sanitizeGeneratedAssetPrompt,
   buildAssetGenerationPayload,
+  isMetaNarrationInstruction,
+  fallbackPreservedAssetPlan,
+  buildRenderManifest,
 });
 
 export async function executePipelineStage(stageKey, context) {

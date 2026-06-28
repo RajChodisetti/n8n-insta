@@ -19,6 +19,10 @@ Runtime direction:
 Hard rules:
 - Output only JSON matching the response schema.
 - Do not invent unsupported facts, proof, results, endorsements, or source URLs.
+- Preserve the requested Reel type and creative intent. If the request is an Avatar Reel, writes "my avatar", or names a configured avatar/presenter, keep that as avatar/presenter intent for downstream routing; do not decide "no avatars" in this stage unless the input or account context explicitly forbids avatar use.
+- Do not interpret "not like narration", "show realistic scenario", "with and without", "before/after", or "show it visually" as a request for silence. Treat that as scenario-first storytelling with concise natural spoken lines or dialogue-style beats unless the source explicitly says silent, mute, no spoken audio, no voice, or text-only.
+- `narration_script` must be audience-ready spoken copy or dialogue-style voice copy. Never return meta instructions such as "No spoken narration", "This Reel is driven by visuals", "text overlays replace narration", "TTS disabled", or "the story speaks for itself" as the narration script.
+- `scene_guidance_json[].narration_text`, `storyboard_json[].narration_text`, and `dialogue_lines` must describe concrete scene beats or spoken lines, not instructions to the pipeline. Each scene must name a specific action, subject, and emotional beat.
 - Keep generated image/video prompts free of visible text and pseudo-text requests. Renderer owns title overlays.
 - Never ask image/video models to create labels, maps with labels, diagrams with text, signs, plaques, inscriptions, documents, newspapers, UI screens, logos, watermarks, subtitles, captions, or title cards.
 - If a scene normally would show writing or labels, describe plain unmarked surfaces, physical texture, architecture, water, tools, people, landscape, or other non-text visual evidence instead.

@@ -140,6 +140,107 @@ try {
   }, 'wf_asset_generation_v3');
   assert.equal(permissiveVideoPayload.strict_video_assets, false);
 
+  const metaPrompt = avatarHooks.sanitizeGeneratedAssetPrompt('No spoken narration. This Reel is driven entirely by visual scenarios and on-screen text overlays.', {
+    title: 'Broken meta reel',
+    narrationText: 'No spoken narration. The story speaks for itself.',
+    sceneNumber: 1,
+  });
+  assert.equal(metaPrompt, '');
+  assert.equal(avatarHooks.isMetaNarrationInstruction('No spoken narration. This Reel is driven entirely by visual scenarios.'), true);
+  assert.equal(avatarHooks.isMetaNarrationInstruction('A receptionist watches three calls stack up while a customer waits.'), false);
+
+  const preservedPlan = avatarHooks.fallbackPreservedAssetPlan({
+    asset_type: 'image',
+    asset_plan: {
+      mode: 'image_with_motion',
+      motion_requirement: 'medium',
+      video_generation_required: false,
+    },
+    narration_text: 'The owner watches missed calls stack up during the lunch rush.',
+  }, 1, []);
+  assert.equal(preservedPlan.mode, 'image_with_motion');
+  assert.equal(preservedPlan.video_generation_required, false);
+  assert.equal(preservedPlan.avatar_fallback_preserved, true);
+
+  resetEnv({});
+  const avatarFallbackAssetPayload = avatarHooks.buildAssetGenerationPayload({
+    reel_type: 'video',
+    storyboard_json: [],
+    director_json: {},
+    source_payload_json: {
+      requested_reel_type: 'avatar',
+      effective_reel_type: 'video',
+      avatar_fallback_preserve_asset_plan: true,
+    },
+  }, 'wf_asset_generation_v3');
+  assert.equal(avatarFallbackAssetPayload.strict_video_assets, false);
+  assert.equal(avatarFallbackAssetPayload.avatar_fallback_preserve_asset_plan, true);
+
+  const storyboardScenes = Array.from({ length: 4 }, (_, index) => ({
+    scene_number: index + 1,
+    duration_seconds: 10,
+    narration_text: `Scene ${index + 1} concrete spoken beat about missed calls and the Tuvi receptionist solution.`,
+    dialogue_lines: [`Scene ${index + 1} concrete spoken beat about missed calls and the Tuvi receptionist solution.`],
+    visual_prompt: `Realistic office service scene ${index + 1} with a business owner, phones, customers, and calm problem-solution action.`,
+    transition: index === 0 ? 'cut' : 'soft_cut',
+    mood: 'realistic',
+    music_cue: 'quiet tension',
+    asset_plan: {
+      mode: 'image_with_motion',
+      provider_intent: 'remotion_motion',
+      motion_requirement: 'medium',
+      video_generation_required: false,
+      fallback_mode: 'image_with_motion',
+    },
+    remotion: {
+      camera_move: 'push_in',
+      pan_zoom_direction: 'center_push',
+      motion_intensity: 'medium',
+      transition_type: index === 0 ? 'cut' : 'soft_cut',
+      overlay_style: 'subtle_vignette',
+      pacing: 'steady',
+      motion_layers: ['parallax-style pan/zoom from the still image'],
+      instructions: 'Use steady motion through the full scene slot.',
+    },
+  }));
+  const manifest = avatarHooks.buildRenderManifest({
+    content_id: '00000000-0000-4000-8000-000000000001',
+    title: 'Storyboard timing regression',
+    reel_type: 'video',
+    storyboard_json: storyboardScenes,
+    subtitle_lines_json: [],
+    scene_assets_json: storyboardScenes.map((scene) => ({
+      scene_number: scene.scene_number,
+      asset_role: 'scene_image',
+      provider: 'fixture',
+      storage_url: `https://cdn.example.test/scene-${scene.scene_number}.jpg`,
+      mime_type: 'image/jpeg',
+      duration_seconds: scene.duration_seconds,
+      width: 1080,
+      height: 1920,
+      metadata_json: {},
+    })),
+    scene_narration_assets_json: storyboardScenes.map((scene) => ({
+      scene_number: scene.scene_number,
+      provider: 'fixture_tts',
+      storage_url: `https://cdn.example.test/scene-${scene.scene_number}.mp3`,
+      mime_type: 'audio/mpeg',
+      duration_seconds: 1.25,
+      metadata_json: { speed: 1, voice: 'fixture' },
+    })),
+    render_manifest_seed_json: {
+      output: { width: 1080, height: 1920, fps: 30, format: 'mp4' },
+      timeline: storyboardScenes.map((scene) => ({
+        scene_number: scene.scene_number,
+        duration_seconds: scene.duration_seconds,
+      })),
+      subtitles: { enabled: false },
+    },
+  });
+  assert.equal(manifest.duration_seconds, 40);
+  assert.equal(manifest.render_manifest_json.timeline[0].duration_seconds, 10);
+  assert.equal(manifest.render_manifest_json.timeline[0].planned_duration_seconds, 10);
+
   process.stdout.write('avatar runtime routing ok\n');
 } finally {
   for (const [key, value] of Object.entries(original)) {

@@ -24,6 +24,7 @@ Hard rules:
 - Output only JSON matching avatar_decision.schema.json.
 - Use avatar only when account policy, consent, presenter suitability, provider identity, disclosure, and safety gates all pass.
 - If anything is missing, unclear, unsafe, unsupported, or provider configuration is incomplete, set the effective route to video fallback.
+- If the run was explicitly requested as an Avatar Reel or the story context says "my avatar", do not treat generic scene visuals as a reason to prefer non-avatar visuals. Use HeyGen when consent/config/safety pass; otherwise record a concrete fallback reason that will be visible to QA/UI.
 - Uploaded character references are creative inputs only. They are never consent records and never prove likeness or voice rights.
 - Do not choose real-person likeness, voice, endorsement, or celebrity similarity without explicit consent metadata.
 - Avatar route remains an asset generation route only; publish still requires final QA and Studio approval.

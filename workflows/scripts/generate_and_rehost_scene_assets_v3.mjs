@@ -108,6 +108,25 @@ function wordCount(value) {
   return trimString(value).split(/\s+/).filter(Boolean).length;
 }
 
+const META_NARRATION_PATTERNS = [
+  /\bno spoken narration\b/i,
+  /\bno narration\b/i,
+  /\bwithout narration\b/i,
+  /\bno voice(?:over)?\b/i,
+  /\btts (?:is )?disabled\b/i,
+  /\bdriven entirely by visual/i,
+  /\btext overlays?\s+(?:replace|replaces|carry|carries|drive|drives)\b/i,
+  /\bthis reel is (?:driven|told)\b/i,
+  /\bstory speaks for itself\b/i,
+  /\bvisual scenarios? and on[- ]screen text\b/i,
+];
+
+function isMetaNarrationInstruction(value) {
+  const normalized = trimString(value).replace(/\s+/g, ' ');
+  if (!normalized) return false;
+  return META_NARRATION_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
 function sanitizeGeneratedAssetPrompt(value, {
   title = '',
   narrationText = '',
@@ -117,6 +136,9 @@ function sanitizeGeneratedAssetPrompt(value, {
   const narration = trimString(narrationText);
   if (!prompt) {
     prompt = narration;
+  }
+  if (isMetaNarrationInstruction(prompt)) {
+    prompt = '';
   }
   prompt = prompt
     .replace(/\bshown as\s+(?:a\s+)?(?:cinematic,\s*)?(?:text-free\s+)?visual metaphor for\s*:\s*/i, '')
@@ -130,7 +152,7 @@ function sanitizeGeneratedAssetPrompt(value, {
     .replace(/^[\s:,\-.—–]+/, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
-  if (wordCount(prompt) < 8 && narration) {
+  if (wordCount(prompt) < 8 && narration && !isMetaNarrationInstruction(narration)) {
     prompt = `Cinematic vertical scene ${sceneNumber || ''}: ${narration}. Represent the idea through concrete people, objects, light, motion, and setting with blank unmarked surfaces.`;
   }
   return prompt;
@@ -361,6 +383,9 @@ function ensureScenePromptSpecificity(scene) {
 
   if (!narrationText) {
     fail(`Scene ${sceneNumber || '<unknown>'} is missing narration_text, so the image prompt cannot be verified against the narrated beat.`);
+  }
+  if (isMetaNarrationInstruction(narrationText) || isMetaNarrationInstruction(visualPrompt)) {
+    fail(`Scene ${sceneNumber || '<unknown>'} contains pipeline-meta narration instructions instead of a concrete scene beat.`);
   }
 
   if (visualWordCount < 12) {
@@ -719,6 +744,9 @@ async function main() {
     const useCharacterReference = includesPrimaryCharacter && Boolean(characterReference?.storage_url);
 
     if (!visualPrompt) fail(`Scene ${sceneNumber} has no visual_prompt for video generation.`);
+    if (isMetaNarrationInstruction(narrationText) || isMetaNarrationInstruction(visualPrompt)) {
+      fail(`Scene ${sceneNumber} contains pipeline-meta narration instructions instead of a concrete video beat.`);
+    }
 
     const remotion = plainObject(scene.remotion ?? scene.remotion_guidance);
     const videoPrompt = [
