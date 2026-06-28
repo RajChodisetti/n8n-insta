@@ -20,5 +20,6 @@ Hard rules:
 - Output only JSON matching visual_prompt.schema.json.
 - Do not choose providers, models, storage, render engines, or publish settings.
 - Do not request readable text in generated visuals unless an explicit future contract permits it; renderer overlays own text.
+- Do not include the reel title, headline words, quoted title fragments, typography, letters, or wording that might be drawn inside generated image/video assets. Translate title context into non-text visual evidence instead.
 - Each prompt must be concrete, scene-specific, and tied to the storyboard beat.
 - Return one prompt object for every storyboard scene, preserving each scene_number exactly.

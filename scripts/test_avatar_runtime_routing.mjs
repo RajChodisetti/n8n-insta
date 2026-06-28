@@ -16,6 +16,7 @@ const ENV_KEYS = [
   'HEYGEN_VOICE_ID',
   'HEYGEN_CALLBACK_URL',
   'HEYGEN_MOCK_COMPLETED_URL',
+  'ALLOW_VIDEO_TO_IMAGE_FALLBACK',
 ];
 const original = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
 
@@ -109,6 +110,35 @@ try {
   assert.equal(requestBody.aspect_ratio, '9:16');
   assert.equal('caption' in requestBody, false);
   assert.equal('api_key' in requestBody, false);
+
+  const sanitizedPrompt = avatarHooks.sanitizeGeneratedAssetPrompt(
+    'Your Brain vs. an LLM — How AI Actually "Thinks" shown as a cinematic, text-free visual metaphor for: glowing neural threads and blank tablets, no readable labels or UI.',
+    {
+      title: 'Your Brain vs. an LLM — How AI Actually "Thinks"',
+      narrationText: 'A human studies a machine-learning system without any labels in the room.',
+      sceneNumber: 1,
+    },
+  );
+  assert.doesNotMatch(sanitizedPrompt, /Your Brain|LLM|How AI Actually|text-free|readable labels/i);
+  assert.match(sanitizedPrompt, /blank|machine|room|neural|tablets/i);
+
+  resetEnv({});
+  const strictVideoPayload = avatarHooks.buildAssetGenerationPayload({
+    reel_type: 'video',
+    storyboard_json: [],
+    director_json: {},
+    source_payload_json: {},
+  }, 'wf_asset_generation_v3');
+  assert.equal(strictVideoPayload.strict_video_assets, true);
+
+  resetEnv({ ALLOW_VIDEO_TO_IMAGE_FALLBACK: 'true' });
+  const permissiveVideoPayload = avatarHooks.buildAssetGenerationPayload({
+    reel_type: 'video',
+    storyboard_json: [],
+    director_json: {},
+    source_payload_json: {},
+  }, 'wf_asset_generation_v3');
+  assert.equal(permissiveVideoPayload.strict_video_assets, false);
 
   process.stdout.write('avatar runtime routing ok\n');
 } finally {

@@ -56,6 +56,11 @@ function motionIntensityValue(value) {
   return 0.7;
 }
 
+function sceneSeed(scene) {
+  const sceneNumber = Number(scene?.scene_number || 1);
+  return ((sceneNumber * 37) % 101) / 100;
+}
+
 function easingForPacing(value) {
   const pacing = trimString(value).toLowerCase();
   if (pacing === 'quick') return Easing.bezier(0.33, 1, 0.68, 1);
@@ -73,21 +78,26 @@ function transformForScene(scene, frame, sceneFrames, isVideo) {
     extrapolateRight: 'clamp',
     easing: easingForPacing(remotion.pacing),
   });
-  const travel = (isVideo ? 16 : 42) * intensity;
-  const zoom = (isVideo ? 0.035 : 0.13) * intensity;
-  let startScale = 1.035;
-  let endScale = 1.035 + zoom;
+  const travel = (isVideo ? 22 : 76) * intensity;
+  const zoom = (isVideo ? 0.045 : 0.22) * intensity;
+  const rotationTravel = (isVideo ? 0.18 : 0.62) * intensity;
+  let startScale = isVideo ? 1.02 : 1.08;
+  let endScale = startScale + zoom;
   let startX = 0;
   let endX = 0;
   let startY = 0;
   let endY = 0;
+  let startRotate = (sceneSeed(scene) - 0.5) * rotationTravel;
+  let endRotate = -startRotate;
 
   if (cameraMove === 'pull_out' || direction === 'center_pull') {
-    startScale = 1.05 + zoom;
-    endScale = 1.035;
+    startScale = (isVideo ? 1.04 : 1.12) + zoom;
+    endScale = isVideo ? 1.02 : 1.08;
   } else if (cameraMove === 'hold' || direction === 'hold') {
-    startScale = isVideo ? 1 : 1.025;
-    endScale = isVideo ? 1 : 1.035;
+    startScale = isVideo ? 1.01 : 1.045;
+    endScale = isVideo ? 1.018 : 1.075;
+    startRotate = 0;
+    endRotate = 0;
   }
 
   if (cameraMove === 'pan_left' || direction === 'right_to_left') {
@@ -117,7 +127,8 @@ function transformForScene(scene, frame, sceneFrames, isVideo) {
   const scale = startScale + ((endScale - startScale) * eased);
   const x = startX + ((endX - startX) * eased);
   const y = startY + ((endY - startY) * eased);
-  return `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
+  const rotate = startRotate + ((endRotate - startRotate) * eased);
+  return `translate3d(${x.toFixed(2)}px, ${y.toFixed(2)}px, 0) scale(${scale.toFixed(4)}) rotate(${rotate.toFixed(3)}deg)`;
 }
 
 function SceneOverlay({ scene }) {
@@ -147,6 +158,78 @@ function SceneOverlay({ scene }) {
         background: gradients[overlayStyle] || gradients.subtle_vignette,
       }}
     />
+  );
+}
+
+function KineticLayer({ scene, isVideo }) {
+  const frame = useCurrentFrame();
+  const { fps, width, height } = useVideoConfig();
+  const remotion = scene.remotion || {};
+  const sceneFrames = Math.max(1, Math.round(scene.duration_seconds * fps));
+  const intensity = motionIntensityValue(remotion.motion_intensity);
+  const progress = interpolate(frame, [0, sceneFrames], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+    easing: easingForPacing(remotion.pacing),
+  });
+  const seed = sceneSeed(scene);
+  const entry = interpolate(frame, [0, Math.max(8, Math.round(0.6 * fps))], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const sweepX = interpolate(progress, [0, 1], [-width * (0.7 + seed * 0.25), width * (0.7 + seed * 0.2)], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const sweepY = interpolate(progress, [0, 1], [height * (0.12 + seed * 0.15), height * (0.52 + seed * 0.18)], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const focusX = 28 + seed * 44;
+  const focusY = 22 + (1 - seed) * 42;
+  const pulse = 0.5 + (Math.sin(progress * Math.PI * 2) * 0.5);
+  const baseOpacity = (isVideo ? 0.34 : 0.52) * intensity;
+
+  return (
+    <AbsoluteFill style={{ pointerEvents: 'none', overflow: 'hidden' }}>
+      <AbsoluteFill
+        style={{
+          opacity: clamp01(baseOpacity * entry),
+          background: `radial-gradient(circle at ${focusX.toFixed(1)}% ${focusY.toFixed(1)}%, rgba(255,255,255,0.17) 0%, rgba(255,255,255,0.04) 28%, rgba(0,0,0,0) 58%)`,
+          mixBlendMode: 'screen',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: -width * 0.24,
+          top: 0,
+          width: width * 0.42,
+          height: height * 1.25,
+          transform: `translate3d(${sweepX.toFixed(2)}px, ${sweepY.toFixed(2)}px, 0) rotate(-24deg)`,
+          transformOrigin: '50% 50%',
+          background: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.12) 45%, rgba(255,255,255,0.34) 52%, rgba(255,255,255,0) 100%)',
+          filter: 'blur(18px)',
+          opacity: clamp01((isVideo ? 0.36 : 0.58) * intensity),
+          mixBlendMode: 'screen',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          left: 34,
+          right: 34,
+          bottom: 42,
+          height: 4,
+          borderRadius: 999,
+          transform: `scaleX(${Math.max(0.08, progress).toFixed(4)})`,
+          transformOrigin: scene.scene_number % 2 === 0 ? 'right center' : 'left center',
+          background: 'linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.46), rgba(255,255,255,0))',
+          opacity: clamp01((0.18 + pulse * 0.16) * intensity),
+          boxShadow: '0 0 24px rgba(255,255,255,0.22)',
+        }}
+      />
+    </AbsoluteFill>
   );
 }
 
@@ -190,9 +273,13 @@ function SceneVisual({ scene, muted }) {
             height: '100%',
             objectFit: 'cover',
             transform,
+            transformOrigin: 'center center',
+            filter: 'contrast(1.05) saturate(1.06)',
+            willChange: 'transform',
           }}
         />
         <SceneOverlay scene={scene} />
+        <KineticLayer scene={scene} isVideo />
         <SceneFade scene={scene} />
       </AbsoluteFill>
     );
@@ -203,13 +290,32 @@ function SceneVisual({ scene, muted }) {
       <Img
         src={scene.asset_url}
         style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          transform: `${transform} scale(1.035)`,
+          transformOrigin: 'center center',
+          filter: 'blur(24px) saturate(1.14) brightness(0.76)',
+          opacity: 0.72,
+          willChange: 'transform',
+        }}
+      />
+      <Img
+        src={scene.asset_url}
+        style={{
           width: '100%',
           height: '100%',
           objectFit: 'cover',
           transform,
+          transformOrigin: 'center center',
+          filter: 'contrast(1.07) saturate(1.1)',
+          willChange: 'transform',
         }}
       />
       <SceneOverlay scene={scene} />
+      <KineticLayer scene={scene} isVideo={false} />
       <SceneFade scene={scene} />
     </AbsoluteFill>
   );

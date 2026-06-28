@@ -602,6 +602,7 @@ const CONFIG_SECTIONS = [
       field('POST_IMAGE_MODEL', 'Post Image Model', 'Single-post image model override.', ['gpt-image-1', 'gpt-image-1-mini']),
       field('WAN_VIDEO_MODEL', 'Wan Video Model', 'Fal/Wan text-to-video model used by video reels.', ['fal-ai/wan-t2v']),
       field('WAN_REFERENCE_VIDEO_MODEL', 'Wan Reference Video Model', 'Fal/Wan reference-to-video model used when character reference video generation is needed.', ['fal-ai/wan/v2.7/reference-to-video']),
+      field('ALLOW_VIDEO_TO_IMAGE_FALLBACK', 'Allow Video-To-Image Fallback', 'Set true only when provider-video failures may intentionally degrade into still images with Remotion motion. Default false keeps video reels from silently becoming image reels.', ['false', 'true']),
       field('TTS_PROVIDER', 'TTS Provider', 'Global narration/TTS provider fallback.', ['fish_audio', 'openai', 'smallest_ai']),
       field('NARRATION_PROVIDER', 'Narration Provider', 'Narration provider override.', ['fish_audio', 'openai', 'smallest_ai']),
       field('TTS_MODEL', 'TTS Model', 'Global TTS model fallback.', ['s2-pro', 'gpt-4o-mini-tts', 'lightning-v3.1']),
@@ -730,6 +731,8 @@ const CONFIG_SECTIONS = [
       field('HEYGEN_CALLBACK_URL', 'HeyGen Callback URL', 'Optional provider callback URL. Polling is still supported without this.', ['']),
       field('HEYGEN_POLL_INTERVAL_SECONDS', 'HeyGen Poll Interval', 'Seconds between provider status polls.', ['10', '15']),
       field('HEYGEN_TIMEOUT_SECONDS', 'HeyGen Timeout Seconds', 'Maximum seconds to wait for a provider video completion.', ['900', '1200']),
+      field('STUDIO_AVATAR_ALLOWED', 'Studio Avatar Allowed', 'Optional account-level default. Avatar Reel form consent can also set per-run permission.', ['false', 'true']),
+      field('STUDIO_AVATAR_CONSENT_STATUS', 'Studio Avatar Consent Status', 'Optional account-level avatar consent status. Use approved/current/documented when account consent is on file.', ['approved', 'current', 'documented']),
       field('HEYGEN_AVATAR_CONSENT_RECORD_URI', 'Avatar Consent Record URI', 'Optional fallback consent record URI. Account policy must still allow avatar usage.', ['']),
       field('HEYGEN_MOCK_COMPLETED_URL', 'HeyGen Mock Completed URL', 'Offline test URL for a hosted MP4. Provider env, consent, and avatar selector approval still apply.', ['']),
       field('HEYGEN_MOCK_THUMBNAIL_URL', 'HeyGen Mock Thumbnail URL', 'Optional offline thumbnail URL paired with the mock completed video.', ['']),
@@ -1423,6 +1426,14 @@ function parseJsonObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+function parseBooleanFlag(value) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  const normalized = normalizeHostedString(value).toLowerCase();
+  return ['1', 'true', 'yes', 'y', 'on', 'approved', 'active', 'current'].includes(normalized);
+}
+
 function normalizeHostedString(value) {
   return String(value ?? '').trim();
 }
@@ -1554,12 +1565,17 @@ function normalizeClientAccountContext(value = {}, envValues = {}) {
       disallowed_music: normalizePolicyStringArray(rawMusic.disallowed_music),
     },
     avatar_policy: {
-      avatar_allowed: rawAvatar.avatar_allowed === true,
+      avatar_allowed: rawAvatar.avatar_allowed === true
+        || parseBooleanFlag(rawAvatar.avatar_allowed)
+        || parseBooleanFlag(envValues.STUDIO_AVATAR_ALLOWED),
       requires_consent: rawAvatar.requires_consent !== false,
       default_avatar_mode: ['none', 'synthetic', 'real_person_with_consent'].includes(rawAvatar.default_avatar_mode)
         ? rawAvatar.default_avatar_mode
-        : 'none',
-      consent_record_uri: nullableString(rawAvatar.consent_record_uri),
+        : parseBooleanFlag(rawAvatar.avatar_allowed) || parseBooleanFlag(envValues.STUDIO_AVATAR_ALLOWED)
+          ? 'real_person_with_consent'
+          : 'none',
+      consent_status: nullableString(firstNonEmptyString(rawAvatar.consent_status, envValues.STUDIO_AVATAR_CONSENT_STATUS)),
+      consent_record_uri: nullableString(rawAvatar.consent_record_uri ?? envValues.HEYGEN_AVATAR_CONSENT_RECORD_URI),
       disallowed_uses: normalizePolicyStringArray(rawAvatar.disallowed_uses, ['real-person likeness without consent metadata']),
     },
     publishing_policy: {
@@ -2454,12 +2470,32 @@ async function createTopic(payload) {
       `target_duration_seconds must be between ${topicDurationConfig.min} and ${topicDurationConfig.max} seconds.`,
     );
   }
-  const clientAccountContext = normalizeClientAccountContext(
+  const rawClientAccountContext = parseJsonObject(
     payload.client_account_context
       ?? payload.source_payload_json?.client_account_context
       ?? {},
-    parsedEnv.values,
   );
+  const avatarConsentConfirmed = parseBooleanFlag(
+    payload.avatar_consent_confirmed
+      ?? payload.avatarConsentConfirmed
+      ?? payload.source_payload_json?.avatar_consent_confirmed,
+  );
+  if (reelType === 'avatar' && avatarConsentConfirmed) {
+    const rawAvatarPolicy = parseJsonObject(rawClientAccountContext.avatar_policy);
+    rawClientAccountContext.avatar_policy = {
+      ...rawAvatarPolicy,
+      avatar_allowed: true,
+      requires_consent: true,
+      default_avatar_mode: 'real_person_with_consent',
+      consent_status: firstNonEmptyString(rawAvatarPolicy.consent_status, 'approved'),
+      consent_record_uri: firstNonEmptyString(
+        rawAvatarPolicy.consent_record_uri,
+        parsedEnv.values.HEYGEN_AVATAR_CONSENT_RECORD_URI,
+        `studio://avatar-consent/${new Date().toISOString()}`,
+      ),
+    };
+  }
+  const clientAccountContext = normalizeClientAccountContext(rawClientAccountContext, parsedEnv.values);
   const clientAccountContextRef = buildClientAccountContextRef(clientAccountContext);
 
   const sourcePayloadJson = {
@@ -2471,6 +2507,9 @@ async function createTopic(payload) {
     client_account_context: clientAccountContext,
     client_account_context_ref: clientAccountContextRef,
   };
+  if (avatarConsentConfirmed) {
+    sourcePayloadJson.avatar_consent_confirmed = true;
+  }
   const creativeDefaults = normalizeCreativeDefaults(payload.creative_defaults ?? payload.source_payload_json?.creative_defaults);
   if (Object.keys(creativeDefaults).length > 0) {
     sourcePayloadJson.creative_defaults = creativeDefaults;

@@ -391,8 +391,13 @@ async function submitIdea(event) {
     avatar: 'Avatar Reel',
   }[reelType] || 'Image Reel';
   const reviewMode = formData.get('review_mode') === 'true';
+  const avatarConsentConfirmed = formData.get('avatar_consent_confirmed') === 'true';
   if (!abstractIdea) {
     setText('idea-status', 'Enter an idea first.');
+    return;
+  }
+  if (reelType === 'avatar' && !avatarConsentConfirmed) {
+    setText('idea-status', 'Confirm HeyGen avatar and voice consent before queueing an Avatar Reel.');
     return;
   }
   setText('idea-status', `Injecting idea and queueing ${reelLabel} pipeline...`);
@@ -403,6 +408,7 @@ async function submitIdea(event) {
       reel_type: reelType,
       workflow_key: DEFAULT_WORKFLOW_KEY,
       review_mode: reviewMode,
+      avatar_consent_confirmed: reelType === 'avatar' && avatarConsentConfirmed,
     }),
   });
   form.reset();

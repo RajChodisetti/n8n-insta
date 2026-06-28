@@ -221,6 +221,54 @@ function visualPromptQuality(value) {
   return { score: words, strong: true, reason: 'strong' };
 }
 
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function titleVariants(title) {
+  const normalizedTitle = trimString(title);
+  if (!normalizedTitle) return [];
+  const variants = [
+    normalizedTitle,
+    normalizedTitle.replace(/[“”"]/g, '').trim(),
+    normalizedTitle.split(/[—–-]/)[0]?.trim(),
+  ].filter((value) => trimString(value).length >= 8);
+  return [...new Set(variants)];
+}
+
+function sanitizeGeneratedAssetPrompt(value, {
+  title = '',
+  narrationText = '',
+  sceneNumber = null,
+} = {}) {
+  let prompt = trimString(value);
+  const narration = trimString(narrationText);
+  if (!prompt) {
+    prompt = narration;
+  }
+
+  prompt = prompt
+    .replace(/\bshown as\s+(?:a\s+)?(?:cinematic,\s*)?(?:text-free\s+)?visual metaphor for\s*:\s*/i, '')
+    .replace(/\bvisual metaphor for\s*:\s*/i, '')
+    .replace(/\btext-free\b/gi, '')
+    .replace(/\bno readable labels or UI\b/gi, '');
+
+  for (const variant of titleVariants(title)) {
+    prompt = prompt.replace(new RegExp(escapeRegExp(variant), 'gi'), '');
+  }
+
+  prompt = prompt
+    .replace(/^[\s:,\-.—–]+/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  if (wordCount(prompt) < 8 && narration) {
+    prompt = `Cinematic vertical scene ${sceneNumber || ''}: ${narration}. Represent the idea through concrete people, objects, light, motion, and setting with blank unmarked surfaces.`;
+  }
+
+  return prompt;
+}
+
 function normalizeQualityEnum(value, allowed, fallback) {
   const normalized = trimString(value).toLowerCase().replace(/[\s-]+/g, '_');
   return allowed.has(normalized) ? normalized : fallback;
@@ -380,12 +428,28 @@ function normalizeStoryPackageQuality(row) {
       blockingIssues.push(`scene ${sceneNumber}: narration_text and dialogue_lines are required.`);
     }
 
-    const visualPrompt = trimString(scene.visual_prompt);
-    const guidanceImagePrompt = trimString(guidance.image_prompt);
+    const visualPrompt = sanitizeGeneratedAssetPrompt(scene.visual_prompt, {
+      title: row.title,
+      narrationText: trimString(scene.narration_text || guidance.narration_text),
+      sceneNumber,
+    });
+    const guidanceImagePrompt = trimString(guidance.image_prompt)
+      ? sanitizeGeneratedAssetPrompt(guidance.image_prompt, {
+        title: row.title,
+        narrationText: trimString(scene.narration_text || guidance.narration_text),
+        sceneNumber,
+      })
+      : '';
     const visualQuality = visualPromptQuality(visualPrompt);
     const imageQuality = visualPromptQuality(guidanceImagePrompt);
     let nextVisualPrompt = visualPrompt;
-    let nextImagePrompt = trimString(scene.image_prompt);
+    let nextImagePrompt = trimString(scene.image_prompt)
+      ? sanitizeGeneratedAssetPrompt(scene.image_prompt, {
+        title: row.title,
+        narrationText,
+        sceneNumber,
+      })
+      : '';
     if (imageQuality.strong) {
       const hadImagePrompt = Boolean(nextImagePrompt);
       nextImagePrompt = guidanceImagePrompt;
@@ -674,14 +738,15 @@ function sceneGuidanceFromRaw(rawResponseJson, storyboardJson) {
   );
 }
 
-function fallbackVisualPromptForScene(scene, index) {
+function fallbackVisualPromptForScene(scene, index, { title = '' } = {}) {
   const sceneNumber = Number(scene?.scene_number ?? index + 1);
   const narrationText = trimString(scene?.narration_text);
-  const visualPrompt = trimString(
+  const visualPrompt = sanitizeGeneratedAssetPrompt(
     scene?.visual_prompt
     || scene?.image_prompt
     || scene?.fallback_prompt
     || `Cinematic vertical scene for beat ${sceneNumber}: ${narrationText || 'the narrated story moment'}, text-free, no readable labels or UI.`,
+    { title, narrationText, sceneNumber },
   );
   return {
     scene_number: sceneNumber,
@@ -849,7 +914,7 @@ async function runDirectorContract({ pool, step }) {
   };
 }
 
-function mergeVisualPromptPlan(storyboardJson, visualPlan) {
+function mergeVisualPromptPlan(storyboardJson, visualPlan, { title = '' } = {}) {
   const scenes = asArray(storyboardJson);
   const prompts = asArray(visualPlan.prompts);
   if (scenes.length === 0) {
@@ -857,27 +922,40 @@ function mergeVisualPromptPlan(storyboardJson, visualPlan) {
   }
   const effectivePrompts = prompts.length > 0
     ? prompts
-    : scenes.map((scene, index) => fallbackVisualPromptForScene(scene, index));
+    : scenes.map((scene, index) => fallbackVisualPromptForScene(scene, index, { title }));
   const promptsByScene = new Map(effectivePrompts.map((prompt, index) => [
     Number(prompt?.scene_number ?? index + 1),
     asObject(prompt),
   ]));
   const mergedScenes = scenes.map((scene, index) => {
     const sceneNumber = Number(scene?.scene_number ?? index + 1);
-    const prompt = promptsByScene.get(sceneNumber) || fallbackVisualPromptForScene(scene, index);
-    const visualPrompt = trimString(
+    const prompt = promptsByScene.get(sceneNumber) || fallbackVisualPromptForScene(scene, index, { title });
+    const rawVisualPrompt = trimString(
       prompt.visual_prompt
       || scene.visual_prompt
       || scene.image_prompt
-      || fallbackVisualPromptForScene(scene, index).visual_prompt,
+      || fallbackVisualPromptForScene(scene, index, { title }).visual_prompt,
+    );
+    const visualPrompt = sanitizeGeneratedAssetPrompt(rawVisualPrompt, {
+      title,
+      narrationText: trimString(scene.narration_text),
+      sceneNumber,
+    });
+    const fallbackPrompt = sanitizeGeneratedAssetPrompt(
+      trimString(prompt.fallback_prompt || scene.fallback_prompt || visualPrompt),
+      { title, narrationText: trimString(scene.narration_text), sceneNumber },
     );
     return {
       ...scene,
       visual_prompt: visualPrompt,
       image_prompt: visualPrompt,
       negative_prompt: trimString(prompt.negative_prompt || scene.negative_prompt),
-      fallback_prompt: trimString(prompt.fallback_prompt || scene.fallback_prompt),
-      visual_prompt_builder: prompt,
+      fallback_prompt: fallbackPrompt,
+      visual_prompt_builder: {
+        ...prompt,
+        visual_prompt: visualPrompt,
+        fallback_prompt: fallbackPrompt,
+      },
     };
   });
   return mergedScenes;
@@ -945,7 +1023,7 @@ async function runVisualPromptBuilder({ pool, step }) {
     },
   });
   const visualPlan = asObject(visualResult.visual_prompt_response);
-  const mergedStoryboard = mergeVisualPromptPlan(storyboardJson, visualPlan);
+  const mergedStoryboard = mergeVisualPromptPlan(storyboardJson, visualPlan, { title: trimString(row.title) });
   const rawResponseJson = asObject(row.raw_response_json);
   const nextRawResponseJson = {
     ...rawResponseJson,
@@ -1208,9 +1286,13 @@ async function runVoicePerformanceScript({ pool, step }) {
 
 function buildAssetGenerationPayload(candidate, workflowName) {
   const directorJson = asObject(candidate.director_json);
+  const reelType = trimString(candidate.reel_type || 'video').toLowerCase() || 'video';
   return {
     ...candidate,
     scenes: asArray(candidate.storyboard_json),
+    reel_type: reelType,
+    strict_video_assets: reelType === 'video'
+      && trimString(process.env.ALLOW_VIDEO_TO_IMAGE_FALLBACK).toLowerCase() !== 'true',
     character_reference: asObject(candidate.source_payload_json)?.character_reference ?? null,
     prompt_profile: asObject(asObject(candidate.source_payload_json).prompt_profile),
     director_global_visual_style: trimString(directorJson.global_visual_style),
@@ -2187,7 +2269,7 @@ async function reuseExistingSceneAssetsForFallback(pool, contentId) {
     const result = await client.query(
       `select
         jsonb_array_length(coalesce(sb.storyboard_json, '[]'::jsonb))::int as storyboard_scene_count,
-        count(distinct a.scene_number)::int as ready_scene_asset_count
+        count(distinct a.scene_number) filter (where a.asset_role = 'scene_video')::int as ready_scene_video_count
       from storyboards sb
       left join assets a on a.content_id = sb.content_id
         and a.asset_role in ('scene_image', 'scene_video')
@@ -2198,12 +2280,12 @@ async function reuseExistingSceneAssetsForFallback(pool, contentId) {
     );
     const row = result.rows[0] ?? {};
     const storyboardSceneCount = Number(row.storyboard_scene_count || 0);
-    const readySceneAssetCount = Number(row.ready_scene_asset_count || 0);
-    if (storyboardSceneCount < 1 || readySceneAssetCount < storyboardSceneCount) {
+    const readySceneVideoCount = Number(row.ready_scene_video_count || 0);
+    if (storyboardSceneCount < 1 || readySceneVideoCount < storyboardSceneCount) {
       return {
         reused: false,
         status_after_success: 'validation_complete',
-        scene_count: readySceneAssetCount,
+        scene_count: readySceneVideoCount,
         cost: { type: 'none', provider: 'none', total_usd: 0 },
       };
     }
@@ -2220,18 +2302,87 @@ async function reuseExistingSceneAssetsForFallback(pool, contentId) {
       startedAt: new Date().toISOString(),
       durationMs: 0,
       details: {
-        reused_existing_scene_assets: true,
-        scene_count: readySceneAssetCount,
+        reused_existing_scene_video_assets: true,
+        scene_count: readySceneVideoCount,
         cost: { type: 'none', provider: 'none', total_usd: 0 },
       },
     });
     return {
       reused: true,
       status_after_success: 'assets_ready',
-      scene_count: readySceneAssetCount,
+      scene_count: readySceneVideoCount,
       cost: { type: 'none', provider: 'none', total_usd: 0 },
     };
   });
+}
+
+async function promoteStoryboardForFallbackVideo(client, contentId) {
+  const result = await client.query(
+    `select
+      ci.title,
+      sb.storyboard_json
+    from content_items ci
+    join storyboards sb on sb.content_id = ci.content_id
+    where ci.content_id = $1
+    for update of sb`,
+    [contentId],
+  );
+  if (result.rowCount === 0) {
+    return { scene_count: 0, repairs: ['storyboard missing during avatar fallback promotion'] };
+  }
+  const row = result.rows[0];
+  const repairs = [];
+  const storyboard = asArray(row.storyboard_json).map((sceneValue, index) => {
+    const scene = asObject(sceneValue);
+    const sceneNumber = Number(scene.scene_number ?? index + 1);
+    const narrationText = trimString(scene.narration_text);
+    const visualPrompt = sanitizeGeneratedAssetPrompt(scene.visual_prompt || scene.image_prompt || scene.fallback_prompt, {
+      title: row.title,
+      narrationText,
+      sceneNumber,
+    });
+    const assetPlan = normalizeQualityAssetPlan(
+      {
+        ...scene,
+        visual_prompt: visualPrompt,
+        image_prompt: trimString(scene.image_prompt)
+          ? sanitizeGeneratedAssetPrompt(scene.image_prompt, { title: row.title, narrationText, sceneNumber })
+          : '',
+        asset_type: 'video',
+        asset_plan: {
+          ...asObject(scene.asset_plan),
+          mode: 'video',
+          provider_intent: 'provider_video',
+          video_generation_required: true,
+          video_generation_reason: 'Avatar route downgraded to video; generate a real provider video scene instead of a still fallback.',
+        },
+      },
+      index,
+      'video',
+      repairs,
+    );
+    const remotion = normalizeQualityRemotion(scene, index, assetPlan, repairs);
+    return {
+      ...scene,
+      scene_number: sceneNumber,
+      visual_prompt: visualPrompt,
+      image_prompt: visualPrompt,
+      fallback_prompt: visualPrompt,
+      asset_type: 'video',
+      asset_plan: assetPlan,
+      remotion,
+      is_face_image: false,
+      face_image_title: '',
+    };
+  });
+  await client.query(
+    `update storyboards
+    set storyboard_json = $2::jsonb,
+        generated_at = now()
+    where content_id = $1`,
+    [contentId, JSON.stringify(storyboard)],
+  );
+  return { scene_count: storyboard.length, repairs };
 }
 
 async function runAvatarVideoFallback({ pool, step, reason, decision, startedAt }) {
@@ -2248,6 +2399,7 @@ async function runAvatarVideoFallback({ pool, step, reason, decision, startedAt 
 
   await withTransaction(pool, async (client) => {
     await updateAvatarRouteResult(client, contentId, routeResult);
+    const fallbackPromotion = await promoteStoryboardForFallbackVideo(client, contentId);
     await client.query(
       `update content_items
       set reel_type = 'video',
@@ -2269,6 +2421,7 @@ async function runAvatarVideoFallback({ pool, step, reason, decision, startedAt 
       details: {
         route_result: routeResult,
         decision_status: trimString(decision.decision_summary?.decision_status),
+        fallback_video_promotion: fallbackPromotion,
       },
     });
   });
@@ -4660,6 +4813,8 @@ export const __avatarRuntimeTestHooks = Object.freeze({
   avatarFallbackReason,
   sanitizeHeygenRequestOptions,
   buildHeygenRequestBody,
+  sanitizeGeneratedAssetPrompt,
+  buildAssetGenerationPayload,
 });
 
 export async function executePipelineStage(stageKey, context) {

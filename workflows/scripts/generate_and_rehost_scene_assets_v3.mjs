@@ -86,6 +86,56 @@ function plainObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+function trimString(value) {
+  return String(value ?? '').trim();
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function titleVariants(title) {
+  const normalizedTitle = trimString(title);
+  if (!normalizedTitle) return [];
+  return [...new Set([
+    normalizedTitle,
+    normalizedTitle.replace(/[“”"]/g, '').trim(),
+    normalizedTitle.split(/[—–-]/)[0]?.trim(),
+  ].filter((value) => trimString(value).length >= 8))];
+}
+
+function wordCount(value) {
+  return trimString(value).split(/\s+/).filter(Boolean).length;
+}
+
+function sanitizeGeneratedAssetPrompt(value, {
+  title = '',
+  narrationText = '',
+  sceneNumber = null,
+} = {}) {
+  let prompt = trimString(value);
+  const narration = trimString(narrationText);
+  if (!prompt) {
+    prompt = narration;
+  }
+  prompt = prompt
+    .replace(/\bshown as\s+(?:a\s+)?(?:cinematic,\s*)?(?:text-free\s+)?visual metaphor for\s*:\s*/i, '')
+    .replace(/\bvisual metaphor for\s*:\s*/i, '')
+    .replace(/\btext-free\b/gi, '')
+    .replace(/\bno readable labels or UI\b/gi, '');
+  for (const variant of titleVariants(title)) {
+    prompt = prompt.replace(new RegExp(escapeRegExp(variant), 'gi'), '');
+  }
+  prompt = prompt
+    .replace(/^[\s:,\-.—–]+/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  if (wordCount(prompt) < 8 && narration) {
+    prompt = `Cinematic vertical scene ${sceneNumber || ''}: ${narration}. Represent the idea through concrete people, objects, light, motion, and setting with blank unmarked surfaces.`;
+  }
+  return prompt;
+}
+
 function normalizeAssetPlan(scene = {}) {
   const raw = plainObject(scene.asset_plan);
   const rawMode = String(raw.mode || scene.asset_type || '').trim().toLowerCase();
@@ -104,8 +154,8 @@ function normalizeAssetPlan(scene = {}) {
   };
 }
 
-function shouldFallbackVideoToImage(error) {
-  if (String(process.env.DISABLE_VIDEO_TO_IMAGE_FALLBACK || '').trim().toLowerCase() === 'true') {
+function shouldFallbackVideoToImage(error, { strictVideoAssets = false } = {}) {
+  if (strictVideoAssets || String(process.env.DISABLE_VIDEO_TO_IMAGE_FALLBACK || '').trim().toLowerCase() === 'true') {
     return false;
   }
   const message = String(error?.message || error || '').toLowerCase();
@@ -305,8 +355,8 @@ const GENERIC_SCENE_PROMPT_PATTERNS = [
 
 function ensureScenePromptSpecificity(scene) {
   const sceneNumber = Number(scene?.scene_number ?? 0);
-  const visualPrompt = String(scene?.visual_prompt ?? '').trim();
-  const narrationText = String(scene?.narration_text ?? '').trim();
+  const visualPrompt = trimString(scene?.visual_prompt);
+  const narrationText = trimString(scene?.narration_text);
   const visualWordCount = visualPrompt.split(/\s+/).filter(Boolean).length;
 
   if (!narrationText) {
@@ -324,9 +374,31 @@ function ensureScenePromptSpecificity(scene) {
 
 async function generateSceneImage(scene, payload, imageRequest, title, category, selectedHook, narrationScriptExcerpt, styleNotes, directorGlobalVisualStyle, directorAvoidRules, workflowName) {
   const sceneNumber = Number(scene.scene_number);
-  ensureScenePromptSpecificity(scene);
+  const sanitizedScene = {
+    ...scene,
+    visual_prompt: sanitizeGeneratedAssetPrompt(scene.visual_prompt, {
+      title,
+      narrationText: scene.narration_text,
+      sceneNumber,
+    }),
+    image_prompt: trimString(scene.image_prompt)
+      ? sanitizeGeneratedAssetPrompt(scene.image_prompt, {
+        title,
+        narrationText: scene.narration_text,
+        sceneNumber,
+      })
+      : '',
+    fallback_prompt: trimString(scene.fallback_prompt)
+      ? sanitizeGeneratedAssetPrompt(scene.fallback_prompt, {
+        title,
+        narrationText: scene.narration_text,
+        sceneNumber,
+      })
+      : '',
+  };
+  ensureScenePromptSpecificity(sanitizedScene);
 
-  const basePrompt = String(scene.image_prompt || '').trim() || await loadRenderedPromptAsset(
+  const basePrompt = trimString(sanitizedScene.image_prompt) || await loadRenderedPromptAsset(
     'scene_asset_generation/prompt.md',
     resolveStagePromptTemplateData('scene_asset_generation', {
       prompt_profile: payload.prompt_profile ?? {},
@@ -334,10 +406,10 @@ async function generateSceneImage(scene, payload, imageRequest, title, category,
       category,
       scene_number: String(sceneNumber),
       selected_hook: selectedHook,
-      narration_text: String(scene.narration_text || '').trim(),
-      visual_prompt: String(scene.visual_prompt || '').trim(),
-      mood: String(scene.mood || '').trim(),
-      transition: String(scene.transition || '').trim(),
+      narration_text: trimString(sanitizedScene.narration_text),
+      visual_prompt: trimString(sanitizedScene.visual_prompt),
+      mood: trimString(sanitizedScene.mood),
+      transition: trimString(sanitizedScene.transition),
       narration_script_excerpt: narrationScriptExcerpt,
       style_notes: styleNotes,
       director_global_visual_style: directorGlobalVisualStyle,
@@ -348,7 +420,7 @@ async function generateSceneImage(scene, payload, imageRequest, title, category,
 
   const prompt = [
     ensureString(`scene ${sceneNumber} base prompt`, basePrompt),
-    getSceneImageRelevanceGuard(scene),
+    getSceneImageRelevanceGuard(sanitizedScene),
     getSceneImageTextGuard(sceneNumber),
   ].join('\n').trim();
 
@@ -543,6 +615,11 @@ async function main() {
   const workflowName = String(payload.workflow_name || 'wf_asset_generation_v3').trim() || 'wf_asset_generation_v3';
   const scenes = Array.isArray(payload.scenes) ? payload.scenes : [];
   const imageRequest = payload.image_request ?? payload.openai_image_request ?? {};
+  const strictVideoAssets = payload.strict_video_assets === true
+    || (
+      String(payload.reel_type || '').trim().toLowerCase() === 'video'
+      && String(process.env.ALLOW_VIDEO_TO_IMAGE_FALLBACK || '').trim().toLowerCase() !== 'true'
+    );
 
   if (scenes.length === 0) fail('No scenes were provided for scene asset generation.');
 
@@ -577,8 +654,30 @@ async function main() {
 
   async function generateAndStoreSceneImage(scene, { fallbackFromVideo = false, fallbackReason = '' } = {}) {
     const sceneNumber = Number(scene.scene_number);
+    const sceneForImage = {
+      ...scene,
+      visual_prompt: sanitizeGeneratedAssetPrompt(scene.visual_prompt, {
+        title,
+        narrationText: scene.narration_text,
+        sceneNumber,
+      }),
+      image_prompt: trimString(scene.image_prompt)
+        ? sanitizeGeneratedAssetPrompt(scene.image_prompt, {
+          title,
+          narrationText: scene.narration_text,
+          sceneNumber,
+        })
+        : '',
+      fallback_prompt: trimString(scene.fallback_prompt)
+        ? sanitizeGeneratedAssetPrompt(scene.fallback_prompt, {
+          title,
+          narrationText: scene.narration_text,
+          sceneNumber,
+        })
+        : '',
+    };
     const generation = await generateSceneImage(
-      scene, payload, imageRequest, title, category, selectedHook,
+      sceneForImage, payload, imageRequest, title, category, selectedHook,
       narrationScriptExcerpt, styleNotes, directorGlobalVisualStyle,
       directorAvoidRules, workflowName,
     );
@@ -588,7 +687,7 @@ async function main() {
       contentType: 'image/jpeg',
       fileName: fileNameFromObjectKey(objectKey),
     });
-    const metadata = buildSceneImageMetadata(storage, scene, generation, title, workflowName, {
+    const metadata = buildSceneImageMetadata(storage, sceneForImage, generation, title, workflowName, {
       fallbackFromVideo,
       fallbackReason,
     });
@@ -609,8 +708,12 @@ async function main() {
 
   async function generateAndStoreSceneVideo(scene, assetPlan) {
     const sceneNumber = Number(scene.scene_number);
-    const visualPrompt = String(scene.visual_prompt || '').trim();
-    const narrationText = String(scene.narration_text || '').trim();
+    const narrationText = trimString(scene.narration_text);
+    const visualPrompt = sanitizeGeneratedAssetPrompt(scene.visual_prompt, {
+      title,
+      narrationText,
+      sceneNumber,
+    });
     const mood = String(scene.mood || '').trim();
     const includesPrimaryCharacter = scene?.includes_primary_character === true;
     const useCharacterReference = includesPrimaryCharacter && Boolean(characterReference?.storage_url);
@@ -712,7 +815,7 @@ async function main() {
     try {
       await generateAndStoreSceneVideo(scene, assetPlan);
     } catch (error) {
-      if (!shouldFallbackVideoToImage(error)) {
+      if (!shouldFallbackVideoToImage(error, { strictVideoAssets })) {
         throw error;
       }
       forceImageFallbackForRemaining = true;
