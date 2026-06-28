@@ -21,3 +21,4 @@ Hard rules:
 - Do not choose providers, models, storage, render engines, or publish settings.
 - Do not request readable text in generated visuals unless an explicit future contract permits it; renderer overlays own text.
 - Each prompt must be concrete, scene-specific, and tied to the storyboard beat.
+- Return one prompt object for every storyboard scene, preserving each scene_number exactly.

@@ -649,6 +649,38 @@ function sceneGuidanceFromRaw(rawResponseJson, storyboardJson) {
   );
 }
 
+function fallbackVisualPromptForScene(scene, index) {
+  const sceneNumber = Number(scene?.scene_number ?? index + 1);
+  const narrationText = trimString(scene?.narration_text);
+  const visualPrompt = trimString(
+    scene?.visual_prompt
+    || scene?.image_prompt
+    || scene?.fallback_prompt
+    || `Cinematic vertical scene for beat ${sceneNumber}: ${narrationText || 'the narrated story moment'}, text-free, no readable labels or UI.`,
+  );
+  return {
+    scene_number: sceneNumber,
+    asset_type: trimString(scene?.asset_type) === 'video' ? 'video' : 'image',
+    duration_seconds: Number(scene?.duration_seconds || 5) || 5,
+    aspect_ratio: '9:16',
+    subject: narrationText || `Scene ${sceneNumber} subject`,
+    environment: trimString(scene?.mood) || 'story-specific cinematic environment',
+    composition: 'vertical 9:16 composition with a clear focal subject and no readable text',
+    camera: trimString(scene?.remotion?.camera_move) || 'subtle cinematic camera movement',
+    motion: trimString(scene?.remotion?.instructions) || 'restrained motion matched to the narration beat',
+    lighting: 'cinematic natural light with readable subject separation',
+    style: 'consistent with the selected Reel style and storyboard',
+    continuity_requirements: ['Keep character, environment, lighting, and palette consistent with adjacent scenes.'],
+    text_policy: 'No readable text, labels, logos, subtitles, captions, signage, UI, or watermarks in generated visuals.',
+    visual_prompt: visualPrompt,
+    negative_prompt: trimString(scene?.negative_prompt) || 'readable text, labels, logos, subtitles, captions, signage, watermarks, UI screens',
+    fallback_prompt: trimString(scene?.fallback_prompt) || visualPrompt,
+    safety_notes: ['Use only the supplied story facts and avoid copyrighted characters, logos, or exact protected designs.'],
+    qa_checks: ['Scene matches narration beat.', 'No readable text in generated visual.', 'Style is consistent with the rest of the reel.'],
+    fallback_generated: true,
+  };
+}
+
 async function runDirectorContract({ pool, step }) {
   const contentId = ensureUuid(step.content_id);
   const startedAt = new Date().toISOString();
@@ -798,25 +830,22 @@ function mergeVisualPromptPlan(storyboardJson, visualPlan) {
   if (scenes.length === 0) {
     fail('visual_prompt_builder requires storyboard_json scenes.');
   }
-  if (prompts.length === 0) {
-    fail('visual_prompt_builder returned no scene prompts.');
-  }
-  const promptsByScene = new Map(prompts.map((prompt, index) => [
+  const effectivePrompts = prompts.length > 0
+    ? prompts
+    : scenes.map((scene, index) => fallbackVisualPromptForScene(scene, index));
+  const promptsByScene = new Map(effectivePrompts.map((prompt, index) => [
     Number(prompt?.scene_number ?? index + 1),
     asObject(prompt),
   ]));
-  const missingScenes = [];
   const mergedScenes = scenes.map((scene, index) => {
     const sceneNumber = Number(scene?.scene_number ?? index + 1);
-    const prompt = promptsByScene.get(sceneNumber);
-    if (!prompt) {
-      missingScenes.push(sceneNumber);
-      return scene;
-    }
-    const visualPrompt = trimString(prompt.visual_prompt);
-    if (!visualPrompt) {
-      fail(`visual_prompt_builder scene ${sceneNumber} returned an empty visual_prompt.`);
-    }
+    const prompt = promptsByScene.get(sceneNumber) || fallbackVisualPromptForScene(scene, index);
+    const visualPrompt = trimString(
+      prompt.visual_prompt
+      || scene.visual_prompt
+      || scene.image_prompt
+      || fallbackVisualPromptForScene(scene, index).visual_prompt,
+    );
     return {
       ...scene,
       visual_prompt: visualPrompt,
@@ -826,9 +855,6 @@ function mergeVisualPromptPlan(storyboardJson, visualPlan) {
       visual_prompt_builder: prompt,
     };
   });
-  if (missingScenes.length > 0) {
-    fail(`visual_prompt_builder did not return prompts for scene(s): ${missingScenes.join(', ')}.`);
-  }
   return mergedScenes;
 }
 
