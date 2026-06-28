@@ -1,57 +1,39 @@
 const state = {
-  workflows: [],
-  reelTypes: [],
-  promptFiles: [],
-  selectedPromptPath: '',
-  selectedPromptMeta: null,
-  deletingTopicIds: new Set(),
+  topics: [],
+  reviews: [],
+  activePipelineRunId: '',
+  approvingReviewIds: new Set(),
   approvingTopicIds: new Set(),
-  runtimePromptBuilder: {
-    enabled: false,
-    idea: '',
-    instructions: '',
-    targets: [],
-  },
+  deletingTopicIds: new Set(),
   configValues: {},
-  topicFormConfig: {
-    min: 15,
-    max: 180,
-    defaultValue: 45,
-  },
+  configSections: [],
+  savingSettings: false,
 };
 
-const RECOMMENDED_WORKFLOW_KEY = 'wf_end_to_end_reel_generate_and_publish';
+const DEFAULT_WORKFLOW_KEY = 'wf_end_to_end_reel_generate_and_publish';
 
-function reelTypeLabel(value) {
-  const normalized = String(value || 'video').trim().toLowerCase() || 'video';
-  return state.reelTypes.find((item) => item.key === normalized)?.label || {
-    image: 'Image Reel',
-    video: 'Video Reel',
-    avatar: 'Avatar Video',
-  }[normalized] || normalized;
-}
-
-async function api(path, options = {}) {
-  const response = await fetch(path, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    ...options,
-  });
-
-  const contentType = response.headers.get('content-type') || '';
-  const payload = contentType.includes('application/json')
-    ? await response.json()
-    : { error: await response.text() };
-
-  if (!response.ok) {
-    throw new Error(payload.error || 'Request failed.');
-  }
-  return payload;
-}
+const STAGE_LABELS = {
+  idea_ingest: 'Idea',
+  story_package_generation: 'Story',
+  image_asset_generation: 'Images',
+  asset_generation_v3: 'Assets',
+  narration_generation: 'Voice',
+  voice_performance_script: 'Voice Direction',
+  avatar_consent_gate: 'Consent',
+  avatar_presenter_selector: 'Avatar Route',
+  avatar_media_generation: 'Avatar Media',
+  heygen_avatar_generation: 'Avatar',
+  remotion_manifest: 'Manifest',
+  remotion_render: 'Render',
+  caption_and_hashtags: 'Caption',
+  final_qa_validator: 'QA',
+  final_qa_approval_gate: 'QA',
+  performance_feedback_analysis: 'Performance',
+  instagram_reel_publish: 'Publish',
+};
 
 function escapeHtml(value) {
-  return String(value || '')
+  return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -60,671 +42,434 @@ function escapeHtml(value) {
 }
 
 function setText(id, value) {
-  document.getElementById(id).textContent = value;
+  const element = document.getElementById(id);
+  if (element) element.textContent = value;
 }
 
-function setValue(id, value) {
-  document.getElementById(id).value = value;
+function apiUrl(path) {
+  const cleanPath = String(path || '').replace(/^\/+/, '');
+  const basePath = new URL('.', window.location.href).pathname;
+  return `${basePath}${cleanPath}`;
 }
 
-function getCharacterReferenceInput(form) {
-  return form?.querySelector('input[type="file"][id$="character-reference-file"]') || null;
-}
-
-function getCharacterReferenceFields(form) {
-  return {
-    characterName: String(form?.querySelector('[name="character_name"]')?.value || '').trim(),
-    characterDescription: String(form?.querySelector('[name="character_description"]')?.value || '').trim(),
-  };
-}
-
-function getSelectedReelType(form) {
-  const value = String(new FormData(form).get('reel_type') || 'video').trim().toLowerCase();
-  return ['image', 'video', 'avatar'].includes(value) ? value : 'video';
-}
-
-function renderReelTypeSetupNotes() {
-  const avatarType = state.reelTypes.find((item) => item.key === 'avatar');
-  const missing = avatarType?.setup?.missing_env || [];
-  const note = avatarType && missing.length
-    ? `Avatar Video needs ${missing.join(', ')} plus consent policy before provider calls.`
-    : avatarType
-      ? 'Avatar Video also requires avatar_allowed policy and consent metadata.'
-      : '';
-  ['abstract-avatar-setup-note', 'topic-avatar-setup-note'].forEach((id) => {
-    const element = document.getElementById(id);
-    if (element) element.textContent = note;
+async function api(path, options = {}) {
+  const response = await fetch(apiUrl(path), {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
   });
+  const contentType = response.headers.get('content-type') || '';
+  const payload = contentType.includes('application/json')
+    ? await response.json()
+    : { error: await response.text() };
+  if (!response.ok) {
+    throw new Error(payload.error || 'Request failed.');
+  }
+  return payload;
 }
 
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error(`Could not read ${file?.name || 'the selected file'}.`));
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.readAsDataURL(file);
-  });
+function stageLabel(stageKey) {
+  const normalized = String(stageKey || '').trim();
+  return STAGE_LABELS[normalized] || normalized.replaceAll('_', ' ');
 }
 
-async function uploadCharacterReferenceFromForm(form, statusId, pendingLabel) {
-  const input = getCharacterReferenceInput(form);
-  const file = input?.files?.[0] || null;
-  if (!file) {
-    return null;
-  }
-
-  if (!file.type || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-    throw new Error('Character reference image must be JPEG, PNG, or WebP.');
-  }
-  if (file.size > 20 * 1024 * 1024) {
-    throw new Error('Character reference image must be 20MB or smaller.');
-  }
-
-  const { characterName, characterDescription } = getCharacterReferenceFields(form);
-  setText(statusId, `${pendingLabel} Uploading character reference...`);
-  const dataUrl = await readFileAsDataUrl(file);
-  const payload = await api('/api/uploads/character-reference', {
-    method: 'POST',
-    body: JSON.stringify({
-      data_url: dataUrl,
-      file_name: file.name,
-      character_name: characterName,
-      character_description: characterDescription,
-    }),
-  });
-  return payload.character_reference || null;
+function statusTone(value) {
+  const text = String(value || '').toLowerCase();
+  if (text.includes('failed') || text.includes('rejected') || text.includes('error')) return 'danger';
+  if (text.includes('awaiting') || text.includes('pending') || text.includes('running') || text.includes('review')) return 'warning';
+  if (text.includes('complete') || text.includes('success') || text.includes('approved') || text.includes('published') || text.includes('ready')) return 'success';
+  return 'neutral';
 }
 
-function applyTopicFormConfig(config = {}) {
-  const min = Number.isFinite(Number(config.min)) ? Number(config.min) : 15;
-  const maxCandidate = Number.isFinite(Number(config.max)) ? Number(config.max) : 180;
-  const max = Math.max(min, maxCandidate);
-  const defaultCandidate = Number.isFinite(Number(config.defaultValue)) ? Number(config.defaultValue) : 45;
-  const defaultValue = Math.min(max, Math.max(min, defaultCandidate));
-  state.topicFormConfig = { min, max, defaultValue };
-
-  const input = document.querySelector('#topic-form [name="target_duration_seconds"]');
-  if (!input) {
-    return;
-  }
-  input.min = String(min);
-  input.max = String(max);
-  input.step = '1';
-
-  const currentValue = Number.parseInt(String(input.value || '').trim(), 10);
-  if (!Number.isFinite(currentValue) || currentValue < min || currentValue > max) {
-    input.value = String(defaultValue);
-  }
-}
-
-function renderStatusPill(value, emptyLabel = '—') {
-  const text = String(value || '').trim();
-  if (!text) {
-    return `<span class="status-pill status-empty">${escapeHtml(emptyLabel)}</span>`;
-  }
-
-  const normalized = text.toLowerCase();
-  let tone = 'neutral';
-  if (
-    normalized.includes('complete')
-    || normalized.includes('ready')
-    || normalized.includes('approved')
-    || normalized === 'published'
-  ) {
-    tone = 'success';
-  } else if (
-    normalized.includes('failed')
-    || normalized.includes('rejected')
-    || normalized.includes('error')
-  ) {
-    tone = 'danger';
-  } else if (
-    normalized.includes('pending')
-    || normalized.includes('awaiting')
-    || normalized.includes('generating')
-    || normalized.includes('scripting')
-    || normalized.includes('storyboarding')
-  ) {
-    tone = 'warning';
-  }
-
-  return `<span class="status-pill status-${tone}">${escapeHtml(text)}</span>`;
-}
-
-function renderWorkflows() {
-  const root = document.getElementById('workflow-list');
-  root.innerHTML = state.workflows.map((workflow) => `
-    <button class="workflow-card ${workflow.key === RECOMMENDED_WORKFLOW_KEY ? 'workflow-card-recommended' : 'workflow-card-stage'}" data-workflow="${escapeHtml(workflow.key)}">
-      <div class="workflow-card-head">
-        <strong>${escapeHtml(workflow.name)}</strong>
-        <span class="workflow-badge ${workflow.key === RECOMMENDED_WORKFLOW_KEY ? 'workflow-badge-recommended' : 'workflow-badge-stage'}">
-          ${workflow.key === RECOMMENDED_WORKFLOW_KEY ? 'Recommended' : 'Stage'}
-        </span>
-      </div>
-      <span>${escapeHtml(workflow.description)}</span>
-    </button>
-  `).join('');
-
-  root.querySelectorAll('[data-workflow]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      const workflowKey = button.getAttribute('data-workflow');
-      setText('workflow-output', `Running ${workflowKey}...`);
-      try {
-        const result = await api('/api/workflows/run', {
-          method: 'POST',
-          body: JSON.stringify({ workflow_key: workflowKey, mode: 'async' }),
-        });
-        await pollWorkflowJob(result.job_id);
-      } catch (error) {
-        setText('workflow-output', error.message);
-      }
-    });
-  });
-}
-
-async function pollWorkflowJob(jobId) {
-  while (true) {
-    const job = await api(`/api/workflows/run/${encodeURIComponent(jobId)}`);
-    setText(
-      'workflow-output',
-      [
-        `${job.workflow_name} (${job.workflow_key})`,
-        `job: ${job.job_id}`,
-        `status: ${job.status}`,
-        job.exit_code == null ? '' : `exit_code: ${job.exit_code}`,
-        job.stdout ? `stdout:\n${job.stdout}` : '',
-        job.stderr ? `stderr:\n${job.stderr}` : '',
-      ].filter(Boolean).join('\n\n'),
-    );
-
-    if (job.status === 'completed' || job.status === 'failed') {
-      await loadTopics();
-      return job;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-  }
-}
-
-async function pollPipelineRun(pipelineRunId) {
-  while (true) {
-    const payload = await api(`/api/pipeline-runs/${encodeURIComponent(pipelineRunId)}`);
-    const run = payload.pipeline_run || {};
-    const steps = Array.isArray(run.steps) ? run.steps : [];
-    const events = Array.isArray(run.events) ? run.events : [];
-    const stepLines = steps.map((step) => (
-      `${step.stage_order}. ${step.stage_key}: ${step.step_status}${step.error_message ? ` — ${step.error_message}` : ''}`
-    ));
-    const eventLines = events.slice(-8).map((event) => (
-      `${new Date(event.created_at).toLocaleTimeString()} ${event.event_level || 'info'} ${event.stage_key || event.event_type}: ${event.message}`
-    ));
-    setText(
-      'workflow-output',
-      [
-        `Code pipeline: ${run.requested_action}`,
-        `reel_type: ${reelTypeLabel(run.reel_type || run.content_reel_type || 'video')}`,
-        `run: ${run.pipeline_run_id}`,
-        `status: ${run.status}`,
-        run.current_stage ? `current_stage: ${run.current_stage}` : '',
-        run.last_error ? `error: ${run.last_error}` : '',
-        stepLines.length ? `steps:\n${stepLines.join('\n')}` : '',
-        eventLines.length ? `events:\n${eventLines.join('\n')}` : '',
-      ].filter(Boolean).join('\n\n'),
-    );
-
-    if (['awaiting_approval', 'completed', 'failed', 'cancelled'].includes(String(run.status || ''))) {
-      await loadTopics();
-      return run;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  }
+function configInputId(key) {
+  return `config-${String(key || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 }
 
 function renderFieldExamples(field) {
-  const examples = Array.isArray(field.examples) ? field.examples.filter(Boolean) : [];
-  if (!examples.length) {
-    return '';
-  }
+  const examples = Array.isArray(field.examples)
+    ? field.examples.map((item) => String(item || '').trim()).filter(Boolean)
+    : [];
+  if (!examples.length) return '';
+  const listId = `${configInputId(field.key)}-examples`;
   return `
-    <div class="field-examples" aria-label="${escapeHtml(field.label)} examples">
-      ${examples.map((example) => `
-        <button
-          type="button"
-          class="example-chip"
-          data-config-example-key="${escapeHtml(field.key)}"
-          data-config-example-value="${escapeHtml(example)}"
-        >${escapeHtml(example)}</button>
-      `).join('')}
+    <datalist id="${escapeHtml(listId)}">
+      ${examples.map((example) => `<option value="${escapeHtml(example)}"></option>`).join('')}
+    </datalist>
+  `;
+}
+
+function renderConfigField(field) {
+  const inputId = configInputId(field.key);
+  const examples = Array.isArray(field.examples)
+    ? field.examples.map((item) => String(item || '').trim()).filter(Boolean)
+    : [];
+  const listAttr = examples.length ? ` list="${escapeHtml(inputId)}-examples"` : '';
+  const value = String(field.value || '');
+  const placeholder = field.sensitive && value === '********'
+    ? 'Stored. Enter a replacement or keep the mask.'
+    : '';
+  return `
+    <label class="settings-field" for="${escapeHtml(inputId)}">
+      <span>${escapeHtml(field.label || field.key)}</span>
+      <input
+        id="${escapeHtml(inputId)}"
+        type="${field.sensitive ? 'password' : 'text'}"
+        value="${escapeHtml(value)}"
+        placeholder="${escapeHtml(placeholder)}"
+        data-config-key="${escapeHtml(field.key)}"
+        data-sensitive="${field.sensitive ? 'true' : 'false'}"
+        autocomplete="off"
+        spellcheck="false"
+        ${listAttr}
+      >
+      ${renderFieldExamples(field)}
+      <small>${escapeHtml(field.description || field.key)}</small>
+    </label>
+  `;
+}
+
+function renderConfigSection(section) {
+  const fields = Array.isArray(section.fields) ? section.fields : [];
+  const variant = String(section.variant || '').trim();
+  return `
+    <details class="settings-section ${variant ? `settings-section-${escapeHtml(variant)}` : ''}" ${section.collapsed ? '' : 'open'}>
+      <summary>
+        <span>
+          <strong>${escapeHtml(section.title || section.id)}</strong>
+          <small>${escapeHtml(section.description || '')}</small>
+        </span>
+      </summary>
+      <div class="settings-grid">
+        ${fields.map(renderConfigField).join('')}
+      </div>
+    </details>
+  `;
+}
+
+function applyConfigPayload(payload) {
+  state.configValues = {};
+  const sections = Array.isArray(payload.sections) ? payload.sections : [];
+  state.configSections = sections.filter((section) => section.studio_visible === true);
+  for (const section of sections) {
+    for (const field of section.fields || []) {
+      state.configValues[field.key] = field.value || '';
+    }
+  }
+}
+
+function renderSettings() {
+  const root = document.getElementById('settings-form');
+  if (!root) return;
+  if (!state.configSections.length) {
+    root.innerHTML = '<div class="empty-state">Runtime settings are unavailable.</div>';
+    return;
+  }
+  root.innerHTML = state.configSections.map(renderConfigSection).join('');
+}
+
+function renderStatus(value, emptyLabel = 'none') {
+  const text = String(value || '').trim() || emptyLabel;
+  return `<span class="status-pill status-${statusTone(text)}">${escapeHtml(text)}</span>`;
+}
+
+function normalizeSteps(topic) {
+  const steps = Array.isArray(topic.latest_pipeline_steps) ? topic.latest_pipeline_steps : [];
+  if (steps.length) {
+    return steps;
+  }
+  const stagePlan = Array.isArray(topic.latest_pipeline_stage_plan) ? topic.latest_pipeline_stage_plan : [];
+  const currentStage = String(topic.latest_pipeline_stage || '').replace(/^review:/, '');
+  const currentIndex = stagePlan.indexOf(currentStage);
+  return stagePlan.map((stageKey, index) => {
+    let stepStatus = 'pending';
+    if (['awaiting_approval', 'completed'].includes(topic.latest_pipeline_status)) {
+      stepStatus = 'succeeded';
+    } else if (currentIndex >= 0 && index < currentIndex) {
+      stepStatus = 'succeeded';
+    } else if (stageKey === currentStage) {
+      stepStatus = String(topic.latest_pipeline_status || '').includes('review') ? 'waiting_review' : 'running';
+    }
+    return { stage_key: stageKey, stage_order: index + 1, step_status: stepStatus, error_message: '' };
+  });
+}
+
+function renderPipelineSteps(topic) {
+  const steps = normalizeSteps(topic);
+  if (!steps.length) {
+    return '<div class="pipeline-steps empty">No run queued</div>';
+  }
+  const currentReviewStage = String(topic.latest_pipeline_stage || '').startsWith('review:')
+    ? String(topic.latest_pipeline_stage).replace(/^review:/, '')
+    : '';
+  return `
+    <div class="pipeline-steps" aria-label="Pipeline steps">
+      ${steps.map((step) => {
+        const isReview = currentReviewStage && currentReviewStage === step.stage_key;
+        const status = isReview ? 'waiting_review' : String(step.step_status || 'pending');
+        return `
+          <div class="pipeline-step pipeline-step-${statusTone(status)}" title="${escapeHtml(step.error_message || status)}">
+            <span class="step-dot"></span>
+            <span class="step-label">${escapeHtml(stageLabel(step.stage_key))}</span>
+          </div>
+        `;
+      }).join('')}
     </div>
   `;
 }
 
-function formatWorkflowLabel(workflowName) {
-  const normalized = String(workflowName || '').trim();
-  if (!normalized) {
-    return '';
-  }
-  return normalized.replace(/^wf_/, '').replaceAll('_', ' ');
+function renderFailure(topic) {
+  const error = String(topic.latest_failed_error_message || '').trim();
+  if (!error) return '';
+  const workflow = String(topic.latest_failed_workflow_name || 'pipeline').trim();
+  return `<div class="failure-note">${escapeHtml(workflow)}: ${escapeHtml(error)}</div>`;
 }
 
-function buildTopicFailureDetails(topic) {
-  const errorMessage = String(topic.latest_failed_error_message || '').trim();
-  if (!errorMessage) {
-    return '';
-  }
-
-  const workflowLabel = formatWorkflowLabel(topic.latest_failed_workflow_name) || 'workflow';
-  const failedAtRaw = String(topic.latest_failed_at || '').trim();
-  const failedAt = failedAtRaw ? new Date(failedAtRaw).toLocaleString() : '';
-
+function renderTopicActions(topic) {
+  const contentId = String(topic.content_id || '');
+  const canReview = Boolean(topic.pending_review_id);
+  const canApprove = topic.status === 'render_complete'
+    && topic.render_status === 'success'
+    && topic.output_video_url
+    && topic.publish_status !== 'published'
+    && topic.approval_status !== 'approved';
+  const isApproving = state.approvingTopicIds.has(contentId);
+  const isDeleting = state.deletingTopicIds.has(contentId);
   return `
-    <details class="topic-error-details">
-      <summary>
-        <span class="topic-error-summary">Latest failure: ${escapeHtml(workflowLabel)}</span>
-        ${failedAt ? `<span class="topic-error-time">${escapeHtml(failedAt)}</span>` : ''}
-      </summary>
-      <pre class="topic-error-log">${escapeHtml(errorMessage)}</pre>
-    </details>
+    <div class="topic-actions">
+      ${canReview ? `<a class="secondary" href="#reviews" data-focus-review="${escapeHtml(topic.pending_review_id)}">Review</a>` : ''}
+      ${canApprove ? `
+        <button type="button" class="secondary" data-approve-topic="${escapeHtml(contentId)}" data-title="${escapeHtml(topic.title || '')}" ${isApproving ? 'disabled' : ''}>
+          ${isApproving ? 'Approving...' : 'Approve Render'}
+        </button>
+      ` : ''}
+      <button type="button" class="secondary-danger" data-delete-topic="${escapeHtml(contentId)}" data-title="${escapeHtml(topic.title || '')}" ${isDeleting ? 'disabled' : ''}>
+        ${isDeleting ? 'Deleting...' : 'Delete'}
+      </button>
+    </div>
   `;
 }
 
-function renderConfig(payload) {
-  const sections = Array.isArray(payload.sections) ? payload.sections : [];
-  const root = document.getElementById('config-groups');
-  state.configValues = {};
-  root.innerHTML = sections.map((section) => `
-    <details class="config-section" open>
-      <summary>
-        <span>${escapeHtml(section.title)}</span>
-      </summary>
-      <p class="config-section-copy">${escapeHtml(section.description)}</p>
-      <div class="config-grid">
-        ${section.fields.map((field) => {
-          state.configValues[field.key] = field.value || '';
-          return `
-            <label class="config-field">
-              <span class="field-label-row">
-                <span>${escapeHtml(field.label)}</span>
-                <button
-                  type="button"
-                  class="info-badge"
-                  title="${escapeHtml(field.description)}"
-                  aria-label="${escapeHtml(field.label)} help"
-                >?</button>
-              </span>
-              <input
-                data-config-key="${escapeHtml(field.key)}"
-                type="${field.sensitive ? 'password' : 'text'}"
-                autocomplete="off"
-                value="${escapeHtml(field.value || '')}"
-              >
-              <small>${escapeHtml(field.description)}</small>
-              ${renderFieldExamples(field)}
-            </label>
-          `;
-        }).join('')}
-      </div>
-    </details>
-  `).join('');
+function renderTopics() {
+  const root = document.getElementById('pipeline-list');
+  if (!root) return;
+  if (!state.topics.length) {
+    root.innerHTML = '<div class="empty-state">No ideas injected yet.</div>';
+    return;
+  }
 
-  root.querySelectorAll('[data-config-key]').forEach((input) => {
-    input.addEventListener('input', (event) => {
-      state.configValues[event.target.getAttribute('data-config-key')] = event.target.value;
-    });
-  });
+  root.innerHTML = state.topics.map((topic) => {
+    const reviewLabel = topic.pending_review_id
+      ? `Waiting: ${topic.pending_review_title || stageLabel(topic.pending_review_stage)}`
+      : topic.approval_status || '';
+    return `
+      <article class="pipeline-card" data-content-id="${escapeHtml(topic.content_id)}">
+        <div class="pipeline-card-head">
+          <div>
+            <strong>${escapeHtml(topic.title || 'Untitled idea')}</strong>
+            <p>${escapeHtml(topic.category || 'general')} / ${escapeHtml(topic.confidence_label || 'unverified')}</p>
+          </div>
+          <div class="topic-status-stack">
+            ${renderStatus(topic.latest_pipeline_status || topic.status)}
+            ${reviewLabel ? renderStatus(reviewLabel) : ''}
+          </div>
+        </div>
+        ${renderPipelineSteps(topic)}
+        ${renderFailure(topic)}
+        <div class="topic-meta">
+          <span>Content: ${escapeHtml(topic.status || 'unknown')}</span>
+          <span>Render: ${escapeHtml(topic.render_status || 'none')}</span>
+          <span>Publish: ${escapeHtml(topic.publish_status || 'draft')}</span>
+          <span>Updated: ${escapeHtml(new Date(topic.updated_at).toLocaleString())}</span>
+        </div>
+        ${renderTopicActions(topic)}
+      </article>
+    `;
+  }).join('');
 
-  root.querySelectorAll('[data-config-example-key]').forEach((button) => {
+  root.querySelectorAll('[data-approve-topic]').forEach((button) => {
     button.addEventListener('click', () => {
-      const key = button.getAttribute('data-config-example-key');
-      const value = button.getAttribute('data-config-example-value') || '';
-      const input = root.querySelector(`[data-config-key="${CSS.escape(key)}"]`);
-      if (!input) {
-        return;
-      }
-      input.value = value;
-      state.configValues[key] = value;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
+      approveTopic(button.dataset.approveTopic || '', button.dataset.title || '')
+        .catch((error) => setText('topics-status', error.message));
     });
   });
-}
-
-function groupPromptFiles(files) {
-  const grouped = new Map();
-  for (const file of files) {
-    const stepTitle = file.step_title || 'Other';
-    if (!grouped.has(stepTitle)) {
-      grouped.set(stepTitle, []);
-    }
-    grouped.get(stepTitle).push(file);
-  }
-  return Array.from(grouped.entries());
-}
-
-function renderPromptFiles() {
-  const root = document.getElementById('prompt-files');
-  root.innerHTML = groupPromptFiles(state.promptFiles).map(([stepTitle, files]) => `
-    <details class="prompt-group" open>
-      <summary>${escapeHtml(stepTitle)}</summary>
-      <div class="prompt-group-files">
-        ${files.map((file) => `
-          <button class="prompt-file ${file.path === state.selectedPromptPath ? 'active' : ''}" data-path="${escapeHtml(file.path)}">
-            <strong>${escapeHtml(file.label || file.path)}</strong>
-            <span>${escapeHtml(file.path)}</span>
-          </button>
-        `).join('')}
-      </div>
-    </details>
-  `).join('');
-
-  root.querySelectorAll('[data-path]').forEach((button) => {
-    button.addEventListener('click', () => loadPrompt(button.getAttribute('data-path')));
-  });
-}
-
-function buildDeleteSummary(payload = {}) {
-  const deleted = payload.deleted || {};
-  const deletedRecords = Object.values(payload.deleted_records || {})
-    .map((value) => Number(value || 0))
-    .filter((value) => value > 0)
-    .reduce((sum, value) => sum + value, 0);
-  const storageCleanup = payload.storage_cleanup || {};
-  const notes = Array.isArray(payload.notes) ? payload.notes.filter(Boolean) : [];
-  const parts = [
-    `Deleted ${deleted.title ? `"${deleted.title}"` : 'the pipeline item'}.`,
-  ];
-
-  if (deletedRecords > 0) {
-    parts.push(`Removed ${deletedRecords} local record${deletedRecords === 1 ? '' : 's'}.`);
-  }
-
-  if (Number(storageCleanup.attempted_count || 0) > 0) {
-    const clearedCount = Number(storageCleanup.deleted_count || 0) + Number(storageCleanup.missing_count || 0);
-    const failedCount = Number(storageCleanup.failed_count || 0);
-    if (failedCount > 0) {
-      parts.push(
-        `Hosted cleanup cleared ${clearedCount} of ${storageCleanup.attempted_count} object${Number(storageCleanup.attempted_count) === 1 ? '' : 's'} and left ${failedCount} warning${failedCount === 1 ? '' : 's'}.`,
-      );
-    } else {
-      parts.push(`Hosted cleanup cleared ${clearedCount} object${clearedCount === 1 ? '' : 's'}.`);
-    }
-  }
-
-  if (notes.length) {
-    parts.push(notes.join(' '));
-  }
-
-  return parts.join(' ');
-}
-
-async function deleteTopic(contentId, title) {
-  const confirmMessage = [
-    `Delete "${title || 'this pipeline item'}"?`,
-    'This removes the local content item, related pipeline rows, and any hosted assets the studio can identify.',
-    'It does not remove anything already published on Instagram.',
-  ].join('\n\n');
-  if (!window.confirm(confirmMessage)) {
-    return;
-  }
-
-  state.deletingTopicIds.add(contentId);
-  await loadTopics();
-  setText('topics-status', `Deleting ${title || 'pipeline item'}...`);
-
-  try {
-    const payload = await api(`/api/topics/${encodeURIComponent(contentId)}`, {
-      method: 'DELETE',
+  root.querySelectorAll('[data-delete-topic]').forEach((button) => {
+    button.addEventListener('click', () => {
+      deleteTopic(button.dataset.deleteTopic || '', button.dataset.title || '')
+        .catch((error) => setText('topics-status', error.message));
     });
-    setText('topics-status', buildDeleteSummary(payload));
-  } finally {
-    state.deletingTopicIds.delete(contentId);
-    await loadTopics();
-  }
-}
-
-function renderPromptPlaceholderCatalog(details = []) {
-  const root = document.getElementById('prompt-placeholder-catalog');
-  if (!details.length) {
-    root.innerHTML = '<div class="placeholder-empty">This prompt file has no placeholders.</div>';
-    return;
-  }
-  root.innerHTML = `
-    <details class="placeholder-section" open>
-      <summary>Runtime placeholders used by this prompt</summary>
-      <div class="placeholder-list">
-        ${details.map((item) => `
-          <article class="placeholder-card">
-            <div class="placeholder-card-head">
-              <strong>${escapeHtml(item.label || item.key)}</strong>
-              <code>{{${escapeHtml(item.key)}}}</code>
-            </div>
-            <p>${escapeHtml(item.description || 'Injected at runtime.')}</p>
-            <div class="field-examples">
-              ${(item.examples || []).map((example) => `
-                <span class="example-chip static">${escapeHtml(example)}</span>
-              `).join('')}
-            </div>
-          </article>
-        `).join('')}
-      </div>
-    </details>
-  `;
-}
-
-function renderPromptHardRules(rules = []) {
-  const root = document.getElementById('prompt-hard-rules');
-  if (!rules.length) {
-    root.innerHTML = '<div class="placeholder-empty">No additional hard rules for this prompt.</div>';
-    return;
-  }
-  root.innerHTML = rules.map((rule) => `
-    <article class="hard-rule-card">${escapeHtml(rule)}</article>
-  `).join('');
-}
-
-function syncPromptBuilderAvailability(promptPath) {
-  const supported = /\.md$/i.test(String(promptPath || '').trim());
-  document.getElementById('generate-prompt-draft').disabled = !supported;
-  document.getElementById('save-runtime-prompt-builder').disabled = !supported;
-  if (!supported) {
-    setText('prompt-builder-status', 'Prompt builder works only on Markdown prompt files.');
-    setText('prompt-builder-summary', '');
-    setValue('prompt-builder-draft', '');
-  }
-}
-
-function applyRuntimePromptBuilderToForm(config = {}) {
-  state.runtimePromptBuilder = {
-    enabled: Boolean(config.enabled),
-    idea: String(config.idea || ''),
-    instructions: String(config.instructions || ''),
-    targets: Array.isArray(config.targets) ? config.targets : [],
-  };
-  setValue('prompt-builder-idea', state.runtimePromptBuilder.idea);
-  setValue('prompt-builder-instructions', state.runtimePromptBuilder.instructions);
-  if (state.runtimePromptBuilder.enabled) {
-    setText('prompt-builder-summary', 'Runtime prompt-text rewriting is active for the selected target stages. Saved prompt files stay unchanged.');
-  } else {
-    setText('prompt-builder-summary', 'Runtime prompt-text rewriting is currently disabled.');
-  }
-}
-
-async function loadPrompt(path) {
-  const payload = await api(`/api/prompt?path=${encodeURIComponent(path)}`);
-  state.selectedPromptPath = payload.path;
-  state.selectedPromptMeta = payload;
-  document.getElementById('prompt-content').value = payload.content;
-  setText('prompt-path', `${payload.step_title} • ${payload.label}`);
-  setText(
-    'prompt-placeholders',
-    payload.placeholders.length
-      ? `${payload.placeholders.length} runtime placeholders: ${payload.placeholders.join(', ')}`
-      : 'This prompt file has no runtime placeholders.',
-  );
-  renderPromptPlaceholderCatalog(payload.placeholder_details || []);
-  renderPromptHardRules(payload.hard_rules || []);
-  if (/\.md$/i.test(payload.path)) {
-    setText('prompt-builder-status', '');
-    setValue('prompt-builder-draft', '');
-  }
-  syncPromptBuilderAvailability(payload.path);
-  renderPromptFiles();
-}
-
-async function loadPromptFiles() {
-  const payload = await api('/api/prompts');
-  state.promptFiles = payload.files;
-  if (!state.selectedPromptPath && state.promptFiles.length) {
-    state.selectedPromptPath = state.promptFiles[0].path;
-    await loadPrompt(state.selectedPromptPath);
-    return;
-  }
-  renderPromptFiles();
+  });
 }
 
 async function loadTopics() {
-  const payload = await api('/api/topics?limit=20');
-  const tbody = document.getElementById('topics-table');
-  if (!payload.topics.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="9" class="table-empty-cell">
-          <div class="placeholder-empty">No pipeline items yet.</div>
-        </td>
-      </tr>
-    `;
+  const payload = await api('/api/topics?limit=25');
+  state.topics = Array.isArray(payload.topics) ? payload.topics : [];
+  renderTopics();
+}
+
+function reviewEditorId(reviewId) {
+  return `review-json-${String(reviewId || '').replace(/[^a-z0-9-]/gi, '')}`;
+}
+
+function renderReviews() {
+  const root = document.getElementById('review-list');
+  if (!root) return;
+  if (!state.reviews.length) {
+    root.innerHTML = '<div class="empty-state">No pending reviews.</div>';
     return;
   }
 
-  tbody.innerHTML = payload.topics.map((topic) => {
-    const isDeleting = state.deletingTopicIds.has(topic.content_id);
-    const isApproving = state.approvingTopicIds.has(topic.content_id);
-    const costUsd = Number(topic.total_cost_usd ?? 0);
-    const costDisplay = costUsd > 0 ? `$${costUsd.toFixed(4)}` : '—';
-    const failureDetails = buildTopicFailureDetails(topic);
-    const approvalStatus = topic.approval_status
-      ? `${topic.approval_status}${topic.approval_qa_status ? ` / ${topic.approval_qa_status}` : ''}`
-      : '';
-    const pipelineStatus = topic.latest_pipeline_status
-      ? `${topic.latest_pipeline_status}${topic.latest_pipeline_stage ? ` / ${topic.latest_pipeline_stage}` : ''}`
-      : '';
-    const reelType = topic.reel_type || topic.latest_pipeline_reel_type || 'video';
-    const canApprove = topic.status === 'render_complete'
-      && topic.render_status === 'success'
-      && topic.output_video_url
-      && topic.publish_status !== 'published'
-      && topic.approval_status !== 'approved';
+  root.innerHTML = state.reviews.map((review) => {
+    const reviewId = String(review.review_id || '');
+    const isApproving = state.approvingReviewIds.has(reviewId);
     return `
-    <tr data-topic-row="${escapeHtml(topic.content_id)}">
-      <td>
-        <strong>${escapeHtml(topic.title)}</strong>
-        <div class="subline">${escapeHtml(topic.slug)} • ${escapeHtml(reelTypeLabel(reelType))}</div>
-        ${failureDetails}
-      </td>
-      <td>
-        ${renderStatusPill(topic.status)}
-        ${pipelineStatus ? `<div class="subline">Pipeline: ${renderStatusPill(pipelineStatus)}</div>` : ''}
-      </td>
-      <td>${escapeHtml(topic.category || '—')}</td>
-      <td>${renderStatusPill(topic.render_status)}</td>
-      <td>
-        ${renderStatusPill(approvalStatus)}
-        ${topic.approved_by ? `<div class="subline">${escapeHtml(topic.approved_by)}</div>` : ''}
-      </td>
-      <td>${renderStatusPill(topic.publish_status)}</td>
-      <td>${escapeHtml(new Date(topic.updated_at).toLocaleString())}</td>
-      <td class="cost-cell">${escapeHtml(costDisplay)}</td>
-      <td class="table-actions">
-        ${canApprove ? `
-          <button
-            type="button"
-            class="secondary"
-            data-approve-topic="${escapeHtml(topic.content_id)}"
-            data-approve-title="${escapeHtml(topic.title)}"
-            ${isApproving ? 'disabled' : ''}
-          >${isApproving ? 'Approving...' : 'Approve'}</button>
-        ` : ''}
-        <button
-          type="button"
-          class="secondary"
-          data-costs-topic="${escapeHtml(topic.content_id)}"
-        >Costs</button>
-        <button
-          type="button"
-          class="secondary-danger"
-          data-delete-topic="${escapeHtml(topic.content_id)}"
-          data-delete-title="${escapeHtml(topic.title)}"
-          ${isDeleting ? 'disabled' : ''}
-        >${isDeleting ? 'Deleting...' : 'Delete'}</button>
-      </td>
-    </tr>
-  `;
+      <article class="review-card" data-review-id="${escapeHtml(reviewId)}">
+        <div class="review-card-head">
+          <div>
+            <span class="stage-chip">${escapeHtml(stageLabel(review.stage_key))}</span>
+            <strong>${escapeHtml(review.content_title || review.title || 'Pending review')}</strong>
+            <p>${escapeHtml(review.summary || '')}</p>
+          </div>
+          ${renderStatus(review.review_status)}
+        </div>
+        <label>
+          <span>Generated data for approval</span>
+          <textarea id="${escapeHtml(reviewEditorId(reviewId))}" rows="16" spellcheck="false">${escapeHtml(JSON.stringify(review.editable_json || {}, null, 2))}</textarea>
+        </label>
+        <div class="review-actions">
+          <input data-reviewer-for="${escapeHtml(reviewId)}" value="${escapeHtml(state.configValues.STUDIO_APPROVER_NAME || '')}" placeholder="Reviewer name">
+          <button type="button" class="primary" data-approve-review="${escapeHtml(reviewId)}" ${isApproving ? 'disabled' : ''}>
+            ${isApproving ? 'Approving...' : 'Approve + Continue'}
+          </button>
+        </div>
+      </article>
+    `;
   }).join('');
 
-  tbody.querySelectorAll('[data-approve-topic]').forEach((button) => {
+  root.querySelectorAll('[data-approve-review]').forEach((button) => {
     button.addEventListener('click', () => {
-      approveTopic(
-        button.getAttribute('data-approve-topic') || '',
-        button.getAttribute('data-approve-title') || '',
-      ).catch((error) => {
-        state.approvingTopicIds.delete(button.getAttribute('data-approve-topic') || '');
-        setText('topics-status', error.message);
-        loadTopics().catch((loadError) => setText('topics-status', loadError.message));
-      });
+      approveReview(button.dataset.approveReview || '')
+        .catch((error) => setText('topics-status', error.message));
     });
   });
+}
 
-  tbody.querySelectorAll('[data-delete-topic]').forEach((button) => {
-    button.addEventListener('click', () => {
-      deleteTopic(
-        button.getAttribute('data-delete-topic') || '',
-        button.getAttribute('data-delete-title') || '',
-      ).catch((error) => {
-        state.deletingTopicIds.delete(button.getAttribute('data-delete-topic') || '');
-        setText('topics-status', error.message);
-        loadTopics().catch((loadError) => setText('topics-status', loadError.message));
-      });
-    });
-  });
+async function loadReviews() {
+  const payload = await api('/api/pipeline-reviews?status=pending&limit=25');
+  state.reviews = Array.isArray(payload.reviews) ? payload.reviews : [];
+  renderReviews();
+}
 
-  tbody.querySelectorAll('[data-costs-topic]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const contentId = button.getAttribute('data-costs-topic') || '';
-      toggleReelCosts(contentId, button).catch((error) => {
-        setText('topics-status', error.message);
-      });
-    });
+async function pollPipelineRun(pipelineRunId) {
+  const normalizedRunId = String(pipelineRunId || '').trim();
+  if (!normalizedRunId) return null;
+  state.activePipelineRunId = normalizedRunId;
+  while (state.activePipelineRunId === normalizedRunId) {
+    const payload = await api(`/api/pipeline-runs/${encodeURIComponent(normalizedRunId)}`);
+    const run = payload.pipeline_run || {};
+    await Promise.all([loadTopics(), loadReviews()]);
+    const status = String(run.status || '');
+    setText('idea-status', `Pipeline ${status}${run.current_stage ? ` at ${stageLabel(String(run.current_stage).replace(/^review:/, ''))}` : ''}.`);
+    if (['awaiting_review', 'awaiting_approval', 'completed', 'failed', 'cancelled'].includes(status)) {
+      return run;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1800));
+  }
+  return null;
+}
+
+async function submitIdea(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const formData = new FormData(form);
+  const abstractIdea = String(formData.get('abstract_idea') || '').trim();
+  const submitterReelType = String(event.submitter?.value || '').trim().toLowerCase();
+  const reelType = ['image', 'video', 'avatar'].includes(submitterReelType)
+    ? submitterReelType
+    : 'image';
+  const reelLabel = {
+    image: 'Image Reel',
+    video: 'Video Reel',
+    avatar: 'Avatar Reel',
+  }[reelType] || 'Image Reel';
+  const reviewMode = formData.get('review_mode') === 'true';
+  if (!abstractIdea) {
+    setText('idea-status', 'Enter an idea first.');
+    return;
+  }
+  setText('idea-status', `Injecting idea and queueing ${reelLabel} pipeline...`);
+  const payload = await api('/api/ideas/auto-publish', {
+    method: 'POST',
+    body: JSON.stringify({
+      abstract_idea: abstractIdea,
+      reel_type: reelType,
+      workflow_key: DEFAULT_WORKFLOW_KEY,
+      review_mode: reviewMode,
+    }),
   });
+  form.reset();
+  await Promise.all([loadTopics(), loadReviews()]);
+  const runId = payload.pipeline_run?.pipeline_run_id;
+  setText(
+    'idea-status',
+    reviewMode
+      ? 'Idea injected. Pipeline is waiting for the first review.'
+      : 'Idea injected. Pipeline is running automatically.',
+  );
+  if (runId) {
+    await pollPipelineRun(runId);
+  }
+}
+
+async function approveReview(reviewId) {
+  const normalizedReviewId = String(reviewId || '').trim();
+  if (!normalizedReviewId) return;
+  const editor = document.getElementById(reviewEditorId(normalizedReviewId));
+  const reviewer = document.querySelector(`[data-reviewer-for="${CSS.escape(normalizedReviewId)}"]`)?.value || '';
+  let editedJson;
+  try {
+    editedJson = JSON.parse(editor?.value || '{}');
+  } catch (error) {
+    setText('topics-status', `Review JSON is invalid: ${error.message}`);
+    return;
+  }
+  state.approvingReviewIds.add(normalizedReviewId);
+  renderReviews();
+  setText('topics-status', 'Approving review...');
+  try {
+    const payload = await api(`/api/pipeline-reviews/${encodeURIComponent(normalizedReviewId)}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({
+        edited_json: editedJson,
+        reviewer,
+      }),
+    });
+    await Promise.all([loadTopics(), loadReviews()]);
+    setText('topics-status', 'Review approved. Pipeline resumed.');
+    if (payload.review?.pipeline_run_id) {
+      pollPipelineRun(payload.review.pipeline_run_id).catch((error) => setText('topics-status', error.message));
+    }
+  } finally {
+    state.approvingReviewIds.delete(normalizedReviewId);
+    renderReviews();
+  }
 }
 
 async function approveTopic(contentId, title) {
   const normalizedContentId = String(contentId || '').trim();
-  if (!normalizedContentId) {
-    setText('topics-status', 'Missing content_id for approval.');
-    return;
-  }
+  if (!normalizedContentId) return;
   const approvedBy = window.prompt(`Approver for ${title || 'this Reel'}:`, state.configValues.STUDIO_APPROVER_NAME || '');
-  if (approvedBy === null) {
-    return;
-  }
+  if (approvedBy === null) return;
   const platformAccountId = window.prompt('Instagram account ID for this approval:', state.configValues.INSTAGRAM_IG_USER_ID || '');
-  if (platformAccountId === null) {
-    return;
-  }
+  if (platformAccountId === null) return;
   const trimmedApprover = String(approvedBy || '').trim();
   const trimmedAccountId = String(platformAccountId || '').trim();
   if (!trimmedApprover || !trimmedAccountId) {
     setText('topics-status', 'Approver and Instagram account ID are required.');
     return;
   }
-  const confirmed = window.confirm('Approve this selected render for Instagram publish?');
-  if (!confirmed) {
-    return;
-  }
+  if (!window.confirm('Approve this selected render for Instagram publish?')) return;
 
   state.approvingTopicIds.add(normalizedContentId);
-  setText('topics-status', 'Recording approval...');
-  await loadTopics();
+  renderTopics();
   await api(`/api/topics/${encodeURIComponent(normalizedContentId)}/approval`, {
     method: 'POST',
     body: JSON.stringify({
@@ -748,370 +493,83 @@ async function approveTopic(contentId, title) {
   await loadTopics();
 }
 
-function formatCostDetail(cost) {
-  const type = String(cost?.type || '').toLowerCase();
-  if (type === 'llm') {
-    const inputTokens = Number(cost.input_tokens ?? 0).toLocaleString();
-    const cachedTokens = Number(cost.input_cached_tokens ?? 0);
-    const outputTokens = Number(cost.output_tokens ?? 0).toLocaleString();
-    if (cachedTokens > 0) {
-      return `${inputTokens} in (${cachedTokens.toLocaleString()} cached) / ${outputTokens} out tokens`;
-    }
-    return `${inputTokens} in / ${outputTokens} out tokens`;
-  }
-  if (type === 'image') {
-    return `${cost.image_count ?? 0} image${cost.image_count === 1 ? '' : 's'} @ $${cost.price_per_image ?? '?'} each`;
-  }
-  if (type === 'tts') {
-    const bytes = Number(cost.utf8_bytes ?? 0);
-    if (bytes > 0) {
-      return `${bytes.toLocaleString()} UTF-8 bytes`;
-    }
-    return `${Number(cost.char_count ?? 0).toLocaleString()} chars`;
-  }
-  return '—';
-}
-
-function renderCostBreakdownRow(item) {
-  const cost = item.cost ?? {};
-  const total = Number(cost.total_usd ?? 0);
-  const modelOrProvider = String(cost.model || cost.provider || '—');
-  const workflow = String(item.workflow || '—').replace(/^wf_/, '').replaceAll('_', ' ');
-  return `<tr>
-    <td>${escapeHtml(workflow)}</td>
-    <td><span class="cost-type-badge cost-type-${escapeHtml(String(cost.type || 'unknown'))}">${escapeHtml(String(cost.type || '—'))}</span></td>
-    <td><code>${escapeHtml(modelOrProvider)}</code></td>
-    <td>${escapeHtml(formatCostDetail(cost))}</td>
-    <td class="cost-amount">${cost.priced ? `$${total.toFixed(6)}` : escapeHtml('—')}</td>
-  </tr>`;
-}
-
-async function toggleReelCosts(contentId, button) {
-  const parentRow = button.closest('tr');
-  const existingDetail = parentRow.nextElementSibling;
-  if (existingDetail && existingDetail.classList.contains('cost-breakdown-row')) {
-    existingDetail.remove();
-    button.textContent = 'Costs';
-    return;
-  }
-
-  button.disabled = true;
-  button.textContent = 'Loading...';
-
-  try {
-    const data = await api(`/api/topics/${encodeURIComponent(contentId)}/costs`);
-    const breakdown = Array.isArray(data.breakdown) ? data.breakdown : [];
-    const totalUsd = Number(data.total_usd ?? 0);
-
-    const bodyRows = breakdown.length
-      ? breakdown.map(renderCostBreakdownRow).join('')
-      : '<tr><td colspan="5" class="table-empty-cell">No cost data recorded yet. Costs appear after each workflow stage completes.</td></tr>';
-
-    const totalRow = breakdown.length
-      ? `<tr class="cost-total-row"><td colspan="4"><strong>Total</strong></td><td class="cost-amount"><strong>$${totalUsd.toFixed(4)}</strong></td></tr>`
-      : '';
-
-    const detailRow = document.createElement('tr');
-    detailRow.classList.add('cost-breakdown-row');
-    detailRow.innerHTML = `<td colspan="8" class="cost-breakdown-cell">
-      <div class="cost-breakdown-panel">
-        <div class="cost-breakdown-header">
-          <strong>Cost Breakdown</strong>
-          <span class="cost-breakdown-total">Total: <strong>$${totalUsd.toFixed(4)}</strong></span>
-        </div>
-        <table class="cost-breakdown-table">
-          <thead><tr>
-            <th>Stage</th>
-            <th>Type</th>
-            <th>Model / Provider</th>
-            <th>Usage</th>
-            <th>Cost</th>
-          </tr></thead>
-          <tbody>${bodyRows}${totalRow}</tbody>
-        </table>
-      </div>
-    </td>`;
-
-    parentRow.after(detailRow);
-    button.textContent = 'Hide Costs';
-  } catch (error) {
-    button.textContent = 'Error';
-    setTimeout(() => { button.textContent = 'Costs'; }, 2000);
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function loadWorkflows() {
-  const payload = await api('/api/workflows');
-  state.reelTypes = Array.isArray(payload.reel_types) ? payload.reel_types : [];
-  renderReelTypeSetupNotes();
-  state.workflows = [...payload.workflows].sort((left, right) => {
-    if (left.key === RECOMMENDED_WORKFLOW_KEY) {
-      return -1;
-    }
-    if (right.key === RECOMMENDED_WORKFLOW_KEY) {
-      return 1;
-    }
-    return String(left.name || '').localeCompare(String(right.name || ''));
-  });
-  renderWorkflows();
-}
-
-async function loadConfig() {
-  const payload = await api('/api/config');
-  renderConfig(payload);
-  applyTopicFormConfig(payload.topic_form);
-}
-
-async function loadRuntimePromptBuilder() {
-  const payload = await api('/api/runtime-prompt-builder');
-  applyRuntimePromptBuilderToForm(payload);
+async function deleteTopic(contentId, title) {
+  const normalizedContentId = String(contentId || '').trim();
+  if (!normalizedContentId) return;
+  if (!window.confirm(`Delete "${title || 'this pipeline item'}" from local pipeline data?`)) return;
+  state.deletingTopicIds.add(normalizedContentId);
+  renderTopics();
+  await api(`/api/topics/${encodeURIComponent(normalizedContentId)}`, { method: 'DELETE' });
+  state.deletingTopicIds.delete(normalizedContentId);
+  setText('topics-status', 'Pipeline item deleted.');
+  await Promise.all([loadTopics(), loadReviews()]);
 }
 
 async function loadHealth() {
   const payload = await api('/api/health');
-  applyTopicFormConfig(payload.topic_form);
-  setText('system-note', `Studio UI online • ${new Date(payload.timestamp).toLocaleString()}`);
+  setText('system-note', payload.ok ? 'Studio online' : 'Studio unavailable');
 }
 
-async function savePrompt() {
-  if (!state.selectedPromptPath) {
-    setText('prompt-status', 'Select a prompt file first.');
-    return;
-  }
-  setText('prompt-status', 'Saving...');
-  const payload = await api('/api/prompt', {
-    method: 'PUT',
-    body: JSON.stringify({
-      path: state.selectedPromptPath,
-      content: document.getElementById('prompt-content').value,
-    }),
-  });
-  setText('prompt-path', `${payload.step_title} • ${payload.label}`);
-  setText(
-    'prompt-placeholders',
-    payload.placeholders.length
-      ? `${payload.placeholders.length} runtime placeholders: ${payload.placeholders.join(', ')}`
-      : 'This prompt file has no runtime placeholders.',
-  );
-  renderPromptPlaceholderCatalog(payload.placeholder_details || []);
-  renderPromptHardRules(payload.hard_rules || []);
-  setText('prompt-status', `Saved at ${new Date(payload.saved_at).toLocaleTimeString()}. The next workflow run will use this file.`);
-  await loadPromptFiles();
+async function loadDefaults() {
+  const payload = await api('/api/config').catch(() => ({ sections: [] }));
+  applyConfigPayload(payload);
+  renderSettings();
 }
 
-async function generatePromptDraft() {
-  if (!state.selectedPromptPath) {
-    setText('prompt-builder-status', 'Select a prompt file first.');
-    return;
-  }
-
-  const idea = document.getElementById('prompt-builder-idea').value.trim();
-  if (!idea) {
-    setText('prompt-builder-status', 'Enter an idea first.');
-    return;
-  }
-
-  setText('prompt-builder-status', 'Generating...');
-  const payload = await api('/api/prompt-builder', {
-    method: 'POST',
-    body: JSON.stringify({
-      path: state.selectedPromptPath,
-      content: document.getElementById('prompt-content').value,
-      idea,
-      instructions: document.getElementById('prompt-builder-instructions').value,
-    }),
-  });
-  setValue('prompt-builder-draft', payload.draft || '');
-  renderPromptHardRules(payload.hard_rules || []);
-  setText(
-    'prompt-builder-status',
-    `Preview generated${payload.generation_model ? ` with ${payload.generation_model}` : ''}.`,
-  );
-  setText('prompt-builder-summary', payload.summary || '');
-}
-
-async function saveRuntimePromptBuilder() {
-  const idea = document.getElementById('prompt-builder-idea').value.trim();
-  if (!idea) {
-    setText('prompt-builder-status', 'Enter an idea before enabling the runtime builder.');
-    return;
-  }
-  setText('prompt-builder-status', 'Saving runtime builder...');
-  const payload = await api('/api/runtime-prompt-builder', {
-    method: 'PUT',
-    body: JSON.stringify({
-      enabled: true,
-      idea,
-      instructions: document.getElementById('prompt-builder-instructions').value,
-    }),
-  });
-  applyRuntimePromptBuilderToForm(payload);
-  setText('prompt-builder-status', 'Runtime prompt-text rewriting enabled for live workflow calls.');
-}
-
-async function disableRuntimePromptBuilder() {
-  setText('prompt-builder-status', 'Disabling runtime builder...');
-  const payload = await api('/api/runtime-prompt-builder', {
-    method: 'DELETE',
-  });
-  applyRuntimePromptBuilderToForm(payload);
-  setValue('prompt-builder-draft', '');
-  setText('prompt-builder-status', 'Runtime prompt-text rewriting disabled.');
-}
-
-async function saveConfig() {
-  setText('config-status', 'Saving...');
-  const payload = await api('/api/config', {
-    method: 'PUT',
-    body: JSON.stringify({ values: state.configValues }),
-  });
-  renderConfig(payload);
-  applyTopicFormConfig(payload.topic_form);
-  setText('config-status', 'Saved. Recreate studio-ui, pipeline-worker, and remotion-renderer before relying on changed env values.');
-}
-
-async function submitAbstractIdeaForm(event) {
+async function saveSettings(event) {
   event.preventDefault();
-  await submitAbstractIdea(false);
-}
-
-async function submitAbstractIdea(useV2 = false) {
-  const form = document.getElementById('abstract-idea-form');
-  const abstractIdea = String(new FormData(form).get('abstract_idea') || '').trim();
-  if (!abstractIdea) {
-    setText('abstract-idea-status', 'Enter an abstract idea first.');
+  const form = document.getElementById('settings-form');
+  if (!form || state.savingSettings) return;
+  const values = {};
+  form.querySelectorAll('[data-config-key]').forEach((input) => {
+    const key = input.dataset.configKey;
+    if (input.value !== String(state.configValues[key] || '')) {
+      values[key] = input.value;
+    }
+  });
+  if (!Object.keys(values).length) {
+    setText('settings-status', 'No setting changes.');
     return;
   }
-
-  const pendingLabel = useV2
-    ? 'Generating payload, injecting, and queueing the V2 code pipeline...'
-    : 'Generating payload, injecting, and queueing the code pipeline...';
-  setText('abstract-idea-status', pendingLabel);
-  const characterReference = await uploadCharacterReferenceFromForm(form, 'abstract-idea-status', pendingLabel);
-  const payload = await api(useV2 ? '/api/ideas/auto-publish-v2' : '/api/ideas/auto-publish', {
-    method: 'POST',
-    body: JSON.stringify({
-      abstract_idea: abstractIdea,
-      reel_type: getSelectedReelType(form),
-      workflow_key: useV2 ? 'wf_end_to_end_reel_generate_and_publish_v2' : RECOMMENDED_WORKFLOW_KEY,
-      character_reference: characterReference,
-    }),
-  });
-  setValue('abstract-idea-json', JSON.stringify(payload.generated_payload || {}, null, 2));
-  setValue('abstract-idea-prompt-profile', JSON.stringify(payload.prompt_profile || {}, null, 2));
-
-  const generated = payload.generated_payload || {};
-  const topicForm = document.getElementById('topic-form');
-  if (topicForm) {
-    topicForm.querySelector('[name="title"]').value = generated.title || '';
-    topicForm.querySelector('[name="category"]').value = generated.category || '';
-    topicForm.querySelector('[name="confidence_label"]').value = generated.confidence_label || 'unverified';
-    topicForm.querySelector('[name="target_duration_seconds"]').value = generated.target_duration_seconds || '';
-    topicForm.querySelector('[name="summary"]').value = generated.summary || '';
-    topicForm.querySelector('[name="notes"]').value = Array.isArray(generated.notes) ? generated.notes.join('\n') : '';
-    topicForm.querySelector('[name="source_urls"]').value = Array.isArray(generated.source_urls) ? generated.source_urls.join('\n') : '';
-    topicForm.querySelector('[name="context"]').value = generated.context || '';
-  }
-
-  setText(
-    'abstract-idea-status',
-    useV2
-      ? `Created ${payload.topic?.title || 'topic'}${payload.generation_model ? ` with ${payload.generation_model}` : ''}, and queued the V2 code pipeline.`
-      : `Created ${payload.topic?.title || 'topic'}${payload.generation_model ? ` with ${payload.generation_model}` : ''}, built the prompt profile${payload.prompt_profile_generation_model ? ` with ${payload.prompt_profile_generation_model}` : ''}, and queued the code pipeline.`,
-  );
-  form.reset();
-  await loadTopics();
-
-  if (payload.pipeline_run?.pipeline_run_id) {
-    const finalRun = await pollPipelineRun(payload.pipeline_run.pipeline_run_id);
-    if (finalRun?.status === 'awaiting_approval') {
-      setText('abstract-idea-status', `Code pipeline reached approval for ${payload.topic?.title || 'the new Reel'}. Approve the selected render before publish.`);
-      return;
-    }
-    if (finalRun?.status === 'completed') {
-      setText('abstract-idea-status', `Code pipeline completed for ${payload.topic?.title || 'the new Reel'}.`);
-      return;
-    }
-    setText('abstract-idea-status', `Created ${payload.topic?.title || 'the new Reel'}, but the code pipeline failed. Inspect the pipeline output below.`);
-    return;
-  }
-
-  if (payload.workflow_job?.job_id) {
-    const finalJob = await pollWorkflowJob(payload.workflow_job.job_id);
-    if (finalJob?.status === 'completed') {
-      setText('abstract-idea-status', `Workflow completed for ${payload.topic?.title || 'the new Reel'}. Approve the selected render before publish.`);
-      return;
-    }
-    setText('abstract-idea-status', `Created ${payload.topic?.title || 'the new Reel'}, but the workflow run failed. Inspect the workflow output below.`);
+  state.savingSettings = true;
+  const saveButton = document.getElementById('save-settings');
+  if (saveButton) saveButton.disabled = true;
+  setText('settings-status', 'Saving settings...');
+  try {
+    const payload = await api('/api/config', {
+      method: 'PUT',
+      body: JSON.stringify({ values }),
+    });
+    applyConfigPayload(payload);
+    renderSettings();
+    setText('settings-status', 'Settings saved.');
+  } finally {
+    state.savingSettings = false;
+    if (saveButton) saveButton.disabled = false;
   }
 }
 
-async function submitTopicForm(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const formData = new FormData(form);
-  const payload = Object.fromEntries(formData.entries());
-  delete payload.character_name;
-  delete payload.character_description;
-  setText('topic-status', 'Injecting...');
-  const characterReference = await uploadCharacterReferenceFromForm(form, 'topic-status', 'Injecting...');
-  if (characterReference) {
-    payload.character_reference = characterReference;
-  }
-  await api('/api/topics', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  form.reset();
-  form.querySelector('[name="target_duration_seconds"]').value = String(state.topicFormConfig.defaultValue);
-  form.querySelector('[name="confidence_label"]').value = 'unverified';
-  setText('topic-status', 'Topic injected as idea_approved.');
-  await loadTopics();
-}
+document.getElementById('idea-form').addEventListener('submit', (event) => {
+  submitIdea(event).catch((error) => setText('idea-status', error.message));
+});
 
-document.getElementById('abstract-idea-form').addEventListener('submit', (event) => {
-  submitAbstractIdeaForm(event).catch((error) => {
-    setText('abstract-idea-status', error.message);
-  });
-});
-document.getElementById('abstract-idea-v2').addEventListener('click', () => {
-  submitAbstractIdea(true).catch((error) => {
-    setText('abstract-idea-status', error.message);
-  });
-});
-document.getElementById('topic-form').addEventListener('submit', (event) => {
-  submitTopicForm(event).catch((error) => {
-    setText('topic-status', error.message);
-  });
-});
-document.getElementById('save-prompt').addEventListener('click', () => {
-  savePrompt().catch((error) => setText('prompt-status', error.message));
-});
-document.getElementById('generate-prompt-draft').addEventListener('click', () => {
-  generatePromptDraft().catch((error) => setText('prompt-builder-status', error.message));
-});
-document.getElementById('save-runtime-prompt-builder').addEventListener('click', () => {
-  saveRuntimePromptBuilder().catch((error) => setText('prompt-builder-status', error.message));
-});
-document.getElementById('disable-runtime-prompt-builder').addEventListener('click', () => {
-  disableRuntimePromptBuilder().catch((error) => setText('prompt-builder-status', error.message));
-});
-document.getElementById('save-config').addEventListener('click', () => {
-  saveConfig().catch((error) => setText('config-status', error.message));
-});
 document.getElementById('refresh-topics').addEventListener('click', () => {
   loadTopics().catch((error) => setText('topics-status', error.message));
 });
 
+document.getElementById('refresh-reviews').addEventListener('click', () => {
+  loadReviews().catch((error) => setText('topics-status', error.message));
+});
+
+document.getElementById('settings-form').addEventListener('submit', (event) => {
+  saveSettings(event).catch((error) => setText('settings-status', error.message));
+});
+
 Promise.all([
   loadHealth(),
-  loadWorkflows(),
-  loadConfig(),
-  loadRuntimePromptBuilder(),
+  loadDefaults(),
   loadTopics(),
-  loadPromptFiles(),
+  loadReviews(),
 ]).catch((error) => {
   setText('system-note', error.message);
 });

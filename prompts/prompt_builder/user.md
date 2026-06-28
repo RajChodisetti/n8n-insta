@@ -1,44 +1,29 @@
-Rewrite the selected prompt file.
+Prompt file: {{prompt_path}}
+Prompt label: {{prompt_label}}
+Prompt step title: {{prompt_step_title}}
 
-Prompt path:
-{{prompt_path}}
-
-Prompt label:
-{{prompt_label}}
-
-Prompt step:
-{{prompt_step_title}}
-
-Current prompt:
-{{current_prompt}}
-
-Current placeholders:
-{{placeholders_json}}
-
-Placeholder help:
-{{placeholder_help_json}}
-
-Locked rules that cannot change:
-{{hard_rules_json}}
-
-User idea:
+User idea for the revision:
 {{idea}}
 
 Additional instructions:
 {{additional_instructions}}
 
-Requirements:
+Placeholders that must be preserved:
+{{placeholders_json}}
 
-- preserve every existing placeholder exactly
-- do not add new placeholders
-- keep the prompt in Markdown
-- keep the same stage purpose
-- improve the prompt so it follows the idea and instructions better
-- if the idea is vague, make it more concrete without violating the locked rules
+Placeholder help:
+{{placeholder_help_json}}
 
-Return fields:
+Locked hard rules:
+{{hard_rules_json}}
 
-- `revised_prompt`
-- `change_summary`
-- `locked_rules_applied`
-- `placeholders_preserved`
+Current prompt:
+{{current_prompt}}
+
+Rewrite strategy:
+- Preserve the same runtime stage, placeholders, and output contract.
+- Strengthen short-form video professionalism where relevant: hook sharpness, scene specificity, narration clarity, visual continuity, factual restraint, and platform-safe captioning.
+- Keep any generated image/video instructions text-free unless the current prompt explicitly assigns text to the renderer.
+- Do not add provider choices, model choices, API keys, env values, schemas, or new workflow behavior.
+
+Return a complete revised_prompt plus change_summary, locked_rules_applied, and placeholders_preserved.

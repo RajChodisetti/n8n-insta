@@ -1,5 +1,3 @@
-Create and rank hashtag candidates for this Instagram post.
-
 Title:
 {{title}}
 
@@ -15,14 +13,7 @@ Narration script:
 Final caption:
 {{caption_final}}
 
-Cover prompt context:
+Cover prompt, if useful for context:
 {{cover_prompt_or_none}}
 
-Requirements:
-
-- produce 3 distinct compact hashtag sets
-- briefly explain which set is strongest and why
-- return one final selected hashtag string
-- keep the final set compact and space-separated
-
-Return only JSON.
+Return three hashtag sets, a selection rationale, and hashtags_final.

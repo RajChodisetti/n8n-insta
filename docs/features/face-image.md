@@ -8,9 +8,8 @@ The face image is the opening title-card scene for a Reel. It gives scene 1 a sh
 
 - Scene 1 must have `is_face_image: true`.
 - Scene 1 must have `face_image_title` with 2-5 words.
-- Scene 1 should be 4 seconds or shorter.
 - The generated image/video prompt for scene 1 must stay text-free.
-- The renderer uses `face_image_title` metadata to add the centered title overlay.
+- The renderer uses `face_image_title` metadata to add a centered 2-second title card overlay.
 - Scenes after scene 1 must have `is_face_image: false` and an empty `face_image_title`.
 
 This supersedes older notes that described embedding title text directly inside the generated image. Current prompt and validation rules reserve title text for renderer overlay metadata.
@@ -33,7 +32,7 @@ This supersedes older notes that described embedding title text directly inside 
 - Do not put title placement instructions in `visual_prompt`.
 - Do not ask image/video models to generate title text for scene 1.
 - Do not add `face_image_title` to later scenes.
-- Do not let scene 1 linger longer than the hook needs.
+- Do not let the title overlay last longer than 2 seconds unless the renderer contract changes.
 
 ## Validation
 

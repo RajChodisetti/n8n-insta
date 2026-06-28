@@ -1,25 +1,25 @@
 # Platform Publishing Rules
 
-Use for captions, hashtags, publish rows, media URLs, and live publish actions.
+Use for captions, hashtags, approval, publish rows, public URLs, and Instagram Graph publishing.
 
 ## Blocking
 
-- Live publish must not run unless the explicit publish enable flag and required Instagram credentials are present in runtime configuration.
-- Publishable media URLs must be public HTTPS URLs and must not point to local-only or private network hosts.
-- Do not publish if existing platform media IDs or published timestamps indicate the content was already published.
-- Do not publish incomplete media, missing captions, or media whose hosting provider cannot be reached by the platform.
+- Live publish must not run unless publish is explicitly enabled and required credentials/account IDs are present.
+- Publishable media URLs must be public HTTPS URLs, not local/private hosts.
+- Do not publish if an existing media ID or published timestamp indicates prior publication.
+- Do not publish without selected-render approval, passing QA, approved_by, approved_at, and matching platform account.
 
 ## Must
 
-- Keep caption copy and hashtags cleanly separated until final composition for the platform.
-- Keep captions free of unsupported claims, private data, or spammy hashtags.
-- Respect platform media constraints for image/video format and URL accessibility.
+- Keep caption and hashtags cleanly separable until final composition.
+- Verify platform account matching against client/account context when present.
+- Preserve publish errors and partial IDs for audit/retry.
 
 ## Should
 
-- Keep captions compact and aligned with the selected story angle.
-- Use hashtags that are relevant and non-duplicative.
+- Keep captions compact and aligned with the story angle.
+- Use relevant non-duplicative hashtags.
 
 ## Preference
 
-- Prefer clear, human captions over growth-hack phrasing.
+- Prefer clear human captions over growth-hack phrasing.

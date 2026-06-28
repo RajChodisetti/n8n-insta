@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { assetHostAliases, selectAssetHostProvider } from '../workflows/scripts/adapter_config.mjs';
+import { assetHostAliases, firstEnv, selectAssetHostProvider } from '../workflows/scripts/adapter_config.mjs';
 import { deleteHostedObject, uploadBinaryAsset } from '../workflows/scripts/asset_host_adapters.mjs';
 import { computeImageCost, computeLlmCost, computeTtsCost, computeVideoCost } from '../workflows/scripts/cost_calculator.mjs';
 import { getPromptBuilderHardRules } from '../workflows/scripts/prompt_hard_rules.mjs';
@@ -28,6 +28,11 @@ import {
   normalizeReelType,
 } from '../pipeline/runs.mjs';
 import { ensurePipelineSchema } from '../pipeline/schema.mjs';
+import {
+  approvePipelineReview,
+  getPipelineReviewById,
+  listPipelineReviews,
+} from '../pipeline/reviews.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -48,11 +53,12 @@ const STATIC_ROOT = path.join(__dirname, 'public');
 const PROMPTS_ROOT = path.join(REPO_ROOT, 'prompts');
 const ENV_FILE = path.join(REPO_ROOT, '.env');
 const PORT = Number.parseInt(String(process.env.STUDIO_UI_PORT || '7780'), 10) || 7780;
-const field = (key, label, description, examples = []) => ({
+const field = (key, label, description, examples = [], options = {}) => ({
   key,
   label,
   description,
   examples,
+  ...options,
 });
 const TOPIC_CONFIDENCE_LABELS = Object.freeze(['unverified', 'legend', 'disputed', 'likely', 'confirmed']);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -517,6 +523,7 @@ const CONFIG_SECTIONS = [
     id: 'narration',
     title: 'Narration & Voice',
     description: 'Narration-specific placeholders and voice controls. Voice stays here instead of in the adapter section.',
+    studio_visible: true,
     fields: [
       field('NARRATION_LANGUAGE', 'Narration Language Override', 'Retained for compatibility. Non-English values are ignored at runtime because this pipeline is English-only.', ['English']),
       field('NARRATION_STYLE', 'Narration Style Default', 'Fallback narration delivery style used when the prompt builder does not provide a better idea-specific override.', ['calm, human, emotionally grounded, clear', 'measured, eerie, intimate, restrained']),
@@ -552,19 +559,31 @@ const CONFIG_SECTIONS = [
   {
     id: 'adapters',
     title: 'Adapters & Models',
-    description: 'These settings choose which adapter path and model each stage uses. Changes require a container recreate before workflow runs use the new values.',
+    description: 'These settings choose which adapter path and model each stage uses. Studio-saved values are read by new model calls from the local env file.',
+    studio_visible: true,
     fields: [
-      field('TEXT_LLM_PROVIDER', 'Text LLM Provider', 'Global text provider fallback. Current text adapter implementation supports openai.', ['openai']),
-      field('IDEA_INGEST_LLM_PROVIDER', 'Idea Ingest Provider', 'Optional idea-ingest provider override. Leave blank to use Text LLM Provider.', ['openai']),
-      field('IDEA_PROMPT_PROFILE_LLM_PROVIDER', 'Idea Prompt Profile Provider', 'Optional idea prompt-profile provider override. Leave blank to use Prompt Builder or Text provider.', ['openai']),
-      field('PROMPT_BUILDER_LLM_PROVIDER', 'Prompt Builder Provider', 'Optional prompt-builder provider override for the Studio UI generator.', ['openai']),
-      field('RESEARCH_LLM_PROVIDER', 'Research Provider', 'Optional research-stage provider override.', ['openai']),
-      field('DIRECTOR_LLM_PROVIDER', 'Director Provider', 'Optional director-contract provider override.', ['openai']),
-      field('STORY_PACKAGE_LLM_PROVIDER', 'Story Package Provider', 'Optional story-package provider override.', ['openai']),
-      field('STORY_PACKAGE_V2_LLM_PROVIDER', 'Story Package V2 Provider', 'Optional story-package-v2 provider override.', ['openai']),
-      field('STORYBOARD_LLM_PROVIDER', 'Storyboard Provider', 'Optional storyboard-stage provider override.', ['openai']),
-      field('CAPTION_LLM_PROVIDER', 'Caption Provider', 'Optional caption-stage provider override.', ['openai']),
+      field('TEXT_LLM_PROVIDER', 'Text LLM Provider', 'Global text provider fallback. Structured text stages support openai and anthropic.', ['openai', 'anthropic']),
+      field('PREMIUM_TEXT_LLM_PROVIDER', 'Premium Text Provider', 'Higher-quality fallback for story, visual, voice, avatar, QA, and performance stages.', ['anthropic', 'openai']),
+      field('IDEA_INGEST_LLM_PROVIDER', 'Idea Ingest Provider', 'Optional idea-ingest provider override. Leave blank to use Text LLM Provider.', ['openai', 'anthropic']),
+      field('IDEA_PROMPT_PROFILE_LLM_PROVIDER', 'Idea Prompt Profile Provider', 'Optional idea prompt-profile provider override. Leave blank to use Prompt Builder or Text provider.', ['openai', 'anthropic']),
+      field('PROMPT_BUILDER_LLM_PROVIDER', 'Prompt Builder Provider', 'Optional prompt-builder provider override for the Studio UI generator.', ['openai', 'anthropic']),
+      field('RESEARCH_LLM_PROVIDER', 'Research Provider', 'Optional research-stage provider override.', ['openai', 'anthropic']),
+      field('DIRECTOR_LLM_PROVIDER', 'Director Provider', 'Optional director-contract provider override.', ['openai', 'anthropic']),
+      field('STORY_PACKAGE_LLM_PROVIDER', 'Story Package Provider', 'Optional story-package provider override.', ['anthropic', 'openai']),
+      field('STORY_PACKAGE_V2_LLM_PROVIDER', 'Story Package V2 Provider', 'Optional story-package-v2 provider override.', ['anthropic', 'openai']),
+      field('STORYBOARD_LLM_PROVIDER', 'Storyboard Provider', 'Optional storyboard-stage provider override.', ['openai', 'anthropic']),
+      field('CAPTION_LLM_PROVIDER', 'Caption Provider', 'Optional caption-stage provider override.', ['openai', 'anthropic']),
+      field('VISUAL_PROMPT_LLM_PROVIDER', 'Visual Prompt Provider', 'Provider for visual prompt refinement before image/video generation.', ['anthropic', 'openai']),
+      field('VOICE_PERFORMANCE_LLM_PROVIDER', 'Voice Performance Provider', 'Provider for narration script performance enrichment before TTS.', ['anthropic', 'openai']),
+      field('AVATAR_LLM_PROVIDER', 'Avatar Selector Provider', 'Provider for avatar route, consent, disclosure, and presenter-direction decisions.', ['anthropic', 'openai']),
+      field('FINAL_QA_LLM_PROVIDER', 'Final QA Provider', 'Provider for final safety and publish-readiness QA.', ['anthropic', 'openai']),
+      field('PERFORMANCE_FEEDBACK_LLM_PROVIDER', 'Performance Feedback Provider', 'Provider for reusable performance-guidance analysis.', ['anthropic', 'openai']),
       field('TEXT_MODEL', 'Text Model', 'Global text model fallback.', ['gpt-4o-mini', 'gpt-4.1-mini']),
+      field('PREMIUM_TEXT_MODEL', 'Premium Text Model', 'Higher-quality OpenAI fallback for premium text stages.', ['gpt-4.1', 'gpt-4.1-mini']),
+      field('TEXT_ANTHROPIC_MODEL', 'Anthropic Text Model', 'Global Anthropic model fallback for text stages.', ['claude-sonnet-4-6']),
+      field('PREMIUM_TEXT_ANTHROPIC_MODEL', 'Premium Anthropic Model', 'Higher-quality Anthropic fallback for premium text stages.', ['claude-sonnet-4-6']),
+      field('ANTHROPIC_VERSION', 'Anthropic API Version', 'Anthropic API version header used for Claude structured text requests.', ['2023-06-01']),
+      field('ANTHROPIC_MAX_TOKENS', 'Anthropic Max Tokens', 'Maximum tokens for Anthropic structured text responses.', ['4096', '8192']),
       field('IDEA_INGEST_MODEL', 'Idea Ingest Model', 'Model used to turn an abstract idea into a topic payload.', ['gpt-4.1-mini', 'gpt-4o-mini']),
       field('IDEA_PROMPT_PROFILE_MODEL', 'Idea Prompt Profile Model', 'Model used for idea prompt profile generation when that stage is enabled.', ['gpt-4.1-mini', 'gpt-4o-mini']),
       field('PROMPT_BUILDER_MODEL', 'Prompt Builder Model', 'Optional prompt-builder model override for the Studio UI generator.', ['gpt-4o-mini', 'gpt-4.1-mini']),
@@ -575,6 +594,16 @@ const CONFIG_SECTIONS = [
       field('STORY_PACKAGE_V2_MODEL', 'Story Package V2 Model', 'V2 story package model override.', ['gpt-4.1', 'gpt-4.1-mini']),
       field('STORYBOARD_MODEL', 'Storyboard Model', 'Storyboard-stage model override.', ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini']),
       field('CAPTION_MODEL', 'Caption Model', 'Caption-stage model override.', ['gpt-4o-mini', 'gpt-4.1-mini']),
+      field('VISUAL_PROMPT_MODEL', 'Visual Prompt Model', 'OpenAI model for visual prompt refinement.', ['gpt-4.1-mini', 'gpt-4.1']),
+      field('VISUAL_PROMPT_ANTHROPIC_MODEL', 'Visual Prompt Anthropic Model', 'Anthropic model for visual prompt refinement.', ['claude-sonnet-4-6']),
+      field('VOICE_PERFORMANCE_MODEL', 'Voice Performance Model', 'OpenAI model for narration performance enrichment.', ['gpt-4.1-mini', 'gpt-4.1']),
+      field('VOICE_PERFORMANCE_ANTHROPIC_MODEL', 'Voice Performance Anthropic Model', 'Anthropic model for narration performance enrichment.', ['claude-sonnet-4-6']),
+      field('AVATAR_MODEL', 'Avatar Selector Model', 'OpenAI model for avatar route and presenter-direction decisions.', ['gpt-4.1-mini', 'gpt-4.1']),
+      field('AVATAR_ANTHROPIC_MODEL', 'Avatar Selector Anthropic Model', 'Anthropic model for avatar route and presenter-direction decisions.', ['claude-sonnet-4-6']),
+      field('FINAL_QA_MODEL', 'Final QA Model', 'OpenAI model for final QA.', ['gpt-4.1', 'gpt-4.1-mini']),
+      field('FINAL_QA_ANTHROPIC_MODEL', 'Final QA Anthropic Model', 'Anthropic model for final QA.', ['claude-sonnet-4-6']),
+      field('PERFORMANCE_FEEDBACK_MODEL', 'Performance Feedback Model', 'OpenAI model for performance feedback analysis.', ['gpt-4.1-mini', 'gpt-4.1']),
+      field('PERFORMANCE_FEEDBACK_ANTHROPIC_MODEL', 'Performance Feedback Anthropic Model', 'Anthropic model for performance feedback analysis.', ['claude-sonnet-4-6']),
       field('IMAGE_GENERATION_PROVIDER', 'Image Provider', 'Global image generation provider fallback.', ['openai', 'fal_ai']),
       field('SCENE_IMAGE_PROVIDER', 'Scene Image Provider', 'Scene-image provider override.', ['openai', 'fal_ai']),
       field('SCENE_REFERENCE_IMAGE_PROVIDER', 'Reference Image Provider', 'Provider used when scene images have uploaded reference images.', ['openai']),
@@ -596,10 +625,15 @@ const CONFIG_SECTIONS = [
   {
     id: 'provider-keys',
     title: 'Provider API Keys',
-    description: 'Optional stage-specific keys. Leave a stage key blank to use the component/global provider key already present in env; if neither exists, that stage fails before the provider call.',
+    description: 'Collapsed secret inputs for the LLM, image, video, and narration providers used by the pipeline. Leave a stage key blank to use the component/global fallback.',
+    studio_visible: true,
+    collapsed: true,
+    variant: 'secrets',
     fields: [
       field('OPENAI_API_KEY', 'OpenAI API Key', 'Global fallback for OpenAI text, image, and TTS calls.', ['']),
+      field('LLL_API_KEY', 'Legacy OpenAI Key', 'Backward-compatible OpenAI key fallback used by older workflow paths.', ['']),
       field('TEXT_OPENAI_API_KEY', 'Text OpenAI API Key', 'Fallback for all OpenAI text stages before OPENAI_API_KEY.', ['']),
+      field('PREMIUM_TEXT_OPENAI_API_KEY', 'Premium Text OpenAI Key', 'Fallback for premium OpenAI text stages before TEXT_OPENAI_API_KEY.', ['']),
       field('IDEA_INGEST_OPENAI_API_KEY', 'Idea Ingest OpenAI Key', 'OpenAI key used only for abstract idea ingestion.', ['']),
       field('IDEA_PROMPT_PROFILE_OPENAI_API_KEY', 'Idea Prompt Profile OpenAI Key', 'OpenAI key used only for idea prompt profile generation when that stage is enabled.', ['']),
       field('PROMPT_BUILDER_OPENAI_API_KEY', 'Prompt Builder OpenAI Key', 'OpenAI key used by runtime prompt builder text rewrites.', ['']),
@@ -610,6 +644,29 @@ const CONFIG_SECTIONS = [
       field('STORY_PACKAGE_V2_OPENAI_API_KEY', 'Story Package V2 OpenAI Key', 'OpenAI key used only for story package V2 generation.', ['']),
       field('STORYBOARD_OPENAI_API_KEY', 'Storyboard OpenAI Key', 'OpenAI key used only for storyboard/prompt generation when that stage is active.', ['']),
       field('CAPTION_OPENAI_API_KEY', 'Caption OpenAI Key', 'OpenAI key used only for caption/hashtag generation when that stage is active.', ['']),
+      field('VISUAL_PROMPT_OPENAI_API_KEY', 'Visual Prompt OpenAI Key', 'OpenAI key used only for visual prompt refinement.', ['']),
+      field('VOICE_PERFORMANCE_OPENAI_API_KEY', 'Voice Performance OpenAI Key', 'OpenAI key used only for narration performance enrichment.', ['']),
+      field('AVATAR_OPENAI_API_KEY', 'Avatar OpenAI Key', 'OpenAI key used only for avatar route selection.', ['']),
+      field('FINAL_QA_OPENAI_API_KEY', 'Final QA OpenAI Key', 'OpenAI key used only for final QA.', ['']),
+      field('PERFORMANCE_FEEDBACK_OPENAI_API_KEY', 'Performance Feedback OpenAI Key', 'OpenAI key used only for performance feedback analysis.', ['']),
+      field('ANTHROPIC_API_KEY', 'Anthropic API Key', 'Global fallback for Claude/Anthropic text calls.', ['']),
+      field('TEXT_ANTHROPIC_API_KEY', 'Text Anthropic API Key', 'Fallback for all Anthropic text stages before ANTHROPIC_API_KEY.', ['']),
+      field('PREMIUM_TEXT_ANTHROPIC_API_KEY', 'Premium Text Anthropic Key', 'Fallback for premium Anthropic text stages before TEXT_ANTHROPIC_API_KEY.', ['']),
+      field('IDEA_INGEST_ANTHROPIC_API_KEY', 'Idea Ingest Anthropic Key', 'Anthropic key used only for abstract idea ingestion.', ['']),
+      field('IDEA_PROMPT_PROFILE_ANTHROPIC_API_KEY', 'Idea Prompt Profile Anthropic Key', 'Anthropic key used only for idea prompt profile generation.', ['']),
+      field('PROMPT_BUILDER_ANTHROPIC_API_KEY', 'Prompt Builder Anthropic Key', 'Anthropic key used by runtime prompt builder text rewrites.', ['']),
+      field('RESEARCH_ANTHROPIC_API_KEY', 'Research Anthropic Key', 'Anthropic key used only for research/script generation.', ['']),
+      field('DIRECTOR_ANTHROPIC_API_KEY', 'Director Anthropic Key', 'Anthropic key used for director contract generation.', ['']),
+      field('DIRECTOR_CONTRACT_ANTHROPIC_API_KEY', 'Director Contract Anthropic Key', 'Anthropic key used before Director Anthropic Key for director contract generation.', ['']),
+      field('STORY_PACKAGE_ANTHROPIC_API_KEY', 'Story Package Anthropic Key', 'Anthropic key used only for story package generation.', ['']),
+      field('STORY_PACKAGE_V2_ANTHROPIC_API_KEY', 'Story Package V2 Anthropic Key', 'Anthropic key used only for story package V2 generation.', ['']),
+      field('STORYBOARD_ANTHROPIC_API_KEY', 'Storyboard Anthropic Key', 'Anthropic key used only for storyboard/prompt generation.', ['']),
+      field('CAPTION_ANTHROPIC_API_KEY', 'Caption Anthropic Key', 'Anthropic key used only for caption/hashtag generation.', ['']),
+      field('VISUAL_PROMPT_ANTHROPIC_API_KEY', 'Visual Prompt Anthropic Key', 'Anthropic key used only for visual prompt refinement.', ['']),
+      field('VOICE_PERFORMANCE_ANTHROPIC_API_KEY', 'Voice Performance Anthropic Key', 'Anthropic key used only for narration performance enrichment.', ['']),
+      field('AVATAR_ANTHROPIC_API_KEY', 'Avatar Anthropic Key', 'Anthropic key used only for avatar route selection.', ['']),
+      field('FINAL_QA_ANTHROPIC_API_KEY', 'Final QA Anthropic Key', 'Anthropic key used only for final QA.', ['']),
+      field('PERFORMANCE_FEEDBACK_ANTHROPIC_API_KEY', 'Performance Feedback Anthropic Key', 'Anthropic key used only for performance feedback analysis.', ['']),
       field('IMAGE_OPENAI_API_KEY', 'Image OpenAI Key', 'Fallback for OpenAI image generation before OPENAI_API_KEY.', ['']),
       field('SCENE_IMAGE_OPENAI_API_KEY', 'Scene Image OpenAI Key', 'OpenAI key used only for scene image generation.', ['']),
       field('POST_IMAGE_OPENAI_API_KEY', 'Post Image OpenAI Key', 'OpenAI key used only for post/cover image generation.', ['']),
@@ -675,8 +732,9 @@ const CONFIG_SECTIONS = [
   },
   {
     id: 'avatar',
-    title: 'Avatar Video',
-    description: 'HeyGen avatar settings. Avatar runs still require per-content avatar_allowed policy plus consent metadata before provider calls.',
+    title: 'HeyGen Avatar Video',
+    description: 'HeyGen avatar settings. HEYGEN_AVATAR_ID and HEYGEN_VOICE_ID from env are the authoritative runtime IDs. Avatar runs auto-downgrade to normal video when policy, consent, disclosure, or provider config is incomplete.',
+    studio_visible: true,
     fields: [
       field('HEYGEN_API_KEY', 'HeyGen API Key', 'Secret API key for HeyGen Direct Video API.', ['']),
       field('HEYGEN_AVATAR_ID', 'HeyGen Avatar ID', 'Provider avatar ID used for avatar reel generation.', ['']),
@@ -685,7 +743,9 @@ const CONFIG_SECTIONS = [
       field('HEYGEN_POLL_INTERVAL_SECONDS', 'HeyGen Poll Interval', 'Seconds between provider status polls.', ['10', '15']),
       field('HEYGEN_TIMEOUT_SECONDS', 'HeyGen Timeout Seconds', 'Maximum seconds to wait for a provider video completion.', ['900', '1200']),
       field('HEYGEN_AVATAR_CONSENT_RECORD_URI', 'Avatar Consent Record URI', 'Optional fallback consent record URI. Account policy must still allow avatar usage.', ['']),
-      field('HEYGEN_MOCK_COMPLETED_URL', 'HeyGen Mock Completed URL', 'Offline test URL for a hosted MP4. Provider env and consent gate still apply.', ['']),
+      field('HEYGEN_MOCK_COMPLETED_URL', 'HeyGen Mock Completed URL', 'Offline test URL for a hosted MP4. Provider env, consent, and avatar selector approval still apply.', ['']),
+      field('HEYGEN_MOCK_THUMBNAIL_URL', 'HeyGen Mock Thumbnail URL', 'Optional offline thumbnail URL paired with the mock completed video.', ['']),
+      field('HEYGEN_MOCK_DURATION_SECONDS', 'HeyGen Mock Duration Seconds', 'Optional offline duration override paired with the mock completed video.', ['45', '60']),
     ],
   },
 ];
@@ -765,12 +825,13 @@ function normalizeReelTypeForRequest(value, { fallback = getDefaultReelType() } 
 
 function avatarRuntimeRequirements() {
   const requiredEnv = ['HEYGEN_API_KEY', 'HEYGEN_AVATAR_ID', 'HEYGEN_VOICE_ID'];
-  const missing = requiredEnv.filter((key) => !String(process.env[key] || '').trim());
+  const missing = requiredEnv.filter((key) => !String(firstEnv([key]) || '').trim());
   return {
     configured: missing.length === 0,
     required_env: requiredEnv,
     missing_env: missing,
     consent_required: true,
+    fallback_behavior: 'Avatar generate runs auto-downgrade to video when HeyGen config or consent is incomplete.',
   };
 }
 
@@ -1312,6 +1373,7 @@ async function createTopicFromAbstractIdeaAndStartWorkflow(abstractIdea, workflo
     requestedAction: 'generate_reel',
     reelType: options.reel_type ?? options.reelType ?? created.topic.reel_type,
     source: 'studio_abstract_idea_fast_path',
+    reviewMode: options.review_mode === true || String(options.review_mode || '').trim().toLowerCase() === 'true',
   });
 
   return {
@@ -1331,6 +1393,7 @@ async function createTopicFromAbstractIdeaAndStartWorkflowV2(abstractIdea, optio
     requestedAction: 'generate_reel',
     reelType: options.reel_type ?? options.reelType ?? created.topic.reel_type,
     source: 'studio_abstract_idea_v2_fast_path',
+    reviewMode: options.review_mode === true || String(options.review_mode || '').trim().toLowerCase() === 'true',
   });
 
   return {
@@ -1873,6 +1936,9 @@ async function readEnvConfig() {
       id: section.id,
       title: section.title,
       description: section.description,
+      studio_visible: section.studio_visible === true,
+      collapsed: section.collapsed === true,
+      variant: section.variant || '',
       fields: section.fields.map((item) => {
         const sensitive = isSensitiveConfigKey(item.key);
         const rawValue = parsed.values[item.key] ?? '';
@@ -1881,6 +1947,7 @@ async function readEnvConfig() {
           label: item.label,
           description: item.description,
           examples: item.examples,
+          width: item.width || '',
           sensitive,
           value: sensitive && rawValue ? SECRET_VALUE_MASK : rawValue,
         };
@@ -1945,6 +2012,11 @@ async function listTopics(limit = 25) {
       coalesce(latest_pipeline.reel_type, '') as latest_pipeline_reel_type,
       coalesce(latest_pipeline.status, '') as latest_pipeline_status,
       coalesce(latest_pipeline.current_stage, '') as latest_pipeline_stage,
+      coalesce(latest_pipeline.stage_plan, '[]'::jsonb) as latest_pipeline_stage_plan,
+      coalesce(latest_pipeline.steps, '[]'::jsonb) as latest_pipeline_steps,
+      pending_review.review_id as pending_review_id,
+      coalesce(pending_review.stage_key, '') as pending_review_stage,
+      coalesce(pending_review.title, '') as pending_review_title,
       (
         select coalesce(sum(((wr.details_json->'cost'->>'total_usd')::float)), 0)
         from workflow_runs wr
@@ -1976,12 +2048,35 @@ async function listTopics(limit = 25) {
         pr.requested_action,
         pr.reel_type,
         pr.status,
-        pr.current_stage
+        pr.current_stage,
+        pr.stage_plan,
+        coalesce((
+          select jsonb_agg(jsonb_build_object(
+            'pipeline_step_id', ps.pipeline_step_id,
+            'stage_key', ps.stage_key,
+            'stage_order', ps.stage_order,
+            'step_status', ps.step_status,
+            'error_message', coalesce(ps.error_message, '')
+          ) order by ps.stage_order asc)
+          from pipeline_steps ps
+          where ps.pipeline_run_id = pr.pipeline_run_id
+        ), '[]'::jsonb) as steps
       from pipeline_runs pr
       where pr.content_id = ci.content_id
       order by pr.created_at desc
       limit 1
     ) latest_pipeline on true
+    left join lateral (
+      select
+        review_id,
+        stage_key,
+        title
+      from pipeline_reviews prv
+      where prv.pipeline_run_id = latest_pipeline.pipeline_run_id
+        and prv.review_status = 'pending'
+      order by prv.created_at asc
+      limit 1
+    ) pending_review on true
     order by ci.updated_at desc
     limit $1`,
     [Math.max(1, Math.min(Number(limit) || 25, 100))],
@@ -2526,9 +2621,11 @@ async function deleteTopic(contentId) {
   let relatedCounts = {};
   let deletedTopic = null;
   let deletedWorkflowRuns = 0;
+  let deletedPipelineRuns = 0;
 
   try {
     await client.query('begin');
+    await ensurePipelineSchema(client);
 
     const contentResult = await client.query(
       `select
@@ -2573,6 +2670,8 @@ async function deleteTopic(contentId) {
         (select count(*)::int from publishes where content_id = $1) as publishes,
         (select count(*)::int from insight_snapshots where content_id = $1) as insight_snapshots,
         (select count(*)::int from performance_reviews where content_id = $1) as performance_reviews,
+        (select count(*)::int from pipeline_reviews where content_id = $1) as pipeline_reviews,
+        (select count(*)::int from pipeline_runs where content_id = $1) as pipeline_runs,
         (select count(*)::int from workflow_runs where content_id = $1) as workflow_runs`,
       [normalizedContentId],
     );
@@ -2583,6 +2682,12 @@ async function deleteTopic(contentId) {
       [normalizedContentId],
     );
     deletedWorkflowRuns = Number(workflowRunDeleteResult.rowCount || 0);
+
+    const pipelineRunDeleteResult = await client.query(
+      'delete from pipeline_runs where content_id = $1',
+      [normalizedContentId],
+    );
+    deletedPipelineRuns = Number(pipelineRunDeleteResult.rowCount || 0);
 
     const deleteResult = await client.query(
       `delete from content_items
@@ -2629,6 +2734,8 @@ async function deleteTopic(contentId) {
       publishes: Number(relatedCounts.publishes || 0),
       insight_snapshots: Number(relatedCounts.insight_snapshots || 0),
       performance_reviews: Number(relatedCounts.performance_reviews || 0),
+      pipeline_reviews: Number(relatedCounts.pipeline_reviews || 0),
+      pipeline_runs: deletedPipelineRuns,
       workflow_runs: deletedWorkflowRuns,
     },
     storage_cleanup: storageCleanup,
@@ -2801,6 +2908,43 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/pipeline-reviews') {
+    sendJson(response, 200, {
+      reviews: await listPipelineReviews(pool, {
+        status: url.searchParams.get('status') || '',
+        limit: url.searchParams.get('limit') || 20,
+      }),
+    });
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname.startsWith('/api/pipeline-reviews/')) {
+    const reviewId = decodeURIComponent(url.pathname.slice('/api/pipeline-reviews/'.length).trim());
+    sendJson(response, 200, { review: await getPipelineReviewById(pool, reviewId) });
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname.startsWith('/api/pipeline-reviews/') && url.pathname.endsWith('/approve')) {
+    const reviewId = decodeURIComponent(url.pathname.slice('/api/pipeline-reviews/'.length).replace(/\/approve$/, '').trim());
+    const body = await parseJsonBody(request);
+    const review = await approvePipelineReview(pool, reviewId, {
+      editedJson: body.edited_json ?? body.editable_json,
+      reviewer: body.reviewer || body.approved_by || process.env.STUDIO_APPROVER_NAME || '',
+      reviewNote: body.review_note || body.approval_note || '',
+    });
+    sendJson(response, 200, {
+      review: {
+        review_id: review.review_id,
+        pipeline_run_id: review.pipeline_run_id,
+        content_id: review.content_id,
+        stage_key: review.stage_key,
+        review_status: review.review_status,
+        approved_at: review.approved_at,
+      },
+    });
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/pipeline-runs') {
     sendJson(response, 200, { pipeline_runs: await listPipelineRuns(pool, { limit: url.searchParams.get('limit') }) });
     return;
@@ -2816,6 +2960,7 @@ async function handleApi(request, response, url) {
         : normalizeReelTypeForRequest(body.reel_type ?? body.reelType, { fallback: getDefaultReelType() }),
       source: 'studio_api',
       requestedBy: body.requested_by || '',
+      reviewMode: body.review_mode === true || String(body.review_mode || '').trim().toLowerCase() === 'true',
     });
     sendJson(response, pipelineRun.existing ? 200 : 202, { pipeline_run: pipelineRun });
     return;

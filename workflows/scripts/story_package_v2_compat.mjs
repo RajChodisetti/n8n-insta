@@ -35,6 +35,72 @@ function firstNonEmpty(...values) {
   return '';
 }
 
+function normalizeReelType(value) {
+  const normalized = asString(value).toLowerCase();
+  if (normalized === 'image' || normalized === 'video' || normalized === 'avatar') {
+    return normalized;
+  }
+  return 'video';
+}
+
+function inferMotionRequirement(scene = {}) {
+  const text = asString([
+    scene.narration_text,
+    scene.beat_label,
+  ].filter(Boolean).join(' ')).toLowerCase();
+  if (/\b(chase|fight|run|rush|fall|explosion|storm|crowd|dance|vehicle|drive|crash|collapse|transform|flowing|waves?|fire|smoke|rain|walking|running|spinning)\b/.test(text)) {
+    return 'high';
+  }
+  if (/\b(move|motion|reveal|enter|leave|turn|open|close|gesture|camera|drift|pan|zoom|tilt|light changes?)\b/.test(text)) {
+    return 'medium';
+  }
+  return 'low';
+}
+
+function buildAssetPlan(scene = {}, index = 0, reelType = 'video') {
+  const motionRequirement = inferMotionRequirement(scene);
+  const mode = reelType === 'video' ? 'video' : (index === 0 ? 'image' : 'image_with_motion');
+  return {
+    mode,
+    provider_intent: mode === 'video' ? 'provider_video' : (mode === 'image' ? 'static_image' : 'remotion_motion'),
+    motion_requirement: motionRequirement,
+    video_generation_required: mode === 'video',
+    video_generation_reason: mode === 'video'
+      ? 'The operator selected Video Reel, so generate this scene directly as video.'
+      : 'Use a still image and let Remotion provide the scene movement.',
+    fallback_mode: 'image_with_motion',
+    budget_priority: mode === 'video' ? 'premium' : 'standard',
+    review_required: mode === 'video',
+  };
+}
+
+function buildRemotionGuidance(scene = {}, index = 0, assetPlan = {}) {
+  const motionRequirement = assetPlan.motion_requirement || inferMotionRequirement(scene);
+  const cameraMoves = motionRequirement === 'high'
+    ? ['pan_left', 'pan_right', 'tilt_up', 'push_in']
+    : ['push_in', 'pan_right', 'tilt_down', 'drift'];
+  const cameraMove = assetPlan.mode === 'image' && index === 0 ? 'hold' : cameraMoves[index % cameraMoves.length];
+  const directionByMove = {
+    pull_out: 'center_pull',
+    pan_left: 'right_to_left',
+    pan_right: 'left_to_right',
+    tilt_up: 'bottom_to_top',
+    tilt_down: 'top_to_bottom',
+    drift: 'diagonal_up',
+    hold: 'hold',
+  };
+  return {
+    camera_move: cameraMove,
+    pan_zoom_direction: directionByMove[cameraMove] || 'center_push',
+    motion_intensity: motionRequirement,
+    transition_type: index === 0 ? 'cut' : (index % 3 === 0 ? 'crossfade' : 'soft_cut'),
+    overlay_style: motionRequirement === 'high' ? 'documentary_shadow' : 'subtle_vignette',
+    pacing: motionRequirement === 'low' ? 'linger' : 'steady',
+    motion_layers: assetPlan.mode === 'video' ? ['subtle exposure shaping'] : ['parallax-style pan/zoom from the still image'],
+    instructions: `Use ${cameraMove.replaceAll('_', ' ')} with ${motionRequirement} motion intensity to support beat "${scene.beat_label}".`,
+  };
+}
+
 function normalizeHookOptions(cleanScript = {}) {
   const hooks = asArray(cleanScript.hook_options).map((hook) => asString(hook)).filter(Boolean);
   while (hooks.length < 3) {
@@ -129,6 +195,7 @@ export function mapStoryPackageV2ToLegacyResponse(v2 = {}, options = {}) {
   const scenes = normalizeSceneLines(cleanScript);
   const hooks = normalizeHookOptions(cleanScript);
   const title = asString(options.title, researchBrief.topic);
+  const reelType = normalizeReelType(options.reelType);
   const targetDurationSeconds = asPositiveNumber(options.targetDurationSeconds, researchBrief.target_duration_seconds || cleanScript.estimated_duration_seconds || 45);
   const musicDirection = firstNonEmpty(
     captionSeed.music_direction,
@@ -137,39 +204,51 @@ export function mapStoryPackageV2ToLegacyResponse(v2 = {}, options = {}) {
     'Subtle instrumental bed under narration.',
   );
 
-  const sceneGuidanceJson = scenes.map((scene, index) => ({
-    scene_number: scene.scene_number,
-    beat_label: scene.beat_label,
-    start_time_seconds: scene.start_time_seconds,
-    end_time_seconds: scene.end_time_seconds,
-    duration_seconds: scene.duration_seconds,
-    narration_text: scene.narration_text,
-    dialogue_lines: scene.dialogue_lines,
-    asset_type: index === 0 ? 'image' : 'video',
-    image_prompt: buildVisualText(v2, scene, index),
-    music_cue: buildMusicCue(v2, scene),
-    tts_instructions: buildTtsInstructions(v2, scene),
-    includes_primary_character: false,
-    scene_purpose: `Advance the ${scene.beat_label} beat without adding unsupported facts.`,
-    visual_beat: buildVisualText(v2, scene, index),
-    source_boundary: asArray(researchBrief.source_boundaries).join(' ') || 'Use only supported source notes.',
-  }));
+  const sceneGuidanceJson = scenes.map((scene, index) => {
+    const assetPlan = buildAssetPlan(scene, index, reelType);
+    const remotion = buildRemotionGuidance(scene, index, assetPlan);
+    return {
+      scene_number: scene.scene_number,
+      beat_label: scene.beat_label,
+      start_time_seconds: scene.start_time_seconds,
+      end_time_seconds: scene.end_time_seconds,
+      duration_seconds: scene.duration_seconds,
+      narration_text: scene.narration_text,
+      dialogue_lines: scene.dialogue_lines,
+      asset_type: assetPlan.mode === 'video' ? 'video' : 'image',
+      asset_plan: assetPlan,
+      remotion,
+      image_prompt: buildVisualText(v2, scene, index),
+      music_cue: buildMusicCue(v2, scene),
+      tts_instructions: buildTtsInstructions(v2, scene),
+      includes_primary_character: false,
+      scene_purpose: `Advance the ${scene.beat_label} beat without adding unsupported facts.`,
+      visual_beat: buildVisualText(v2, scene, index),
+      source_boundary: asArray(researchBrief.source_boundaries).join(' ') || 'Use only supported source notes.',
+    };
+  });
 
-  const storyboardJson = scenes.map((scene, index) => ({
-    scene_number: scene.scene_number,
-    duration_seconds: scene.duration_seconds,
-    narration_text: scene.narration_text,
-    dialogue_lines: scene.dialogue_lines,
-    visual_prompt: buildVisualText(v2, scene, index),
-    asset_type: index === 0 ? 'image' : 'video',
-    transition: index === 0 ? 'cut' : 'soft cut',
-    mood: scene.beat_label,
-    music_cue: buildMusicCue(v2, scene),
-    tts_instructions: buildTtsInstructions(v2, scene),
-    is_face_image: index === 0,
-    face_image_title: index === 0 ? slugWords(firstNonEmpty(cleanScript.selected_hook, title), 5) : '',
-    includes_primary_character: false,
-  }));
+  const storyboardJson = scenes.map((scene, index) => {
+    const assetPlan = buildAssetPlan(scene, index, reelType);
+    const remotion = buildRemotionGuidance(scene, index, assetPlan);
+    return {
+      scene_number: scene.scene_number,
+      duration_seconds: scene.duration_seconds,
+      narration_text: scene.narration_text,
+      dialogue_lines: scene.dialogue_lines,
+      visual_prompt: buildVisualText(v2, scene, index),
+      asset_type: assetPlan.mode === 'video' ? 'video' : 'image',
+      asset_plan: assetPlan,
+      remotion,
+      transition: index === 0 ? 'cut' : 'soft cut',
+      mood: scene.beat_label,
+      music_cue: buildMusicCue(v2, scene),
+      tts_instructions: buildTtsInstructions(v2, scene),
+      is_face_image: reelType === 'image' && index === 0,
+      face_image_title: index === 0 ? slugWords(firstNonEmpty(cleanScript.selected_hook, title), 5) : '',
+      includes_primary_character: false,
+    };
+  });
 
   return {
     creative_direction_json: buildCreativeDirection(v2),
@@ -211,6 +290,8 @@ export function mapStoryPackageV2ToLegacyResponse(v2 = {}, options = {}) {
         scene_number: scene.scene_number,
         duration_seconds: scene.duration_seconds,
         asset_type: scene.asset_type,
+        asset_plan: scene.asset_plan,
+        remotion: scene.remotion,
         transition: scene.transition,
       })),
       subtitles: {

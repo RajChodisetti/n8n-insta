@@ -1,23 +1,24 @@
 # Music and SFX Rules
 
-Use for music direction, SFX cues, render audio metadata, and music licensing decisions.
+Use for music direction, SFX planning, render audio metadata, and license review.
 
 ## Blocking
 
-- Unknown or unclear music/SFX license status must block publish until resolved.
-- Do not request copyrighted tracks, artist soundalikes, or recognizable commercial music unless the asset is already licensed for the target use.
+- Unknown, unclear, or non-publishable license status must block publish.
+- Do not request copyrighted tracks, artist soundalikes, or recognizable commercial music unless the asset is already licensed for the use case.
+- Do not let music or SFX obscure narration clarity.
 
 ## Must
 
-- Default background music should be subtle, instrumental, and low enough to sit under narration.
-- Vocals require explicit creative direction and licensing confidence.
-- Music direction should be a practical selection brief, not a song title request.
+- Keep music/SFX provider-neutral unless a runtime adapter owns provider-specific mapping.
+- Describe mood, instrumentation, tempo, intensity, and ducking rather than song titles.
+- Keep SFX sparse and story-relevant.
 
 ## Should
 
-- Scene music and SFX cues should match local emotional intensity without overpowering the spoken story.
-- Keep SFX sparse unless the selected style pack explicitly calls for more.
+- Match emotional intensity scene by scene.
+- Prefer instrumental beds under narration.
 
 ## Preference
 
-- Prefer simple mood, instrumentation, tempo, and intensity language that a render or music-selection step can apply.
+- Default to subtle music that supports, not dominates, the story.

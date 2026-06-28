@@ -2,6 +2,7 @@
 
 // Pricing references:
 // - OpenAI pricing: https://platform.openai.com/docs/pricing/
+// - Anthropic pricing: https://www.anthropic.com/api
 // - fal model pricing: https://fal.ai/docs/documentation/model-apis/pricing
 // - Fish Audio pricing: https://docs.fish.audio/developer-guide/models-pricing/pricing-and-rate-limits
 
@@ -30,6 +31,10 @@ const LLM_PRICE_TABLE = [
   { pattern: 'o4-mini', input: 1.10, cached_input: 0.275, output: 4.40 },
   { pattern: 'o3', input: 2.00, cached_input: 0.50, output: 8.00 },
   { pattern: 'gpt-3.5', input: 0.50, cached_input: null, output: 1.50 },
+  { pattern: 'claude-opus-4-8', input: 5.00, cached_input: null, output: 25.00 },
+  { pattern: 'claude-sonnet-4-6', input: 3.00, cached_input: null, output: 15.00 },
+  { pattern: 'claude-sonnet-4-5', input: 3.00, cached_input: null, output: 15.00 },
+  { pattern: 'claude-haiku-4-5', input: 1.00, cached_input: null, output: 5.00 },
   { pattern: 'claude-3-5-haiku', input: 0.80, cached_input: null, output: 4.00 },
   { pattern: 'claude-3-5-sonnet', input: 3.00, cached_input: null, output: 15.00 },
   { pattern: 'claude-3-7-sonnet', input: 3.00, cached_input: null, output: 15.00 },
@@ -87,6 +92,7 @@ function normalizeLlmUsage(usageOrInputTokens, outputTokensMaybe) {
     const cachedTokens = Number(
       usage.input_cached_tokens
       ?? usage.cached_tokens
+      ?? usage.cache_read_input_tokens
       ?? usage.prompt_tokens_details?.cached_tokens
       ?? 0,
     );

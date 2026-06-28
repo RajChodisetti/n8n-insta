@@ -1,0 +1,143 @@
+{
+  "avatar_decision_version": "1.1",
+  "source_stage": "avatar_presenter_selector",
+  "scenario_id": "avatar_sales_outreach_missing_consent_fallback",
+  "created_at": "2026-06-27T00:00:00.000Z",
+  "package_type": "instagram_reel",
+  "selected_style_pack": "avatar_sales_outreach",
+  "effective_reel_type": "video",
+  "provider_calls_allowed": false,
+  "disclosure_required": false,
+  "decision_summary": {
+    "decision_status": "use_non_avatar_visuals",
+    "avatar_route_enabled": false,
+    "provider_calls_allowed": false,
+    "publish_route_allowed": false,
+    "requires_human_review": false,
+    "requires_final_qa": true,
+    "rationale": "Consent metadata is missing, so the run must auto-downgrade to the normal video reel path instead of calling HeyGen."
+  },
+  "inputs": {
+    "client_account_context_key": "avatar_sales_outreach_fixture",
+    "avatar_policy_snapshot": {
+      "avatar_allowed": true,
+      "requires_consent": true,
+      "default_avatar_mode": "synthetic",
+      "consent_record_uri": null,
+      "disallowed_uses": [
+        "avatar generation without consent metadata"
+      ]
+    },
+    "director_avatar_request": {
+      "avatar_requested": true,
+      "request_type": "synthetic_presenter",
+      "disclosure_required": true,
+      "notes": "Avatar was requested, but consent was not available."
+    },
+    "character_reference_attached": false,
+    "presenter_inventory_source": "runtime_provider_inventory",
+    "constraints": [
+      "Auto-downgrade to video when consent is missing.",
+      "Do not call HeyGen."
+    ]
+  },
+  "presenter_profile": {
+    "presenter_profile_version": "1.0",
+    "source_stage": "avatar_presenter_selector",
+    "presenter_profile_id": "none_fallback_video",
+    "display_name": "No Avatar Presenter",
+    "profile_type": "none",
+    "description": "No presenter selected because consent is missing.",
+    "consent": {
+      "consent_status": "missing",
+      "consent_record_uri": null,
+      "allowed_use_cases": [],
+      "disallowed_use_cases": [
+        "all avatar use until consent is attached"
+      ],
+      "usage_restrictions": [],
+      "expires_at": null,
+      "verified_at": null,
+      "verification_notes": "No consent record is attached."
+    },
+    "likeness_policy": {
+      "uses_real_person_likeness": false,
+      "uses_voice_clone": false,
+      "implied_endorsement_allowed": false,
+      "requires_disclosure": false,
+      "restricted_subjects": [
+        "real customers",
+        "real employees",
+        "prospects"
+      ]
+    },
+    "provider_identity": {
+      "provider_name": "heygen",
+      "provider_avatar_id": null,
+      "provider_voice_id": null,
+      "provider_config_status": "missing",
+      "provider_account_required_now": false
+    },
+    "disclosure_policy": {
+      "disclosure_required": false,
+      "disclosure_text": null,
+      "placement": []
+    },
+    "asset_route_policy": {
+      "output_route": "asset_generation",
+      "publish_route": false,
+      "final_qa_required": true
+    },
+    "notes": "Fallback uses the normal video reel path."
+  },
+  "consent_evaluation": {
+    "consent_gate": "fail",
+    "consent_status": "missing",
+    "consent_record_uri": null,
+    "allowed_use_cases_checked": [],
+    "disallowed_use_cases_checked": [
+      "all avatar use until consent is attached"
+    ],
+    "usage_restrictions_checked": [],
+    "provider_identity_checked": false,
+    "blocks_avatar_route": true,
+    "evidence": "Consent metadata is missing."
+  },
+  "selected_route": {
+    "route_type": "non_avatar_visuals",
+    "asset_role": "none",
+    "output_route": "asset_generation",
+    "publish_route": false,
+    "provider_name": "heygen",
+    "provider_avatar_id": null,
+    "provider_voice_id": null,
+    "disclosure_required": false,
+    "disclosure_text": null,
+    "handoff_notes": [
+      "Run the existing video reel path with scene video assets, voice performance, and narration."
+    ]
+  },
+  "fallback_plan": {
+    "active": true,
+    "fallback_route_type": "non_avatar_visuals",
+    "reason": "Consent record is missing, so avatar generation is not allowed.",
+    "visual_direction": "Use the existing story package and storyboard to generate normal scene videos with narration."
+  },
+  "quality_gates": [
+    {
+      "gate_id": "avatar-consent-present",
+      "status": "fail",
+      "blocks_avatar_route": true,
+      "blocks_publish": true,
+      "evidence": "Consent record is missing."
+    }
+  ],
+  "implementation_notes": {
+    "provider_calls_added": false,
+    "dependencies_added": false,
+    "runtime_behavior_changed": true,
+    "publish_behavior_changed": false,
+    "studio_ui_changes_required": false,
+    "notes": "Runtime changes route to the existing video path without calling HeyGen."
+  }
+}

@@ -11,6 +11,7 @@ Read this before prompt wording, response schema, placeholder, model-output, nar
 ## Important files and subfolders
 
 - `README.md`: current prompt loading model and editing rules.
+- `docs/prompts/runtime-prompt-orchestration-strategy.md`: immutable, partial, and fully runtime-built prompt layers plus short-form quality strategy.
 - `idea_ingest/`, `story_package_generation/`, `director/`, `research_and_script/`, `storyboard_and_prompts/`, `caption_and_hashtags/`: structured text stages.
 - `scene_asset_generation/prompt.md`: scene image/video asset prompt source.
 - `narration_generation/instructions.md`: TTS instruction source.
@@ -18,8 +19,8 @@ Read this before prompt wording, response schema, placeholder, model-output, nar
 - `prompt_builder/`: Studio UI prompt rewrite/generation stage.
 - `rules/`: reusable rule files plus `rule_registry.json`; contract assets only until a later wiring session loads them.
 - `style_packs/`: reusable creative style contracts plus `style_pack_registry.json`; director contract now selects registry IDs.
-- `schemas/`: shared schemas for prompt contracts, including active `director_contract.schema.json`, contract-only storyboard, visual prompt, voice performance, music/SFX, final QA, approval, client/account context, model route, render manifest v2, Remotion edit-plan, avatar decision, and presenter profile schemas.
-- `workflow/`: workflow-level prompt contracts; `director_contract` is active, `storyboard_and_shot_plan`, `visual_prompt_builder`, `voice_performance_script`, `music_sfx_plan`, `final_qa_validator`, `model_provider_router`, `render_manifest_v2`, `remotion_edit_plan`, and `avatar_video_selector` are contract-only, and `story_package_generation_v2` is opt-in only through stage selection env.
+- `schemas/`: shared schemas for prompt contracts, including active `director_contract.schema.json`, visual prompt, voice performance, avatar decision, final QA, performance guidance, and contract-only storyboard, music/SFX, approval, client/account context, model route, render manifest v2, Remotion edit-plan, and presenter profile schemas.
+- `workflow/`: workflow-level prompt contracts; `director_contract`, `visual_prompt_builder`, `voice_performance_script`, `avatar_video_selector`, `final_qa_validator`, and `performance_feedback_analysis` are active in code-first paths, `storyboard_and_shot_plan`, `music_sfx_plan`, `model_provider_router`, `render_manifest_v2`, and `remotion_edit_plan` are contract-only, and `story_package_generation_v2` is opt-in only through stage selection env.
 - `examples/`: sanitized example outputs for contract and schema work.
 - `caption_and_hashtags/caption_first_pass/`, `caption_final_pass/`, `hashtag_ranking/`: older/legacy caption subpass assets still present in the repo.
 
@@ -58,6 +59,8 @@ n8n workflows in `workflows/n8n/`, helper scripts in `workflows/scripts/`, and p
 - Do not remove, rename, or add `{{placeholder}}` tokens casually.
 - Do not put secrets, API keys, or private URLs in prompt files.
 - Do not edit workflow JSON for prompt wording when the prompt stage is already file-backed.
+- Do not treat runtime prompt-builder rewrites as permission to alter schemas, placeholders, safety rules, approval gates, provider routing, or publish behavior.
+- Do not use prompt-profile or `creative_defaults` guidance to invent facts or bypass global rules.
 - Do not assume legacy caption subpass files are active without checking workflow wiring.
 - Do not make style preferences blocking in `rules/rule_registry.json`.
 - Do not add style pack IDs that are not present in `style_packs/style_pack_registry.json`.
@@ -72,7 +75,7 @@ n8n workflows in `workflows/n8n/`, helper scripts in `workflows/scripts/`, and p
 - Do not treat `model_provider_router` as active adapter selection. It is a planning contract only until a later session explicitly changes `adapter_config.mjs` or workflow helper behavior.
 - Do not treat `render_manifest_v2` as active render workflow wiring. It is a renderer-neutral bridge contract only until a later session explicitly changes render manifest construction or dispatch.
 - Do not treat `remotion_edit_plan` as a Remotion runtime. It is a data contract only until a later session adds dependencies, components, and runtime wiring.
-- Do not treat `avatar_video_selector` as avatar runtime wiring. It is a consent-gated decision contract only until a later session adds provider adapters and runtime generation.
+- Do not let `avatar_video_selector` rewrite spoken narration or bypass fallback, final QA, or Studio approval. It is now an active route decision stage, but avatar provider calls still require runtime consent/config revalidation.
 
 ## Validation
 
@@ -98,6 +101,7 @@ n8n workflows in `workflows/n8n/`, helper scripts in `workflows/scripts/`, and p
 - Prompt edits are hot-loaded on the next workflow run.
 - `.env` default changes require container recreation, but prompt-file changes do not.
 - The Studio UI may write runtime prompt-builder config under `prompts/.runtime-prompt-builder.json` when used.
+- Runtime prompt-builder excludes `prompt_builder`, `idea_ingest`, and `idea_prompt_profile`; selected prompt drafts must preserve placeholders and hard rules.
 
 ## Uncertainties
 

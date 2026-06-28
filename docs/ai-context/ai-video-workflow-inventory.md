@@ -4,7 +4,7 @@ Last reviewed: 2026-06-21 at git commit `d1e1bd0`.
 
 This inventory tracks the AI video workflow session plan as sessions change prompts, validators, provider routing, render manifests, or publish gates. It is based on `workflows/scripts/*.mjs`, `workflows/n8n/*.json`, and existing context docs.
 
-Runtime update: code-first `generate_reel` now supports `reel_type` values `image`, `video`, and `avatar`; Remotion is the default renderer through `infra/remotion-renderer/`; HeyGen avatar generation is wired behind a consent/env gate in `pipeline/stages.mjs`. Older Session 17/18 sections remain useful contract history, not the full current runtime picture.
+Runtime update: code-first `generate_reel` now supports `reel_type` values `image`, `video`, and `avatar`; Remotion is the default renderer through `infra/remotion-renderer/`; avatar runs use `avatar_presenter_selector` and `avatar_media_generation` to either call HeyGen or auto-downgrade to the normal video path when consent/config/safety is incomplete. Older Session 17 sections remain useful contract history, not the full current runtime picture.
 
 ## Read this when
 
@@ -28,10 +28,15 @@ Runtime update: code-first `generate_reel` now supports `reel_type` values `imag
 | `storyboard_and_prompts` | `prompts/storyboard_and_prompts/{system,user,response-schema}.md/json` | `openai_request` | `STORYBOARD_MODEL`, `OPENAI_STORYBOARD_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4o-mini` |
 | `caption_and_hashtags` | `prompts/caption_and_hashtags/{system,user,response-schema}.md/json` | `openai_request_caption_and_hashtags` | `CAPTION_MODEL`, `OPENAI_CAPTION_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4o-mini` |
 | `prompt_builder` | `prompts/prompt_builder/{system,user,response-schema}.md/json` | `openai_request_prompt_builder` | `PROMPT_BUILDER_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4o-mini` |
+| `visual_prompt_builder` | `prompts/workflow/visual_prompt_builder.md`, `prompts/schemas/visual_prompt.schema.json` | `openai_request_visual_prompt_builder` | `VISUAL_PROMPT_MODEL`, `PROMPT_BUILDER_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1-mini` |
+| `voice_performance_script` | `prompts/workflow/voice_performance_script.md`, `prompts/schemas/voice_performance.schema.json` | `openai_request_voice_performance_script` | `VOICE_PERFORMANCE_MODEL`, `PREMIUM_TEXT_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1-mini` |
+| `avatar_presenter_selector` | `prompts/workflow/avatar_video_selector.md`, `prompts/schemas/avatar_decision.schema.json` | `openai_request_avatar_presenter_selector` | `AVATAR_MODEL`, `PREMIUM_TEXT_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1-mini` |
+| `final_qa_validator` | `prompts/workflow/final_qa_validator.md`, `prompts/schemas/qa_result.schema.json` | `openai_request_final_qa_validator` | `FINAL_QA_MODEL`, `PREMIUM_TEXT_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1` |
+| `performance_feedback_analysis` | `prompts/workflow/performance_feedback_analysis.md`, `prompts/schemas/performance_guidance.schema.json` | `openai_request_performance_feedback_analysis` | `PERFORMANCE_FEEDBACK_MODEL`, `PREMIUM_TEXT_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1-mini` |
 
-`build_prompt_request.mjs` chooses the text provider through `selectTextProvider(stageKey)`. The only implemented structured text adapter found in `invoke_structured_text_adapter.mjs` is OpenAI; selecting another text provider currently throws `providerNotImplemented`.
+`build_prompt_request.mjs` chooses the text provider through `selectTextProvider(stageKey)`. `invoke_structured_text_adapter.mjs` supports OpenAI and Anthropic/Claude structured text calls; other text providers still throw `providerNotImplemented`.
 
-Session 8 adds contract-only storyboard/shot-plan assets at `prompts/workflow/storyboard_and_shot_plan.md` and `prompts/schemas/storyboard.schema.json`. Session 9 adds contract-only visual prompt builder assets at `prompts/workflow/visual_prompt_builder.md` and `prompts/schemas/visual_prompt.schema.json`. Session 10 adds contract-only voice performance assets at `prompts/workflow/voice_performance_script.md` and `prompts/schemas/voice_performance.schema.json`. Session 11 adds contract-only music/SFX planning assets at `prompts/workflow/music_sfx_plan.md` and `prompts/schemas/music_sfx_plan.schema.json`. Session 12 adds contract-only final QA assets at `prompts/workflow/final_qa_validator.md` and `prompts/schemas/qa_result.schema.json`. Session 14 adds `prompts/schemas/client_account_context.schema.json` for per-account policy snapshots. Session 15 adds contract-only provider route planning assets at `prompts/workflow/model_provider_router.md` and `prompts/schemas/model_route.schema.json`. Session 16 adds contract-only renderer-neutral render manifest bridge assets at `prompts/workflow/render_manifest_v2.md` and `prompts/schemas/render_manifest_v2.schema.json`. Session 17 adds contract-only Remotion-compatible edit-plan assets at `prompts/workflow/remotion_edit_plan.md` and `prompts/schemas/remotion_edit_plan.schema.json`. Session 18 adds contract-only avatar/presenter selector assets at `prompts/workflow/avatar_video_selector.md`, `prompts/schemas/avatar_decision.schema.json`, and `prompts/schemas/presenter_profile.schema.json`. Session 19 adds an offline aggregate regression runner at `scripts/validate_ai_video_contract_regressions.mjs`. Most workflow prompt contracts are not wired as active prompt stages yet.
+Session 8 adds contract-only storyboard/shot-plan assets at `prompts/workflow/storyboard_and_shot_plan.md` and `prompts/schemas/storyboard.schema.json`. Visual prompt builder, voice performance, avatar presenter selection, and final QA contracts are now active code-first stages; music/SFX planning, provider routing, render manifest v2, and Remotion edit-plan remain contract/reference layers. `performance_feedback_analysis` is active only through the explicit `analyze_performance` action.
 
 ## n8n workflow exports
 
@@ -69,9 +74,11 @@ There are two story creation paths:
 1. Older staged path: `idea_approved` -> `wf_research_and_script` -> `script_complete` -> `wf_director` -> `directed` -> `wf_storyboard_and_prompts` -> `storyboard_complete`.
 2. Newer package path: `idea_approved` -> `wf_story_package_generation` -> `storyboard_complete`.
 
-After `storyboard_complete`, the current Reel flow is inferred from v3 workflow names and status transitions:
+After `storyboard_complete`, the legacy n8n Reel flow is inferred from v3 workflow names and status transitions:
 
 `storyboard_complete` or validated storyboard -> asset generation -> `assets_ready` -> narration generation -> `narration_ready` -> render manifest construction -> `render_manifest_ready` -> render dispatch/sync -> `render_queued` or `render_complete`/`render_failed` -> caption and Reel publish.
+
+The active code-first `generate_reel` plans insert `story_package_quality_gate`, `director_contract`, and `visual_prompt_builder` before media generation for `image`, `video`, and `avatar` runs. Image/video runs also insert `voice_performance_script` after scene assets and before narration. Avatar runs insert `avatar_presenter_selector` and `avatar_media_generation`; approved avatar routes produce `avatar_ready`, while fallback routes set the effective content route to `video` and internally run v3 scene assets, voice performance, and narration to `narration_ready`. The gate uses the existing `validating` -> `validation_complete` status pair, blocks weak packages before media provider spend, and can promote stronger `scene_guidance_json.image_prompt` values into storyboard scenes before asset generation.
 
 `workflows/scripts/run_resume_aware_reel_pipeline_v3.mjs` lists these active statuses: `idea_approved`, `scripting`, `script_complete`, `directing`, `directed`, `storyboarding`, `storyboard_complete`, `generating_assets`, `assets_ready`, `generating_narration`, `narration_ready`, `building_render_manifest`, `render_manifest_ready`, `dispatching_render`, `render_queued`, `render_complete`, and `render_failed`.
 
@@ -124,11 +131,11 @@ Known consumers:
 
 ## `visual_prompt_builder` contract assets
 
-Session 9 introduces a contract-only visual prompt builder that converts storyboard/shot-plan scenes into concrete scene-level asset prompts. It is not wired to active asset generation yet.
+Session 9 introduced a visual prompt builder that converts storyboard/shot-plan scenes into concrete scene-level asset prompts. It is now wired into active code-first generation before asset generation.
 
 Important current behavior:
 
-- `prompts/workflow/visual_prompt_builder.md` is the first planned stage allowed to write final `visual_prompt`, `negative_prompt`, and `fallback_prompt` fields.
+- `prompts/workflow/visual_prompt_builder.md` writes final `visual_prompt`, `image_prompt`, `negative_prompt`, and `fallback_prompt` fields into `storyboard_json` before asset generation.
 - `prompts/schemas/visual_prompt.schema.json` requires subject, environment, composition, camera, motion, lighting, style, duration, aspect ratio, continuity, text policy, visual prompt, negative prompt, fallback prompt, safety notes, and QA checks per scene.
 - `scripts/validate_visual_prompt_fixture.mjs` validates schema shape, sequential scene numbers, prompt specificity, text-free generated asset policy, negative prompts that exclude readable text artifacts, and absence of provider/model/render/storage choices.
 - `fixtures/ai-video/founder_explainer/expected_visual_prompt_builder.json` is the representative valid fixture.
@@ -138,11 +145,12 @@ Important current behavior:
 Known consumers:
 
 - No active n8n workflow consumes the Session 9 visual prompt contract yet.
-- `wf_asset_generation_v3.json` and `workflows/scripts/generate_and_rehost_scene_assets_v3.mjs` still consume legacy `storyboard_json.visual_prompt` from the active storyboard/story package paths.
+- Code-first `visual_prompt_builder` consumes the contract and updates `storyboard_json` before `image_asset_generation` or `asset_generation_v3`.
+- Code-first `story_package_quality_gate` can copy stronger `scene_guidance_json.image_prompt` values into `storyboard_json[].image_prompt`; `visual_prompt_builder` then performs the final prompt refinement before asset generation.
 
 ## `voice_performance_script` contract assets
 
-Session 10 introduces a contract-only voice performance script that separates clean spoken narration from line-level delivery metadata. It is not wired to active TTS generation yet.
+Session 10 introduced a voice performance script that separates clean spoken narration from line-level delivery metadata. It is now wired into image/video code-first narration before TTS generation.
 
 Important current behavior:
 
@@ -151,7 +159,7 @@ Important current behavior:
 - `scripts/validate_voice_performance_fixture.mjs` validates schema shape, joined line text matching the clean script, total duration math, emphasis/pronunciation references, no provider/model/storage keys, and no provider-specific parenthetical performance tags.
 - `fixtures/ai-video/founder_explainer/expected_voice_performance_script.json` is the representative valid fixture.
 - `fixtures/ai-video/founder_explainer/invalid_voice_performance_script_mutated_text.json` intentionally changes line text and should fail validation.
-- `prompts/narration_generation/instructions.md` remains the active runtime TTS instruction source and currently includes provider-specific expression guidance; Session 10 does not change that runtime behavior.
+- `prompts/narration_generation/instructions.md` remains the base TTS instruction source; `voice_performance_script` now enriches per-scene `tts_instructions` as delivery metadata without mutating spoken text.
 
 Known consumers:
 
@@ -181,7 +189,7 @@ Known consumers:
 
 ## `final_qa_validator` contract assets
 
-Session 12 introduces a contract-only final QA result that can express publish-blocking and non-blocking issues before a future approval gate.
+Session 12 introduced a final QA result that can express publish-blocking and non-blocking issues. It is now the active code-first approval gate before Studio approval/publish.
 
 Important current behavior:
 
@@ -189,7 +197,7 @@ Important current behavior:
 - `prompts/schemas/qa_result.schema.json` requires explicit `blocking_issues`, `non_blocking_issues`, `stage_fix_references`, and `publish_requirements`.
 - `scripts/validate_final_qa_fixture.mjs` validates blocker consistency, issue-to-fix-stage references, and category-specific upstream fix stages.
 - Fixture cases cover an approved package plus blocked license, avatar consent, and caption/export failures.
-- This session does not alter publish workflows or content statuses.
+- Code-first `final_qa_approval_gate` invokes `final_qa_validator`; publish still requires a selected-render approval row with `qa_status = 'passed'`.
 
 Known consumers:
 
@@ -212,6 +220,7 @@ Important current behavior:
 - Clears `face_image_title` on scenes after scene 1 and sets their `asset_type = video`.
 - Sets `render_manifest_seed_json.subtitles.enabled = false`.
 - Marks the item `storyboard_complete`.
+- Code-first runs then execute `story_package_quality_gate`, which marks passing packages `validation_complete`, normalizes the render-seed timeline, fills asset-plan/remotion defaults, and promotes stronger per-scene image prompts from `scripts.raw_response_json.scene_guidance_json` into storyboard scenes before asset generation. Blocking issues leave the pipeline failed before image/video/TTS provider calls.
 
 Known consumers are the same downstream consumers as the older storyboard path: validation, asset generation, narration generation, render manifest construction, render dispatch/sync, captions, and publish.
 
@@ -232,7 +241,7 @@ Outputs:
 - `renders.render_status = 'manifest_ready'`.
 - `content_items.status = 'render_manifest_ready'`.
 - Manifest fields include `output`, `audio.narration`, `subtitles.enabled = false`, `timing`, `scenes`, `timeline`, `total_duration_seconds`, `cover_image_url`, and original `seed`.
-- If a scene has `face_image_title`, the builder emits `title_overlay` with that text enabled for 4 seconds.
+- If a scene has `face_image_title`, the builder emits renderer-owned `title_overlay` metadata with that text enabled for 2 seconds.
 
 Consumers:
 
@@ -292,29 +301,35 @@ Validation:
 
 ## `avatar_presenter_selector` contract assets
 
-Session 18 introduces a contract-only avatar/presenter selector. The prompt file is `prompts/workflow/avatar_video_selector.md`, and its structured `source_stage` is `avatar_presenter_selector` to match final QA upstream-fix routing.
+Session 18 introduced the avatar/presenter selector; it is now an active code-first structured text stage. The prompt file is `prompts/workflow/avatar_video_selector.md`, and its structured `source_stage` is `avatar_presenter_selector` to match final QA upstream-fix routing.
 
 Important current behavior:
 
-- `prompts/workflow/avatar_video_selector.md` is contract-only and is not an active prompt stage in `build_prompt_request.mjs`.
-- `prompts/schemas/avatar_decision.schema.json` defines a consent-gated decision, inputs, presenter profile, consent evaluation, asset-route-only selected route, non-avatar fallback, quality gates, and implementation notes.
+- `prompts/workflow/avatar_video_selector.md` is active through `build_prompt_request.mjs`, with provider routing priority `AVATAR_LLM_PROVIDER`, then premium/text fallbacks.
+- `prompts/schemas/avatar_decision.schema.json` defines a consent-gated active runtime decision, inputs, presenter profile, consent evaluation, selected route, effective reel type, non-avatar fallback, disclosure, provider-safe request options, presenter direction, quality gates, and implementation notes.
 - `prompts/schemas/presenter_profile.schema.json` defines consent status, consent record URI, allowed/disallowed use cases, usage restrictions, provider avatar ID, provider voice ID, disclosure policy, and asset-route policy.
 - `fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision.json` is the representative valid avatar decision fixture.
+- `fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision_active_heygen.json` is the active provider-call fixture.
+- `fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision_fallback_video.json` is the valid auto-downgrade fixture.
 - `fixtures/ai-video/avatar_sales_outreach/invalid_avatar_decision_missing_consent.json` intentionally enables an avatar route without consent metadata and should fail validation.
-- `scripts/validate_avatar_decision_fixture.mjs` validates both schemas plus repo-specific consent gates: no provider calls, no dependencies, no runtime behavior change, no publish route, provider identity present for enabled avatar routes, non-avatar fallback active, and final QA required.
+- `fixtures/ai-video/avatar_sales_outreach/invalid_avatar_decision_character_reference_consent.json` intentionally treats an uploaded character reference as consent and should fail validation.
+- `scripts/validate_avatar_decision_fixture.mjs` validates both schemas plus repo-specific consent gates: provider calls only for active version `1.1` decisions with consent/provider identity, no dependencies, no publish route, provider identity present for enabled avatar routes, non-avatar fallback active, uploaded character references rejected as consent, and final QA required.
 - Character-reference uploads in `studio-ui/server.mjs` create hosted source media only; they are not consent records.
 
 Known consumers:
 
-- No active n8n workflow consumes `avatar_presenter_selector` yet.
-- Final QA fixtures already route avatar/likeness consent failures to `avatar_presenter_selector`.
-- Future avatar provider integration must still pass final QA and selected-render approval before publish.
+- Code-first avatar runs consume `avatar_presenter_selector` before `avatar_media_generation`.
+- Final QA receives avatar decision, actual route, effective reel type, disclosure evidence, and fallback reason.
+- Avatar provider integration still must pass final QA and selected-render approval before publish.
 
 Validation:
 
 - `jq empty prompts/schemas/avatar_decision.schema.json prompts/schemas/presenter_profile.schema.json`
 - `node scripts/validate_avatar_decision_fixture.mjs fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision.json`
+- `node scripts/validate_avatar_decision_fixture.mjs fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision_active_heygen.json`
+- `node scripts/validate_avatar_decision_fixture.mjs fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision_fallback_video.json`
 - `node scripts/validate_avatar_decision_fixture.mjs --expect-fail fixtures/ai-video/avatar_sales_outreach/invalid_avatar_decision_missing_consent.json`
+- `node scripts/validate_avatar_decision_fixture.mjs --expect-fail fixtures/ai-video/avatar_sales_outreach/invalid_avatar_decision_character_reference_consent.json`
 
 ## Offline contract regression suite
 
@@ -407,6 +422,10 @@ Validation:
 | Text, story package | `selectTextProvider('story_package_generation')` | `STORY_PACKAGE_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
 | Text, story package v2 | `selectTextProvider('story_package_generation_v2')` | `STORY_PACKAGE_V2_LLM_PROVIDER`, `STORY_PACKAGE_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
 | Text, director | `selectTextProvider('director'/'director_contract')` | `DIRECTOR_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
+| Text, visual prompt | `selectTextProvider('visual_prompt_builder')` | `VISUAL_PROMPT_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
+| Text, voice performance | `selectTextProvider('voice_performance_script')` | `VOICE_PERFORMANCE_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
+| Text, final QA | `selectTextProvider('final_qa_validator')` | `FINAL_QA_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
+| Text, performance feedback | `selectTextProvider('performance_feedback_analysis')` | `PERFORMANCE_FEEDBACK_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
 | Text, prompt profile/builder | `selectTextProvider('idea_prompt_profile'/'prompt_builder')` | `IDEA_PROMPT_PROFILE_LLM_PROVIDER`, `PROMPT_BUILDER_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
 | Text, storyboard | `selectTextProvider('storyboard_and_prompts')` | `STORYBOARD_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
 | Text, caption | `selectTextProvider('caption_and_hashtags')` | `CAPTION_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
@@ -417,7 +436,7 @@ Validation:
 | Post asset host | `selectAssetHostProvider('post_image')` | `POST_IMAGE_HOST_PROVIDER`, `ASSET_HOST_PROVIDER`, `IMAGE_HOST_PROVIDER` | `object_storage` |
 | Narration host | `selectAssetHostProvider('narration_audio')` | `NARRATION_HOST_PROVIDER`, `ASSET_HOST_PROVIDER`, `IMAGE_HOST_PROVIDER` | `object_storage` |
 | Render output host | `selectAssetHostProvider('render_output')` | `RENDER_OUTPUT_HOST_PROVIDER`, `ASSET_HOST_PROVIDER`, `IMAGE_HOST_PROVIDER` | `object_storage` |
-| Render | `selectRenderProvider()` | `RENDER_PROVIDER` | configured default is `remotion`; helper fallback is `local_ffmpeg` |
+| Render | `selectRenderProvider()` | `RENDER_PROVIDER` | configured and helper default is `remotion`; `local_ffmpeg` is rollback only |
 
 Implemented providers found in helper scripts:
 
@@ -443,7 +462,7 @@ Implemented providers found in helper scripts:
 - The Session 9 visual prompt contract must stay provider-neutral and renderer-neutral until a later wiring session intentionally chooses integration boundaries.
 - The Session 10 voice performance contract must preserve `clean_spoken_script`; provider-specific TTS tags belong in adapter mapping, not generic spoken text.
 - The Session 11 music/SFX plan must keep track planning separate from final selection and must treat unknown license metadata as publish-blocking.
-- The Session 18 avatar/presenter selector must keep avatar output as an asset route, require consent metadata, and avoid provider calls until a later runtime integration session.
+- The active avatar/presenter selector must keep avatar output as an asset route, require consent metadata, revalidate provider config before calls, and auto-downgrade to video when unsafe or unavailable.
 - The Session 19 aggregate regression runner must stay offline and fixture-based; do not add provider calls, Docker dependencies, live publish steps, or paid API requirements to it.
 
 ## Uncertainties
@@ -465,6 +484,6 @@ Implemented providers found in helper scripts:
 - For Session 11/music-SFX contract work, run `node scripts/validate_music_sfx_fixture.mjs fixtures/ai-video/founder_explainer/expected_music_sfx_plan.json`, `node scripts/validate_music_sfx_fixture.mjs --expect-fail fixtures/ai-video/founder_explainer/invalid_music_sfx_plan_unknown_license.json`, and `node scripts/validate_music_library.mjs workflows/assets/music/library.json`.
 - For Session 14/client-account context work, run `node scripts/validate_client_account_context_fixture.mjs fixtures/ai-video/founder_explainer/expected_client_account_context.json`, both invalid client-account fixtures with `--expect-fail`, and `node scripts/validate_publish_gate_workflow.mjs`.
 - For Session 17/Remotion edit-plan contract work, run `node scripts/validate_remotion_edit_plan_fixture.mjs fixtures/ai-video/founder_explainer/expected_remotion_edit_plan.json`, both invalid Remotion edit-plan fixtures with `--expect-fail`, and `jq empty prompts/schemas/remotion_edit_plan.schema.json`.
-- For Session 18/avatar presenter selector work, run `node scripts/validate_avatar_decision_fixture.mjs fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision.json`, the missing-consent invalid fixture with `--expect-fail`, and `jq empty prompts/schemas/avatar_decision.schema.json prompts/schemas/presenter_profile.schema.json`.
+- For Session 18/avatar presenter selector work, run the avatar decision fixtures, including active HeyGen, fallback video, missing-consent invalid, character-reference invalid, and `jq empty prompts/schemas/avatar_decision.schema.json prompts/schemas/presenter_profile.schema.json`.
 - For Session 19/regression test work, run `node scripts/validate_ai_video_contract_regressions.mjs`.
 - Do not run live provider, render, or publish commands for this inventory.

@@ -27,11 +27,24 @@ Prompt type:
 
 - the prompt files are static templates in git
 - the final prompt sent to the model is dynamic at runtime because the helpers inject workflow data into `{{placeholders}}`
+- some stages can be rewritten by the optional runtime prompt-builder when `prompts/.runtime-prompt-builder.json` exists and is enabled
+- response schemas, placeholder names, prompt-builder guardrails, and safety/approval/consent/provider-secret rules should be treated as stable contracts
 
 Current rule of thumb:
 
 - edit prompt wording in `prompts/...`
 - edit workflow code only if you need new placeholders or a new prompt stage
+- read [Runtime Prompt Orchestration Strategy](/Users/rajchodisetti/n8n-insta/docs/prompts/runtime-prompt-orchestration-strategy.md) before changing runtime rewrite behavior
+
+## Runtime Overwrite Classes
+
+| Class | What changes at runtime | Examples | Editing policy |
+| --- | --- | --- | --- |
+| Stable contract | Nothing should rewrite it during a run. | Schemas, placeholders, stage wiring, prompt-builder hard rules, approval/consent/license/factuality rules. | Change only through repo edits plus validation. |
+| Partial runtime guidance | Values are injected or allowlisted per idea/account. | `creative_defaults`, `prompt_profile` allowlisted fields, client/account context, env defaults. | Use for tone, pacing, style, narration, and music direction only. |
+| Fully AI-built output | The model creates new stage content. | Story package, storyboard, captions, visual prompts, narration instructions, optional runtime prompt-builder draft. | Must preserve schemas, placeholders, hard rules, and downstream contracts. |
+
+Runtime prompt-builder defaults now avoid provider-facing asset/narration prompt stages (`scene_asset_generation`, `post_image_generation`, `narration_generation`) to reduce output drift. If a visual prompt file is explicitly targeted, runtime code appends a text-free renderer-owned-title appendix to the in-memory draft.
 
 ## Prompt Inventory
 
@@ -274,6 +287,47 @@ Session 10 contract note:
 - [prompts/workflow/voice_performance_script.md](/Users/rajchodisetti/n8n-insta/prompts/workflow/voice_performance_script.md) and [prompts/schemas/voice_performance.schema.json](/Users/rajchodisetti/n8n-insta/prompts/schemas/voice_performance.schema.json) define a provider-neutral voice performance contract.
 - The active `wf_narration_generation` path still uses the prompt file and loaders listed above, plus clean per-scene script text from storyboard rows.
 - The Session 10 contract is not wired into runtime TTS generation yet; future adapter mapping should translate generic tone/pace/pause metadata without changing `clean_spoken_script`.
+
+### `avatar_presenter_selector`
+
+Used when:
+
+- a code-first `avatar` Reel run finishes visual prompt building and must decide between HeyGen avatar generation or normal video fallback
+
+Prompt files:
+
+- [prompts/workflow/avatar_video_selector.md](/Users/rajchodisetti/n8n-insta/prompts/workflow/avatar_video_selector.md)
+- [prompts/schemas/avatar_decision.schema.json](/Users/rajchodisetti/n8n-insta/prompts/schemas/avatar_decision.schema.json)
+
+Loader:
+
+- [workflows/scripts/build_prompt_request.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/build_prompt_request.mjs) with stage `avatar_presenter_selector`
+- [workflows/scripts/invoke_structured_text_adapter.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/invoke_structured_text_adapter.mjs)
+
+Runtime template data:
+
+- `client_account_context_json`
+- `story_package_context_json`
+- `director_avatar_contract_json`
+- `storyboard_plan_json`
+- `character_reference_context_json`
+- `presenter_profile_inventory_json`
+- `avatar_provider_inventory_json`
+- `avatar_rules_summary`
+- `heygen_capability_summary`
+
+Model requests:
+
+- `1` text request for avatar runs
+- selector precedence:
+  `AVATAR_LLM_PROVIDER -> PREMIUM_TEXT_LLM_PROVIDER -> TEXT_LLM_PROVIDER`
+  `AVATAR_MODEL -> PREMIUM_TEXT_MODEL -> TEXT_MODEL`
+
+Runtime behavior:
+
+- stores the decision in `scripts.raw_response_json.avatar_decision_json`
+- `avatar_media_generation` revalidates consent/config and either creates an `avatar_video` asset or auto-downgrades to the normal video path
+- direction enriches provider instructions only; it must not rewrite the spoken narration script
 
 Session 11 contract note:
 

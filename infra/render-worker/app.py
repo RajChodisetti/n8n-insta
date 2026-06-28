@@ -521,9 +521,9 @@ def build_title_overlay_filter(render_request: dict, width: int, height: int) ->
         (overlay.get("font_color") if isinstance(overlay, dict) else None) or "white"
     ).strip() or "white"
 
-    overlay_duration_seconds = max(0.5, min(4.0, parse_float(
+    overlay_duration_seconds = max(0.5, min(2.0, parse_float(
         (overlay.get("duration_seconds") if isinstance(overlay, dict) else None),
-        parse_float(os.environ.get("RENDER_OPENING_TITLE_OVERLAY_SECONDS"), 4.0),
+        parse_float(os.environ.get("RENDER_OPENING_TITLE_OVERLAY_SECONDS"), 2.0),
     )))
     enable_expr = f"lte(t,{overlay_duration_seconds:.3f})"
 

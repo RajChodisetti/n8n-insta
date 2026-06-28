@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 
 import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { loadRenderedPromptAsset } from './prompt_utils.mjs';
 import { generateNarrationAudio } from './tts_adapters.mjs';
 import { uploadBinaryAsset } from './asset_host_adapters.mjs';
@@ -77,8 +81,87 @@ function describeHostProvider(provider) {
   return provider;
 }
 
+async function probeAudioDurationSeconds(binary, extension = 'mp3') {
+  if (!binary?.length) {
+    return null;
+  }
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'n8n-insta-tts-duration-'));
+  const audioPath = path.join(tempDir, `audio.${String(extension || 'mp3').replace(/[^a-z0-9]/gi, '') || 'mp3'}`);
+  try {
+    await fs.writeFile(audioPath, binary);
+    const result = spawnSync(
+      'ffprobe',
+      [
+        '-v', 'error',
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        audioPath,
+      ],
+      { encoding: 'utf8', maxBuffer: 1024 * 1024 },
+    );
+    if (result.status !== 0) {
+      return null;
+    }
+    const parsed = Number.parseFloat(String(result.stdout || '').trim());
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+    return Number(parsed.toFixed(3));
+  } catch {
+    return null;
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 function buildProviderId(generationProvider, model, hostProvider) {
   return `${slugId(generationProvider, 'provider')}_${slugId(model, 'model')}_rehosted_mp3_${slugId(hostProvider, 'host')}`;
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function plainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function trimString(value) {
+  return String(value ?? '').trim();
+}
+
+function voicePerformanceLinesForScene(voicePerformanceJson, sceneNumber) {
+  return asArray(voicePerformanceJson.lines)
+    .filter((line) => Number(line?.scene_number) === Number(sceneNumber));
+}
+
+function buildVoicePerformanceSceneInstruction(voicePerformanceJson, sceneNumber) {
+  const voicePerformance = plainObject(voicePerformanceJson);
+  const lines = voicePerformanceLinesForScene(voicePerformance, sceneNumber);
+  if (lines.length === 0) {
+    return '';
+  }
+  const voiceProfile = plainObject(voicePerformance.voice_profile);
+  const parts = [
+    trimString(voiceProfile.delivery_summary),
+  ].filter(Boolean);
+  for (const line of lines) {
+    const pauses = plainObject(line.pauses);
+    const emphasis = asArray(line.emphasis)
+      .map((entry) => `${trimString(entry.phrase)} => ${trimString(entry.intent)}`.trim())
+      .filter((entry) => entry !== '=>')
+      .join('; ');
+    parts.push([
+      `Line ${Number(line.line_index || 1)}`,
+      trimString(line.tone) ? `tone: ${trimString(line.tone)}` : '',
+      trimString(line.pace) ? `pace: ${trimString(line.pace)}` : '',
+      `pause before ${Number(pauses.before_seconds || 0)}s and after ${Number(pauses.after_seconds || 0)}s`,
+      trimString(pauses.internal_pause_notes) ? `internal pauses: ${trimString(pauses.internal_pause_notes)}` : '',
+      emphasis ? `emphasis: ${emphasis}` : '',
+    ].filter(Boolean).join('; '));
+  }
+  parts.push('Use these only as delivery guidance. Do not speak bracketed notes, emotion tags, SSML, or stage directions.');
+  return parts.join(' ');
 }
 
 async function main() {
@@ -135,7 +218,12 @@ async function main() {
     }
 
     const directorScene = directorByScene[sceneNumber] ?? null;
-    const sceneTtsInstructions = String(directorScene?.tts_instructions || scene.tts_instructions || '').trim();
+    const voicePerformanceInstruction = buildVoicePerformanceSceneInstruction(payload.voice_performance_json, sceneNumber);
+    const sceneTtsInstructions = [
+      String(directorScene?.tts_instructions || '').trim(),
+      String(scene.tts_instructions || '').trim(),
+      voicePerformanceInstruction,
+    ].filter(Boolean).join(' ');
     const sceneInstructionsLoader = async () => {
       if (!cachedGlobalInstructions) cachedGlobalInstructions = await buildGlobalInstructions();
       if (sceneTtsInstructions) {
@@ -144,18 +232,11 @@ async function main() {
       return cachedGlobalInstructions;
     };
 
-    const ttsProvider = String(payload.tts_provider || process.env.TTS_PROVIDER || process.env.NARRATION_PROVIDER || '').toLowerCase();
-    const FISH_AUDIO_TAG_RE = /\((happy|sad|angry|excited|calm|nervous|confident|surprised|scared|worried|empathetic|curious|sarcastic|anxious|uncertain|confused|disappointed|nostalgic|hopeful|determined|compassionate|in a hurry tone|whispering|soft tone|long-break|sighing|gasping|laughing|crying loudly)\)/gi;
-    const effectiveScript = (ttsProvider === 'fish_audio' && sceneTtsInstructions)
-      ? (() => {
-          const tags = [...sceneTtsInstructions.matchAll(FISH_AUDIO_TAG_RE)].map((m) => m[0]);
-          return tags.length > 0 ? `${tags.join(' ')} ${sceneScript}` : sceneScript;
-        })()
-      : sceneScript;
-
-    const scenePayload = { ...payload, narration_script: effectiveScript };
+    const scenePayload = { ...payload, narration_script: sceneScript };
     const generation = await generateNarrationAudio(scenePayload, sceneInstructionsLoader);
     const request = generation.request ?? ttsRequest;
+    const actualDurationSeconds = await probeAudioDurationSeconds(generation.binary, audioExt);
+    const durationSeconds = actualDurationSeconds ?? generation.estimatedDurationSeconds;
 
     const objectKey = objectKeyForSceneNarration(contentId, title, sceneNumber, audioExt);
     const storage = await uploadBinaryAsset('scene_narration', generation.binary, {
@@ -175,11 +256,15 @@ async function main() {
       voice: String(request.voice || ''),
       speed: Number.isFinite(Number(request.speed)) ? Number(request.speed) : 1,
       narration_script: sceneScript,
+      tts_instructions: sceneTtsInstructions,
+      voice_performance_lines: voicePerformanceLinesForScene(payload.voice_performance_json, sceneNumber),
       output_format: audioExt,
       rehost_provider: storage.mode,
       generated_at: new Date().toISOString(),
       audio_sha256: sha256Hex(generation.binary),
       estimated_duration_seconds: generation.estimatedDurationSeconds,
+      actual_duration_seconds: actualDurationSeconds,
+      duration_source: actualDurationSeconds ? 'ffprobe' : 'word_count_estimate',
       asset_validation_note: `Generated scene ${sceneNumber} narration audio with ${generation.provider}, uploaded to ${describeHostProvider(storage.mode)}.`,
     };
 
@@ -206,7 +291,7 @@ async function main() {
       source_url: storage.url,
       storage_url: storage.url,
       mime_type: mimeType,
-      duration_seconds: generation.estimatedDurationSeconds,
+      duration_seconds: durationSeconds,
       metadata_json: metadata,
     });
   }

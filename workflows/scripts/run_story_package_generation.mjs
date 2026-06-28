@@ -82,6 +82,14 @@ function plainObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+function normalizeReelType(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'image' || normalized === 'video' || normalized === 'avatar') {
+    return normalized;
+  }
+  return 'video';
+}
+
 function flattenText(value, keyPath = '') {
   if (value == null) return [];
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
@@ -153,16 +161,42 @@ const VISIBLE_TEXT_PROMPT_PATTERNS = [
   /\btitle text\b/i,
   /\btext overlay\b/i,
   /\breadable text\b/i,
+  /\bunreadable text\b/i,
+  /\bgibberish text\b/i,
+  /\bfake (?:text|writing|letters)\b/i,
+  /\bpseudo[- ]?(?:text|writing)\b/i,
   /\btypography\b/i,
   /\bcaption(?:s)?\b/i,
   /\bsubtitle(?:s)?\b/i,
   /\blogo(?:s)?\b/i,
   /\bwatermark(?:s)?\b/i,
+  /\bsign(?:age|board)?s?\b/i,
+  /\blabel(?:s|ed|led)?\b/i,
+  /\bbanner(?:s)?\b/i,
+  /\bposter(?:s)?\b/i,
+  /\bplaque(?:s)?\b/i,
+  /\binscription(?:s)?\b/i,
+  /\b(?:carved|etched|painted|printed|written)\s+(?:text|letters|words|script|inscriptions?)\b/i,
+  /\bdocument(?:s)?\b/i,
+  /\bnewspaper(?:s)?\b/i,
+  /\bbook page(?:s)?\b/i,
+  /\bmanuscript(?:s)?\b/i,
+  /\bmap label(?:s)?\b/i,
+  /\blabeled map(?:s)?\b/i,
+  /\bdiagram(?:s)? with (?:text|labels|annotations)\b/i,
+  /\bchart(?:s)? with (?:text|labels|annotations)\b/i,
+  /\binfographic(?:s)?\b/i,
+  /\bUI\b/i,
+  /\bscreen text\b/i,
+  /\bdashboard text\b/i,
   /\bspeech bubble\b/i,
   /\bdialogue bubble\b/i,
   /\bthought bubble\b/i,
   /\bwords on screen\b/i,
+  /\b(?:word|words|letter|letters|glyph|glyphs|script) on (?:the )?(?:screen|wall|stone|paper|sign|label|map|diagram|plaque)\b/i,
 ];
+
+const TEXT_FREE_VISUAL_FALLBACK = 'Concrete text-free documentary scene matching the narrated beat, using unmarked physical subjects, architecture, water, stone, tools, landscape, people, lighting, and composition instead of written surfaces.';
 
 function normalizeWhitespace(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -183,6 +217,120 @@ function buildDefaultTtsInstructions(scene = {}) {
   return 'Natural cinematic voiceover. Keep the pacing clear and pause cleanly at the end.';
 }
 
+const ASSET_PLAN_MODES = new Set(['image', 'video', 'image_with_motion']);
+const MOTION_REQUIREMENTS = new Set(['low', 'medium', 'high']);
+const CAMERA_MOVES = new Set(['push_in', 'pull_out', 'pan_left', 'pan_right', 'tilt_up', 'tilt_down', 'drift', 'hold']);
+const PAN_ZOOM_DIRECTIONS = new Set(['center_push', 'center_pull', 'left_to_right', 'right_to_left', 'bottom_to_top', 'top_to_bottom', 'diagonal_up', 'diagonal_down', 'hold']);
+const TRANSITION_TYPES = new Set(['cut', 'crossfade', 'soft_cut', 'dip_to_black', 'slide_left', 'slide_right', 'wipe_up', 'match_cut']);
+const OVERLAY_STYLES = new Set(['none', 'subtle_vignette', 'warm_gradient', 'cool_gradient', 'documentary_shadow', 'soft_light_leak']);
+const PACING_VALUES = new Set(['quick', 'steady', 'slow', 'linger']);
+
+function inferMotionRequirement(scene = {}) {
+  const text = normalizeWhitespace([
+    scene.narration_text,
+    scene.visual_prompt,
+    scene.image_prompt,
+    scene.visual_beat,
+    scene.beat_label,
+  ].filter(Boolean).join(' ')).toLowerCase();
+  if (/\b(chase|fight|run|rush|fall|explosion|storm|crowd|dance|vehicle|drive|crash|collapse|transform|flowing|waves?|fire|smoke|rain|walking|running|spinning)\b/.test(text)) {
+    return 'high';
+  }
+  if (/\b(move|motion|reveal|enter|leave|turn|open|close|gesture|camera|drift|pan|zoom|tilt|light changes?)\b/.test(text)) {
+    return 'medium';
+  }
+  return 'low';
+}
+
+function normalizeEnumValue(value, allowed, fallback) {
+  const normalized = String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return allowed.has(normalized) ? normalized : fallback;
+}
+
+function defaultCameraMove(index, motionRequirement) {
+  if (motionRequirement === 'low') {
+    return index % 3 === 0 ? 'hold' : 'push_in';
+  }
+  if (motionRequirement === 'high') {
+    return ['pan_left', 'pan_right', 'tilt_up', 'push_in'][index % 4];
+  }
+  return ['push_in', 'pan_right', 'tilt_down', 'drift'][index % 4];
+}
+
+function defaultPanZoomDirection(cameraMove) {
+  if (cameraMove === 'pull_out') return 'center_pull';
+  if (cameraMove === 'pan_left') return 'right_to_left';
+  if (cameraMove === 'pan_right') return 'left_to_right';
+  if (cameraMove === 'tilt_up') return 'bottom_to_top';
+  if (cameraMove === 'tilt_down') return 'top_to_bottom';
+  if (cameraMove === 'hold') return 'hold';
+  return 'center_push';
+}
+
+function defaultTransitionType(index, scene = {}) {
+  const raw = String(scene.transition || '').trim().toLowerCase();
+  if (raw.includes('fade')) return 'crossfade';
+  if (raw.includes('black')) return 'dip_to_black';
+  if (raw.includes('match')) return 'match_cut';
+  if (index === 0) return 'cut';
+  return index % 3 === 0 ? 'crossfade' : 'soft_cut';
+}
+
+function normalizeAssetPlan(scene = {}, index, { reelType = 'video' } = {}) {
+  const raw = plainObject(scene.asset_plan);
+  const rawMode = normalizeEnumValue(raw.mode ?? scene.asset_type, ASSET_PLAN_MODES, '');
+  let mode = rawMode || 'image_with_motion';
+  if (reelType === 'video') {
+    mode = 'video';
+  } else if (reelType === 'image') {
+    mode = mode === 'image' ? 'image' : 'image_with_motion';
+  } else if (mode === 'video') {
+    mode = 'image_with_motion';
+  }
+
+  const motionRequirement = normalizeEnumValue(raw.motion_requirement, MOTION_REQUIREMENTS, inferMotionRequirement(scene));
+  const videoRequired = mode === 'video';
+  return {
+    mode,
+    provider_intent: videoRequired ? 'provider_video' : (mode === 'image' ? 'static_image' : 'remotion_motion'),
+    motion_requirement: motionRequirement,
+    video_generation_required: videoRequired,
+    video_generation_reason: videoRequired
+      ? normalizeWhitespace(raw.video_generation_reason || raw.rationale || 'The operator selected Video Reel, so this scene should be generated directly as video.')
+      : normalizeWhitespace(raw.video_generation_reason || raw.rationale || 'Use a still image and let Remotion provide the camera movement and pacing.'),
+    fallback_mode: 'image_with_motion',
+    budget_priority: videoRequired ? 'premium' : 'standard',
+    review_required: videoRequired,
+    ...(raw.provider_availability ? { provider_availability: normalizeWhitespace(raw.provider_availability) } : {}),
+  };
+}
+
+function normalizeRemotionGuidance(scene = {}, index, assetPlan = {}) {
+  const raw = plainObject(scene.remotion ?? scene.remotion_guidance);
+  const motionRequirement = normalizeEnumValue(assetPlan.motion_requirement, MOTION_REQUIREMENTS, inferMotionRequirement(scene));
+  const cameraMove = normalizeEnumValue(raw.camera_move, CAMERA_MOVES, defaultCameraMove(index, motionRequirement));
+  const panZoomDirection = normalizeEnumValue(raw.pan_zoom_direction ?? raw.direction, PAN_ZOOM_DIRECTIONS, defaultPanZoomDirection(cameraMove));
+  const transitionType = normalizeEnumValue(raw.transition_type ?? scene.transition, TRANSITION_TYPES, defaultTransitionType(index, scene));
+  const overlayStyle = normalizeEnumValue(raw.overlay_style, OVERLAY_STYLES, motionRequirement === 'high' ? 'documentary_shadow' : 'subtle_vignette');
+  const pacing = normalizeEnumValue(raw.pacing, PACING_VALUES, motionRequirement === 'low' ? 'linger' : 'steady');
+  const motionLayers = Array.isArray(raw.motion_layers)
+    ? raw.motion_layers.map((entry) => normalizeWhitespace(entry)).filter(Boolean).slice(0, 4)
+    : [];
+  return {
+    camera_move: cameraMove,
+    pan_zoom_direction: panZoomDirection,
+    motion_intensity: motionRequirement,
+    transition_type: transitionType,
+    overlay_style: overlayStyle,
+    pacing,
+    motion_layers: motionLayers.length ? motionLayers : (assetPlan.mode === 'video' ? ['subtle exposure shaping'] : ['parallax-style pan/zoom from the still image']),
+    instructions: normalizeWhitespace(
+      raw.instructions
+      || `Use ${cameraMove.replaceAll('_', ' ')} with ${pacing} pacing so the scene motion matches the narration without adding visible text.`,
+    ),
+  };
+}
+
 function stripVisibleTextInstructions(value) {
   const normalized = normalizeWhitespace(value);
   if (!normalized) {
@@ -196,11 +344,15 @@ function stripVisibleTextInstructions(value) {
   if (filtered.length > 0) {
     return filtered.join(' ');
   }
-  return normalized
+  const stripped = normalized
     .replace(/\b(?:central|centered|bold)?\s*title\s*:?\s*['"“][^'"”]+['"”]\.?/iu, '')
     .replace(/\btext overlay\b/giu, '')
     .replace(/\s+/g, ' ')
     .trim();
+  if (!stripped || VISIBLE_TEXT_PROMPT_PATTERNS.some((pattern) => pattern.test(stripped))) {
+    return TEXT_FREE_VISUAL_FALLBACK;
+  }
+  return stripped;
 }
 
 function buildFaceImageTitleFallback(title) {
@@ -228,20 +380,19 @@ function normalizeFaceImageTitle(value, fallbackTitle) {
   return words.slice(0, 5).join(' ');
 }
 
-function normalizeTimedScenes(scenes, fieldName, { title = '' } = {}) {
+function normalizeTimedScenes(scenes, fieldName, { title = '', reelType = 'video' } = {}) {
   if (!Array.isArray(scenes) || scenes.length < 4 || scenes.length > 8) {
     fail(`${fieldName} must contain 4 to 8 scenes.`);
   }
   return scenes.map((scene, index) => {
-    const rawAssetType = String(scene?.asset_type ?? '').trim().toLowerCase();
     const isFirstScene = index === 0;
     const rawDurationSeconds = roundToHundredths(Number(scene?.duration_seconds ?? 0));
     const durationSeconds = isFirstScene
       ? roundToHundredths(Math.min(rawDurationSeconds, 4))
       : rawDurationSeconds;
-    const normalizedAssetType = isFirstScene
-      ? 'image'
-      : (rawAssetType === 'video' ? 'video' : 'video');
+    const assetPlan = normalizeAssetPlan({ ...scene, duration_seconds: durationSeconds }, index, { reelType });
+    const remotion = normalizeRemotionGuidance(scene, index, assetPlan);
+    const normalizedAssetType = assetPlan.mode === 'video' ? 'video' : 'image';
     const normalized = {
       scene_number: Number(scene?.scene_number ?? index + 1),
       duration_seconds: durationSeconds,
@@ -250,6 +401,8 @@ function normalizeTimedScenes(scenes, fieldName, { title = '' } = {}) {
         ? scene.dialogue_lines.map((line) => String(line ?? '').trim()).filter(Boolean)
         : [String(scene?.narration_text ?? '').trim()].filter(Boolean),
       asset_type: normalizedAssetType,
+      asset_plan: assetPlan,
+      remotion,
       music_cue: String(scene?.music_cue ?? '').trim(),
       includes_primary_character: scene?.includes_primary_character === true,
     };
@@ -257,7 +410,7 @@ function normalizeTimedScenes(scenes, fieldName, { title = '' } = {}) {
       normalized.beat_label = String(scene?.beat_label ?? '').trim();
       normalized.start_time_seconds = roundToHundredths(Number(scene?.start_time_seconds ?? 0));
       normalized.end_time_seconds = roundToHundredths(Number(scene?.end_time_seconds ?? 0));
-      normalized.image_prompt = String(scene?.image_prompt ?? '').trim();
+      normalized.image_prompt = stripVisibleTextInstructions(String(scene?.image_prompt ?? '').trim());
       normalized.tts_instructions = String(scene?.tts_instructions ?? '').trim() || buildDefaultTtsInstructions(scene);
       normalized.scene_purpose = String(scene?.scene_purpose ?? '').trim();
       normalized.visual_beat = String(scene?.visual_beat ?? '').trim();
@@ -267,7 +420,7 @@ function normalizeTimedScenes(scenes, fieldName, { title = '' } = {}) {
       normalized.transition = String(scene?.transition ?? '').trim();
       normalized.mood = String(scene?.mood ?? '').trim();
       normalized.tts_instructions = String(scene?.tts_instructions ?? '').trim() || buildDefaultTtsInstructions(scene);
-      normalized.is_face_image = isFirstScene || scene?.is_face_image === true;
+      normalized.is_face_image = reelType === 'image' && (isFirstScene || scene?.is_face_image === true);
       normalized.face_image_title = isFirstScene
         ? normalizeFaceImageTitle(String(scene?.face_image_title ?? '').trim(), title)
         : '';
@@ -344,6 +497,7 @@ async function main() {
           ci.content_id,
           ci.title,
           ci.category,
+          ci.reel_type,
           ci.confidence_label,
           ci.target_duration_seconds,
           ci.source_payload_json,
@@ -381,6 +535,7 @@ async function main() {
     const confidenceLabel = String(item.confidence_label || 'unverified').trim() || 'unverified';
     const targetDurationSeconds = Number(item.target_duration_seconds || 45);
     const sourcePayload = item.source_payload_json && typeof item.source_payload_json === 'object' ? item.source_payload_json : {};
+    const reelType = normalizeReelType(item.reel_type || sourcePayload.reel_type || process.env.DEFAULT_REEL_TYPE || 'video');
     const clientAccountContext = plainObject(item.client_account_context);
     const brandPolicy = plainObject(clientAccountContext.brand_policy);
     const stylePolicy = plainObject(clientAccountContext.style_policy);
@@ -400,6 +555,10 @@ async function main() {
         category,
         confidence_context: `Current stored confidence label: ${confidenceLabel}. Preserve or lower certainty unless the source notes clearly support a stronger confidence label.`,
         source_notes: sourceNotes,
+        reel_type: reelType,
+        asset_generation_mode: reelType === 'video'
+          ? 'Video Reel: generate provider video directly for every storyboard scene. Do not plan an image-first reel. Remotion should still handle final pacing, overlays, title, and scene transitions.'
+          : 'Image Reel: generate still scene assets and use Remotion for camera moves, pan/zoom, overlays, pacing, and transitions. Default scenes to image_with_motion unless a scene should remain static.',
         target_duration_seconds: String(targetDurationSeconds),
         client_account_context: clientAccountContext,
         client_account_context_json: Object.keys(clientAccountContext).length > 0 ? JSON.stringify(clientAccountContext, null, 2) : '{}',
@@ -420,6 +579,7 @@ async function main() {
         title,
         targetDurationSeconds,
         confidenceLabel,
+        reelType,
       })
       : (rawResponse ?? {});
     const requiredTextFields = ['confidence_label', 'hook_option_1', 'hook_option_2', 'hook_option_3', 'selected_hook', 'narration_script', 'short_script', 'caption_draft', 'cta_line', 'music_direction'];
@@ -429,11 +589,11 @@ async function main() {
       }
     }
     const onscreenTextJson = normalizeSubtitleLines(response.onscreen_text_json);
-    const sceneGuidanceJson = normalizeTimedScenes(response.scene_guidance_json, 'scene_guidance_json', { title });
-    const storyboardJson = normalizeTimedScenes(response.storyboard_json, 'storyboard_json', { title });
+    const sceneGuidanceJson = normalizeTimedScenes(response.scene_guidance_json, 'scene_guidance_json', { title, reelType });
+    const storyboardJson = normalizeTimedScenes(response.storyboard_json, 'storyboard_json', { title, reelType });
     if (storyboardJson[0]) {
-      storyboardJson[0].is_face_image = true;
-      storyboardJson[0].asset_type = 'image';
+      storyboardJson[0].is_face_image = reelType === 'image';
+      storyboardJson[0].asset_type = storyboardJson[0].asset_plan.mode === 'video' ? 'video' : 'image';
       storyboardJson[0].duration_seconds = roundToHundredths(Math.min(Number(storyboardJson[0].duration_seconds || 0), 4));
       storyboardJson[0].face_image_title = normalizeFaceImageTitle(
         String(storyboardJson[0].face_image_title || '').trim(),
@@ -444,7 +604,7 @@ async function main() {
     for (const scene of storyboardJson.slice(1)) {
       scene.is_face_image = false;
       scene.face_image_title = '';
-      scene.asset_type = 'video';
+      scene.asset_type = scene.asset_plan.mode === 'video' ? 'video' : 'image';
     }
     validateScenes(sceneGuidanceJson, storyboardJson, targetDurationSeconds);
     const subtitleLinesJson = normalizeSubtitleLines(response.subtitle_lines_json);
@@ -454,6 +614,8 @@ async function main() {
       scene_number: scene.scene_number,
       duration_seconds: scene.duration_seconds,
       asset_type: scene.asset_type,
+      asset_plan: scene.asset_plan,
+      remotion: scene.remotion,
       transition: String(scene.transition || 'cut').trim() || 'cut',
     }));
     if (!renderManifestSeedJson.output || !Array.isArray(renderManifestSeedJson.timeline)) {
@@ -532,7 +694,7 @@ async function main() {
     `, [
       contentId,
       JSON.stringify(storyboardJson),
-      String(response.cover_prompt || '').trim(),
+      stripVisibleTextInstructions(String(response.cover_prompt || '').trim()),
       JSON.stringify(subtitleLinesJson),
       `${String(response.style_notes || '').trim()}\n\nVisual style summary: ${String(response.visual_style_summary || '').trim()}\nModel: ${String(result.generation_model || '').trim()}\n\nRaw story package: ${JSON.stringify(storyboardRaw)}`,
       JSON.stringify(renderManifestSeedJson),

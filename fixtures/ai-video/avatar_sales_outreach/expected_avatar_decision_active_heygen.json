@@ -1,0 +1,211 @@
+{
+  "avatar_decision_version": "1.1",
+  "source_stage": "avatar_presenter_selector",
+  "scenario_id": "avatar_sales_outreach_active_heygen",
+  "created_at": "2026-06-27T00:00:00.000Z",
+  "package_type": "instagram_reel",
+  "selected_style_pack": "avatar_sales_outreach",
+  "effective_reel_type": "avatar",
+  "provider_calls_allowed": true,
+  "disclosure_required": true,
+  "presenter_direction": {
+    "script_handling": "Use the existing narration script exactly; do not add spoken disclosure or stage directions.",
+    "camera_direction": "Vertical medium close-up, eyes near upper third, caption-safe lower third.",
+    "delivery_notes": "Warm, practical, human, low-pressure, with light empathy on the prospect pain point.",
+    "pacing_notes": "Natural short pauses between beats; do not rush the CTA.",
+    "emotion_notes": "Helpful confidence without hype.",
+    "disclosure_notes": "Disclosure belongs in caption/final QA metadata, not the spoken script.",
+    "safety_notes": "Do not imply the presenter is a real employee, customer, or prospect."
+  },
+  "delivery_tone": "warm, grounded, direct, respectful",
+  "framing": "9:16 medium close-up with stable eye contact and room for renderer-owned captions.",
+  "gesture_policy": "Use restrained natural hand gestures only; avoid pointing, exaggerated sales gestures, or testimonial-like emphasis.",
+  "motion_prompt": "Subtle natural head movement, calm eye contact, slight expression changes aligned to the narration.",
+  "background_policy": "Simple neutral studio-style background with no readable signage, private documents, or implied real office location.",
+  "caption_policy": "Provider captions disabled; renderer/caption stages own subtitles and disclosure metadata.",
+  "provider_request_options": {
+    "aspect_ratio": "9:16",
+    "resolution": "1080p",
+    "fit": "cover",
+    "caption": false,
+    "voice_settings": {
+      "speed": 1,
+      "emotion": "friendly"
+    },
+    "motion_prompt": "Subtle natural presenter motion with calm eye contact.",
+    "expressiveness": 0.45,
+    "engine": "default"
+  },
+  "decision_summary": {
+    "decision_status": "use_synthetic_avatar",
+    "avatar_route_enabled": true,
+    "provider_calls_allowed": true,
+    "publish_route_allowed": false,
+    "requires_human_review": true,
+    "requires_final_qa": true,
+    "rationale": "Synthetic presenter use is allowed because account policy permits avatar mode, consent/disclosure metadata is present, and provider avatar/voice IDs are configured for runtime generation."
+  },
+  "inputs": {
+    "client_account_context_key": "avatar_sales_outreach_fixture",
+    "avatar_policy_snapshot": {
+      "avatar_allowed": true,
+      "requires_consent": true,
+      "default_avatar_mode": "synthetic",
+      "consent_record_uri": "internal://consent/avatar-sales-outreach-active-001",
+      "disallowed_uses": [
+        "customer testimonial",
+        "real employee endorsement",
+        "prospect-specific likeness"
+      ]
+    },
+    "director_avatar_request": {
+      "avatar_requested": true,
+      "request_type": "synthetic_presenter",
+      "disclosure_required": true,
+      "notes": "Use a transparent synthetic presenter for the full Reel if provider configuration is present."
+    },
+    "character_reference_attached": false,
+    "presenter_inventory_source": "runtime_provider_inventory",
+    "constraints": [
+      "Provider call is allowed only for asset generation.",
+      "Disclosure is required outside the spoken script.",
+      "Final QA and Studio approval remain required."
+    ]
+  },
+  "presenter_profile": {
+    "presenter_profile_version": "1.0",
+    "source_stage": "avatar_presenter_selector",
+    "presenter_profile_id": "presenter_avatar_sales_runtime_001",
+    "display_name": "Transparent Synthetic Sales Presenter",
+    "profile_type": "synthetic_persona",
+    "description": "Synthetic presenter profile for low-pressure sales education. It must never be framed as a real employee, prospect, or customer.",
+    "consent": {
+      "consent_status": "granted",
+      "consent_record_uri": "internal://consent/avatar-sales-outreach-active-001",
+      "allowed_use_cases": [
+        "instagram_reel",
+        "synthetic presenter disclosure examples",
+        "low-pressure sales follow-up education"
+      ],
+      "disallowed_use_cases": [
+        "customer testimonial",
+        "real employee endorsement",
+        "prospect-specific likeness"
+      ],
+      "usage_restrictions": [
+        "Must disclose synthetic presenter use.",
+        "Must remain synthetic and non-identifying.",
+        "Must pass final QA before publish approval."
+      ],
+      "expires_at": null,
+      "verified_at": "2026-06-27T00:00:00.000Z",
+      "verification_notes": "Synthetic presenter profile is internally approved for this fixture."
+    },
+    "likeness_policy": {
+      "uses_real_person_likeness": false,
+      "uses_voice_clone": false,
+      "implied_endorsement_allowed": false,
+      "requires_disclosure": true,
+      "restricted_subjects": [
+        "real customers",
+        "real employees",
+        "prospects",
+        "celebrities"
+      ]
+    },
+    "provider_identity": {
+      "provider_name": "heygen",
+      "provider_avatar_id": "heygen-avatar-sales-presenter-v1",
+      "provider_voice_id": "heygen-voice-sales-presenter-v1",
+      "provider_config_status": "approved_for_future_runtime",
+      "provider_account_required_now": true
+    },
+    "disclosure_policy": {
+      "disclosure_required": true,
+      "disclosure_text": "Synthetic presenter used for demonstration.",
+      "placement": [
+        "caption",
+        "onscreen_overlay",
+        "approval_note"
+      ]
+    },
+    "asset_route_policy": {
+      "output_route": "asset_generation",
+      "publish_route": false,
+      "final_qa_required": true
+    },
+    "notes": "Provider IDs are non-secret fixture identifiers and must match runtime provider inventory before any live call."
+  },
+  "consent_evaluation": {
+    "consent_gate": "pass",
+    "consent_status": "granted",
+    "consent_record_uri": "internal://consent/avatar-sales-outreach-active-001",
+    "allowed_use_cases_checked": [
+      "instagram_reel",
+      "synthetic presenter disclosure examples"
+    ],
+    "disallowed_use_cases_checked": [
+      "customer testimonial",
+      "real employee endorsement"
+    ],
+    "usage_restrictions_checked": [
+      "Must disclose synthetic presenter use.",
+      "Must pass final QA before publish approval."
+    ],
+    "provider_identity_checked": true,
+    "blocks_avatar_route": false,
+    "evidence": "Consent metadata, usage restrictions, disclosure text, and HeyGen provider IDs are present."
+  },
+  "selected_route": {
+    "route_type": "synthetic_avatar_asset",
+    "asset_role": "avatar_video_asset",
+    "output_route": "asset_generation",
+    "publish_route": false,
+    "provider_name": "heygen",
+    "provider_avatar_id": "heygen-avatar-sales-presenter-v1",
+    "provider_voice_id": "heygen-voice-sales-presenter-v1",
+    "disclosure_required": true,
+    "disclosure_text": "Synthetic presenter used for demonstration.",
+    "handoff_notes": [
+      "Generate an avatar video asset only after runtime revalidates consent and provider config.",
+      "Do not publish until final QA passes and Studio approval is recorded."
+    ]
+  },
+  "fallback_plan": {
+    "active": true,
+    "fallback_route_type": "non_avatar_visuals",
+    "reason": "If consent, disclosure, provider identity, or provider configuration fails at runtime, auto-downgrade to the normal video reel path.",
+    "visual_direction": "Use provider-generated scene videos with the existing narration and no avatar presenter."
+  },
+  "quality_gates": [
+    {
+      "gate_id": "avatar-consent-present",
+      "status": "pass",
+      "blocks_avatar_route": true,
+      "blocks_publish": true,
+      "evidence": "Consent record URI and usage restrictions are present."
+    },
+    {
+      "gate_id": "avatar-provider-identity-present",
+      "status": "pass",
+      "blocks_avatar_route": true,
+      "blocks_publish": false,
+      "evidence": "HeyGen avatar and voice IDs are present."
+    },
+    {
+      "gate_id": "avatar-final-qa-required",
+      "status": "pass",
+      "blocks_avatar_route": false,
+      "blocks_publish": true,
+      "evidence": "Final QA must re-check disclosure and consent before approval."
+    }
+  ],
+  "implementation_notes": {
+    "provider_calls_added": true,
+    "dependencies_added": false,
+    "runtime_behavior_changed": true,
+    "publish_behavior_changed": false,
+    "studio_ui_changes_required": false,
+    "notes": "Active avatar runtime may call HeyGen for asset generation only; publish safety is unchanged."
+  }
+}

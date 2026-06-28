@@ -1,0 +1,170 @@
+{
+  "avatar_decision_version": "1.1",
+  "source_stage": "avatar_presenter_selector",
+  "scenario_id": "avatar_sales_outreach_character_reference_as_consent",
+  "created_at": "2026-06-27T00:00:00.000Z",
+  "package_type": "instagram_reel",
+  "selected_style_pack": "avatar_sales_outreach",
+  "effective_reel_type": "avatar",
+  "provider_calls_allowed": true,
+  "disclosure_required": true,
+  "presenter_direction": {
+    "script_handling": "Invalid fixture: uses the uploaded reference as consent.",
+    "camera_direction": "Vertical medium close-up.",
+    "delivery_notes": "Warm delivery.",
+    "pacing_notes": "Natural pacing.",
+    "emotion_notes": "Helpful tone.",
+    "disclosure_notes": "Disclosure in caption.",
+    "safety_notes": "Invalid consent source."
+  },
+  "delivery_tone": "warm",
+  "framing": "9:16 medium close-up.",
+  "gesture_policy": "Limited gestures.",
+  "motion_prompt": "Subtle motion.",
+  "background_policy": "Neutral background.",
+  "caption_policy": "Provider captions disabled.",
+  "provider_request_options": {
+    "aspect_ratio": "9:16",
+    "caption": false
+  },
+  "decision_summary": {
+    "decision_status": "use_consent_approved_avatar",
+    "avatar_route_enabled": true,
+    "provider_calls_allowed": true,
+    "publish_route_allowed": false,
+    "requires_human_review": false,
+    "requires_final_qa": true,
+    "rationale": "Invalid fixture incorrectly treats an uploaded character reference as consent evidence."
+  },
+  "inputs": {
+    "client_account_context_key": "avatar_sales_outreach_fixture",
+    "avatar_policy_snapshot": {
+      "avatar_allowed": true,
+      "requires_consent": true,
+      "default_avatar_mode": "real_person_with_consent",
+      "consent_record_uri": "uploaded://character_reference/reference-face.png",
+      "disallowed_uses": [
+        "real-person likeness without consent metadata"
+      ]
+    },
+    "director_avatar_request": {
+      "avatar_requested": true,
+      "request_type": "real_person_likeness",
+      "disclosure_required": true,
+      "notes": "Invalid route treats uploaded character reference as consent."
+    },
+    "character_reference_attached": true,
+    "presenter_inventory_source": "uploaded_character_reference",
+    "constraints": [
+      "This invalid fixture should fail validation."
+    ]
+  },
+  "presenter_profile": {
+    "presenter_profile_version": "1.0",
+    "source_stage": "avatar_presenter_selector",
+    "presenter_profile_id": "presenter_character_reference_invalid",
+    "display_name": "Uploaded Reference Person",
+    "profile_type": "real_person_with_consent",
+    "description": "Invalid presenter profile that treats an uploaded reference as consent.",
+    "consent": {
+      "consent_status": "granted",
+      "consent_record_uri": "uploaded://character_reference/reference-face.png",
+      "allowed_use_cases": [
+        "instagram_reel"
+      ],
+      "disallowed_use_cases": [
+        "unverified likeness use"
+      ],
+      "usage_restrictions": [
+        "Invalid uploaded character reference is not consent."
+      ],
+      "expires_at": null,
+      "verified_at": "2026-06-27T00:00:00.000Z",
+      "verification_notes": "Invalid: verification relies on uploaded character reference only."
+    },
+    "likeness_policy": {
+      "uses_real_person_likeness": true,
+      "uses_voice_clone": false,
+      "implied_endorsement_allowed": false,
+      "requires_disclosure": true,
+      "restricted_subjects": [
+        "real employees",
+        "customers"
+      ]
+    },
+    "provider_identity": {
+      "provider_name": "heygen",
+      "provider_avatar_id": "heygen-avatar-uploaded-reference",
+      "provider_voice_id": "heygen-voice-uploaded-reference",
+      "provider_config_status": "approved_for_future_runtime",
+      "provider_account_required_now": true
+    },
+    "disclosure_policy": {
+      "disclosure_required": true,
+      "disclosure_text": "Synthetic presenter used for demonstration.",
+      "placement": [
+        "caption"
+      ]
+    },
+    "asset_route_policy": {
+      "output_route": "asset_generation",
+      "publish_route": false,
+      "final_qa_required": true
+    },
+    "notes": "Invalid fixture for character-reference consent validation."
+  },
+  "consent_evaluation": {
+    "consent_gate": "pass",
+    "consent_status": "granted",
+    "consent_record_uri": "uploaded://character_reference/reference-face.png",
+    "allowed_use_cases_checked": [
+      "instagram_reel"
+    ],
+    "disallowed_use_cases_checked": [
+      "unverified likeness use"
+    ],
+    "usage_restrictions_checked": [
+      "Invalid uploaded character reference is not consent."
+    ],
+    "provider_identity_checked": true,
+    "blocks_avatar_route": false,
+    "evidence": "Invalid evidence: uploaded character reference was treated as a consent record."
+  },
+  "selected_route": {
+    "route_type": "real_person_avatar_asset",
+    "asset_role": "avatar_video_asset",
+    "output_route": "asset_generation",
+    "publish_route": false,
+    "provider_name": "heygen",
+    "provider_avatar_id": "heygen-avatar-uploaded-reference",
+    "provider_voice_id": "heygen-voice-uploaded-reference",
+    "disclosure_required": true,
+    "disclosure_text": "Synthetic presenter used for demonstration.",
+    "handoff_notes": [
+      "This invalid route should fail validation."
+    ]
+  },
+  "fallback_plan": {
+    "active": true,
+    "fallback_route_type": "non_avatar_visuals",
+    "reason": "Should have fallen back because uploaded character references are not consent.",
+    "visual_direction": "Fallback should use non-avatar visuals."
+  },
+  "quality_gates": [
+    {
+      "gate_id": "avatar-consent-present",
+      "status": "pass",
+      "blocks_avatar_route": true,
+      "blocks_publish": true,
+      "evidence": "Invalid gate incorrectly accepts character reference consent."
+    }
+  ],
+  "implementation_notes": {
+    "provider_calls_added": true,
+    "dependencies_added": false,
+    "runtime_behavior_changed": true,
+    "publish_behavior_changed": false,
+    "studio_ui_changes_required": false,
+    "notes": "Invalid fixture should fail before runtime."
+  }
+}

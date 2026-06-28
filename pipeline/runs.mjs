@@ -1,5 +1,10 @@
 import { ensurePipelineSchema } from './schema.mjs';
 import { withClient, withTransaction } from './db.mjs';
+import {
+  createInitialIdeaReview,
+  maybeCreateReviewForCompletedStep,
+} from './reviews.mjs';
+import { firstEnv } from '../workflows/scripts/adapter_config.mjs';
 
 export const REEL_TYPES = Object.freeze(['image', 'video', 'avatar']);
 
@@ -13,7 +18,11 @@ export const PIPELINE_STAGE_PLANS = Object.freeze({
   generate_reel: Object.freeze({
     image: Object.freeze([
       'story_package_generation',
+      'story_package_quality_gate',
+      'director_contract',
+      'visual_prompt_builder',
       'image_asset_generation',
+      'voice_performance_script',
       'narration_generation',
       'remotion_manifest',
       'remotion_render',
@@ -22,7 +31,11 @@ export const PIPELINE_STAGE_PLANS = Object.freeze({
     ]),
     video: Object.freeze([
       'story_package_generation',
+      'story_package_quality_gate',
+      'director_contract',
+      'visual_prompt_builder',
       'asset_generation_v3',
+      'voice_performance_script',
       'narration_generation',
       'remotion_manifest',
       'remotion_render',
@@ -31,8 +44,11 @@ export const PIPELINE_STAGE_PLANS = Object.freeze({
     ]),
     avatar: Object.freeze([
       'story_package_generation',
-      'avatar_consent_gate',
-      'heygen_avatar_generation',
+      'story_package_quality_gate',
+      'director_contract',
+      'visual_prompt_builder',
+      'avatar_presenter_selector',
+      'avatar_media_generation',
       'remotion_manifest',
       'remotion_render',
       'caption_and_hashtags',
@@ -42,16 +58,21 @@ export const PIPELINE_STAGE_PLANS = Object.freeze({
   publish_approved_reel: Object.freeze([
     'instagram_reel_publish',
   ]),
+  analyze_performance: Object.freeze([
+    'performance_feedback_analysis',
+  ]),
 });
 
 export const PIPELINE_ACTIONS = Object.freeze({
   generate_reel: PIPELINE_STAGE_PLANS.generate_reel.video,
   publish_approved_reel: PIPELINE_STAGE_PLANS.publish_approved_reel,
+  analyze_performance: PIPELINE_STAGE_PLANS.analyze_performance,
 });
 
 export const PIPELINE_ACTION_LABELS = Object.freeze({
   generate_reel: 'Generate Reel To Approval',
   publish_approved_reel: 'Publish Approved Reel',
+  analyze_performance: 'Analyze Performance Feedback',
 });
 
 function normalizeAction(value) {
@@ -77,7 +98,7 @@ export function normalizeReelType(value, { fallback = 'video' } = {}) {
 }
 
 export function getDefaultReelType() {
-  return normalizeReelType(process.env.DEFAULT_REEL_TYPE, { fallback: 'video' });
+  return normalizeReelType(firstEnv(['DEFAULT_REEL_TYPE']), { fallback: 'video' });
 }
 
 export function getPipelineStagesForAction(actionValue, { reelType } = {}) {
@@ -137,6 +158,7 @@ export async function createPipelineRun(pool, {
   reelType = null,
   source = 'studio_api',
   requestedBy = '',
+  reviewMode = false,
 } = {}) {
   const normalizedContentId = normalizeUuid(contentId);
   const action = normalizeAction(requestedAction);
@@ -145,7 +167,7 @@ export async function createPipelineRun(pool, {
     await ensurePipelineSchema(client);
 
     const contentResult = await client.query(
-      'select content_id, title, status, reel_type from content_items where content_id = $1 for update',
+      'select content_id, title, status, reel_type, source_payload_json from content_items where content_id = $1 for update',
       [normalizedContentId],
     );
     if (contentResult.rowCount === 0) {
@@ -161,7 +183,7 @@ export async function createPipelineRun(pool, {
       from pipeline_runs
       where content_id = $1
         and requested_action = $2
-        and status in ('queued', 'running')
+        and status in ('queued', 'running', 'awaiting_review')
       order by created_at desc
       limit 1`,
       [normalizedContentId, action],
@@ -204,6 +226,7 @@ export async function createPipelineRun(pool, {
         JSON.stringify({
           source,
           requested_by: requestedBy,
+          review_mode: Boolean(reviewMode),
           reel_type: normalizedReelType,
           content_title: String(contentResult.rows[0].title || '').trim(),
           content_status_at_enqueue: String(contentResult.rows[0].status || '').trim(),
@@ -230,8 +253,34 @@ export async function createPipelineRun(pool, {
       contentId: normalizedContentId,
       eventType: 'run_queued',
       message: `Queued ${PIPELINE_ACTION_LABELS[action] || action}.`,
-      details: { requested_action: action, reel_type: normalizedReelType, stage_plan: stages },
+      details: { requested_action: action, reel_type: normalizedReelType, stage_plan: stages, review_mode: Boolean(reviewMode) },
     });
+
+    if (action === 'generate_reel' && reviewMode) {
+      const review = await createInitialIdeaReview(client, {
+        pipelineRunId: run.pipeline_run_id,
+        contentId: normalizedContentId,
+      });
+      await client.query(
+        `update pipeline_runs
+        set status = 'awaiting_review',
+            current_stage = 'review:idea_ingest',
+            locked_by = null,
+            locked_at = null,
+            updated_at = now()
+        where pipeline_run_id = $1`,
+        [run.pipeline_run_id],
+      );
+      await recordPipelineEvent(client, {
+        pipelineRunId: run.pipeline_run_id,
+        contentId: normalizedContentId,
+        eventType: 'run_paused_for_review',
+        eventLevel: 'warning',
+        stageKey: 'idea_ingest',
+        message: 'Pipeline is waiting for idea review before story package generation.',
+        details: { review_id: review?.review_id ?? null },
+      });
+    }
 
     return getPipelineRunById(client, run.pipeline_run_id, { includeEvents: true });
   });
@@ -240,6 +289,7 @@ export async function createPipelineRun(pool, {
 export async function getPipelineRunById(clientOrPool, pipelineRunId, { includeEvents = true, existing = false } = {}) {
   const normalizedRunId = normalizeUuid(pipelineRunId, 'pipeline_run_id');
   const runQuery = async (client) => {
+    await ensurePipelineSchema(client);
     const runResult = await client.query(
       `select
         pr.*,
@@ -275,14 +325,26 @@ export async function getPipelineRunById(clientOrPool, pipelineRunId, { includeE
       )
       : { rows: [] };
 
+    const reviewsResult = await client.query(
+      `select *
+      from pipeline_reviews
+      where pipeline_run_id = $1
+      order by created_at asc`,
+      [normalizedRunId],
+    );
+
     return {
       existing,
       ...runResult.rows[0],
       steps: stepsResult.rows,
+      reviews: reviewsResult.rows,
       events: eventsResult.rows.reverse(),
     };
   };
 
+  if (typeof clientOrPool.release === 'function') {
+    return runQuery(clientOrPool);
+  }
   if (typeof clientOrPool.connect === 'function') {
     return withClient(clientOrPool, runQuery);
   }
@@ -450,6 +512,31 @@ export async function completePipelineStep(pool, step, outputSummary = {}) {
       message: `Completed ${step.stage_key}.`,
       details: { duration_ms: durationMs, output: outputSummary },
     });
+
+    const review = await maybeCreateReviewForCompletedStep(client, step, outputSummary);
+    if (review) {
+      await client.query(
+        `update pipeline_runs
+        set status = 'awaiting_review',
+            current_stage = $2,
+            locked_by = null,
+            locked_at = null,
+            updated_at = now()
+        where pipeline_run_id = $1`,
+        [step.pipeline_run_id, `review:${step.stage_key}`],
+      );
+      await recordPipelineEvent(client, {
+        pipelineRunId: step.pipeline_run_id,
+        pipelineStepId: step.pipeline_step_id,
+        contentId: step.content_id,
+        eventType: 'run_paused_for_review',
+        eventLevel: 'warning',
+        stageKey: step.stage_key,
+        message: `Pipeline is waiting for review after ${step.stage_key}.`,
+        details: { review_id: review.review_id, review_kind: review.review_kind },
+      });
+      return { terminal: false, status: 'awaiting_review', review_id: review.review_id };
+    }
 
     const pending = await client.query(
       `select count(*)::int as count

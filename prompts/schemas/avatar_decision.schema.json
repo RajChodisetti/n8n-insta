@@ -20,7 +20,7 @@
   "properties": {
     "avatar_decision_version": {
       "type": "string",
-      "enum": ["1.0"]
+      "enum": ["1.0", "1.1"]
     },
     "source_stage": {
       "type": "string",
@@ -41,6 +41,174 @@
     "selected_style_pack": {
       "type": "string",
       "minLength": 1
+    },
+    "effective_reel_type": {
+      "type": "string",
+      "enum": ["avatar", "video"]
+    },
+    "provider_calls_allowed": {
+      "type": "boolean"
+    },
+    "disclosure_required": {
+      "type": "boolean"
+    },
+    "presenter_direction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "script_handling": {
+          "type": "string",
+          "minLength": 1
+        },
+        "camera_direction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "delivery_notes": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pacing_notes": {
+          "type": "string",
+          "minLength": 1
+        },
+        "emotion_notes": {
+          "type": "string",
+          "minLength": 1
+        },
+        "disclosure_notes": {
+          "type": "string",
+          "minLength": 1
+        },
+        "safety_notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "delivery_tone": {
+      "type": "string",
+      "minLength": 1
+    },
+    "framing": {
+      "type": "string",
+      "minLength": 1
+    },
+    "gesture_policy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "motion_prompt": {
+      "type": "string",
+      "minLength": 1
+    },
+    "background_policy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "caption_policy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provider_request_options": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "aspect_ratio": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resolution": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "background": {
+          "type": ["string", "object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "minLength": 1
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1
+            },
+            "color": {
+              "type": "string",
+              "minLength": 1
+            },
+            "image_url": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "caption": {
+          "type": ["boolean", "object"],
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "style": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "captions": {
+          "type": ["boolean", "object"],
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "style": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "output_format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "voice_settings": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "speed": {
+              "type": ["number", "string"]
+            },
+            "pitch": {
+              "type": ["number", "string"]
+            },
+            "emotion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "stability": {
+              "type": ["number", "string"]
+            }
+          }
+        },
+        "motion_prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expressiveness": {
+          "type": ["number", "string"]
+        },
+        "engine": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     },
     "decision_summary": {
       "type": "object",
@@ -63,8 +231,7 @@
           "type": "boolean"
         },
         "provider_calls_allowed": {
-          "type": "boolean",
-          "enum": [false]
+          "type": "boolean"
         },
         "publish_route_allowed": {
           "type": "boolean",
@@ -350,16 +517,14 @@
       ],
       "properties": {
         "provider_calls_added": {
-          "type": "boolean",
-          "enum": [false]
+          "type": "boolean"
         },
         "dependencies_added": {
           "type": "boolean",
           "enum": [false]
         },
         "runtime_behavior_changed": {
-          "type": "boolean",
-          "enum": [false]
+          "type": "boolean"
         },
         "publish_behavior_changed": {
           "type": "boolean",

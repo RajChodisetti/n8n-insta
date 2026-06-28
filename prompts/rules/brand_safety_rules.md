@@ -1,27 +1,27 @@
 # Brand Safety Rules
 
-Use for stages that create story facts, captions, visual plans, or publish-facing copy.
+Use for any stage that creates public-facing facts, story copy, captions, visual plans, or publish packages.
 
 ## Blocking
 
-- Do not invent facts, quotes, names, locations, dates, motives, outcomes, product claims, metrics, endorsements, or source URLs that are not supported by the input payload.
-- For harm, abuse, violence, coercion, victim testimony, or similar sensitive topics, keep wording and imagery trauma-informed, non-graphic, non-sexualized, and non-sensational.
+- Do not invent facts, quotes, names, dates, places, claims, metrics, endorsements, outcomes, or source URLs not present in the input.
+- Do not turn uncertainty into certainty.
+- Sensitive topics must stay non-graphic, non-exploitative, non-sexualized, and trauma-informed.
+- Do not publish or approve content that includes unsupported legal, medical, financial, political, or product-performance claims.
 
 ## Must
 
-- Keep current pipeline outputs in English unless a later architecture change explicitly adds multilingual support.
-- Avoid spammy, deceptive, guaranteed-result, clickbait, or false-scarcity language.
-- Preserve factual uncertainty when source notes are incomplete or contested.
+- Keep current pipeline outputs in English unless an explicit architecture change adds multilingual support.
+- Separate factual claims from creative framing.
+- Preserve missing-context warnings for downstream QA.
+- Avoid spam, fake urgency, deceptive hooks, or guaranteed-result language.
 
 ## Should
 
-- Make hooks strong without making claims the payload cannot support.
-- Prefer concrete, useful framing over generic hype.
+- Prefer concrete, credible, mobile-native writing.
+- Keep hooks strong without exaggerating proof.
+- Let client/account context shape tone only inside global safety boundaries.
 
 ## Preference
 
-- Default to concise, credible, mobile-native language.
-
-## Notes
-
-Client-specific tone, risk tolerance, and taste belong in client/account profiles or style packs, not this global safety file.
+- Default to concise, useful, human language over hype.

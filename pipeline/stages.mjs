@@ -3,6 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { withTransaction } from './db.mjs';
 import { uploadBinaryAsset } from '../workflows/scripts/asset_host_adapters.mjs';
+import { firstEnv } from '../workflows/scripts/adapter_config.mjs';
+import { invokeStructuredTextStage } from '../workflows/scripts/invoke_structured_text_adapter.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -132,6 +134,1023 @@ async function runStoryPackageGeneration({ pool, step }) {
   );
 }
 
+const STORY_SCENE_COUNT_MIN = 4;
+const STORY_SCENE_COUNT_MAX = 8;
+const STRONG_VISUAL_PROMPT_MIN_WORDS = 12;
+const GENERIC_STORY_PROMPT_PATTERNS = [
+  /\bsymbolic (image|scene|representation)\b/i,
+  /\babstract (image|scene|visual|representation)\b/i,
+  /\bmysterious (figure|silhouette|person)\b/i,
+  /\bdark moody (scene|background|atmosphere)\b/i,
+  /\bdramatic (background|atmosphere)\b/i,
+  /\bpeople in (the )?shadows\b/i,
+  /\batmospheric background\b/i,
+  /\bominous vibe\b/i,
+  /\bgeneric mood\b/i,
+];
+const VISIBLE_TEXT_RISK_PATTERNS = [
+  /\b(with|showing|featuring|displaying|include|including|add|adding)\s+(?:a\s+)?(?:readable\s+)?(?:title|text|label|logo|sign|caption|subtitle|headline|watermark)\b/i,
+  /\b(title text|text overlay|words on screen|readable headline|newspaper headline|labeled map|map labels|UI text|speech bubble)\b/i,
+];
+const TEXT_POLICY_NEGATION_PATTERN = /\b(no|without|avoid|exclude|free of|text[- ]free|do not include|must not include|absolutely no)\b.{0,80}\b(readable text|visible text|text|subtitles?|captions?|logos?|labels?|watermarks?|signage|typography)\b/i;
+const QUALITY_ASSET_PLAN_MODES = new Set(['image', 'video', 'image_with_motion']);
+const QUALITY_MOTION_REQUIREMENTS = new Set(['low', 'medium', 'high']);
+const QUALITY_CAMERA_MOVES = new Set(['push_in', 'pull_out', 'pan_left', 'pan_right', 'tilt_up', 'tilt_down', 'drift', 'hold']);
+const QUALITY_PAN_ZOOM_DIRECTIONS = new Set(['center_push', 'center_pull', 'left_to_right', 'right_to_left', 'bottom_to_top', 'top_to_bottom', 'diagonal_up', 'diagonal_down', 'hold']);
+const QUALITY_TRANSITION_TYPES = new Set(['cut', 'crossfade', 'soft_cut', 'dip_to_black', 'slide_left', 'slide_right', 'wipe_up', 'match_cut']);
+const QUALITY_OVERLAY_STYLES = new Set(['none', 'subtle_vignette', 'warm_gradient', 'cool_gradient', 'documentary_shadow', 'soft_light_leak']);
+const QUALITY_PACING_VALUES = new Set(['quick', 'steady', 'slow', 'linger']);
+
+function wordCount(value) {
+  return trimString(value).split(/\s+/).filter(Boolean).length;
+}
+
+function isGenericVisualPrompt(value) {
+  const prompt = trimString(value);
+  return GENERIC_STORY_PROMPT_PATTERNS.some((pattern) => pattern.test(prompt));
+}
+
+function hasVisibleTextRisk(value) {
+  const prompt = trimString(value);
+  if (!prompt || TEXT_POLICY_NEGATION_PATTERN.test(prompt)) {
+    return false;
+  }
+  return VISIBLE_TEXT_RISK_PATTERNS.some((pattern) => pattern.test(prompt));
+}
+
+function visualPromptQuality(value) {
+  const prompt = trimString(value);
+  if (!prompt) {
+    return { score: 0, strong: false, reason: 'missing' };
+  }
+  const words = wordCount(prompt);
+  if (words < STRONG_VISUAL_PROMPT_MIN_WORDS) {
+    return { score: words, strong: false, reason: 'too_short' };
+  }
+  if (isGenericVisualPrompt(prompt)) {
+    return { score: words - 4, strong: false, reason: 'generic' };
+  }
+  if (hasVisibleTextRisk(prompt)) {
+    return { score: words - 8, strong: false, reason: 'visible_text_risk' };
+  }
+  return { score: words, strong: true, reason: 'strong' };
+}
+
+function normalizeQualityEnum(value, allowed, fallback) {
+  const normalized = trimString(value).toLowerCase().replace(/[\s-]+/g, '_');
+  return allowed.has(normalized) ? normalized : fallback;
+}
+
+function inferQualityMotionRequirement(scene = {}) {
+  const text = [
+    scene.narration_text,
+    scene.visual_prompt,
+    scene.image_prompt,
+    scene.mood,
+    scene.beat_label,
+  ].map((value) => trimString(value)).filter(Boolean).join(' ').toLowerCase();
+  if (/\b(chase|fight|run|rush|fall|explosion|storm|crowd|dance|vehicle|drive|crash|collapse|transform|flowing|waves?|fire|smoke|rain|walking|running|spinning)\b/.test(text)) {
+    return 'high';
+  }
+  if (/\b(move|motion|reveal|enter|leave|turn|open|close|gesture|camera|drift|pan|zoom|tilt|light changes?)\b/.test(text)) {
+    return 'medium';
+  }
+  return 'low';
+}
+
+function defaultQualityCameraMove(index, motionRequirement) {
+  if (motionRequirement === 'low') {
+    return index % 3 === 0 ? 'hold' : 'push_in';
+  }
+  if (motionRequirement === 'high') {
+    return ['pan_left', 'pan_right', 'tilt_up', 'push_in'][index % 4];
+  }
+  return ['push_in', 'pan_right', 'tilt_down', 'drift'][index % 4];
+}
+
+function defaultQualityPanZoomDirection(cameraMove) {
+  return {
+    pull_out: 'center_pull',
+    pan_left: 'right_to_left',
+    pan_right: 'left_to_right',
+    tilt_up: 'bottom_to_top',
+    tilt_down: 'top_to_bottom',
+    drift: 'diagonal_up',
+    hold: 'hold',
+  }[cameraMove] || 'center_push';
+}
+
+function defaultQualityAssetMode(index, reelType) {
+  if (reelType === 'video') return 'video';
+  if (reelType === 'image') return index === 0 ? 'image' : 'image_with_motion';
+  return index === 0 ? 'image' : 'image_with_motion';
+}
+
+function normalizeQualityAssetPlan(scene, index, reelType, repairs) {
+  const raw = asObject(scene.asset_plan);
+  const fallbackMode = defaultQualityAssetMode(index, reelType);
+  let mode = normalizeQualityEnum(raw.mode || scene.asset_type, QUALITY_ASSET_PLAN_MODES, fallbackMode);
+  if (reelType === 'image' && mode === 'video') {
+    repairs.push(`scene ${index + 1}: changed video asset_plan to image_with_motion for image reel`);
+    mode = index === 0 ? 'image' : 'image_with_motion';
+  }
+  if (reelType === 'video' && mode !== 'video') {
+    repairs.push(`scene ${index + 1}: promoted asset_plan to provider video for video reel`);
+    mode = 'video';
+  }
+  const motionRequirement = normalizeQualityEnum(
+    raw.motion_requirement || inferQualityMotionRequirement(scene),
+    QUALITY_MOTION_REQUIREMENTS,
+    inferQualityMotionRequirement(scene),
+  );
+  return {
+    ...raw,
+    mode,
+    provider_intent: mode === 'video' ? 'provider_video' : (mode === 'image' ? 'static_image' : 'remotion_motion'),
+    motion_requirement: motionRequirement,
+    video_generation_required: mode === 'video',
+    video_generation_reason: trimString(raw.video_generation_reason)
+      || (mode === 'video'
+        ? 'Video Reel scene selected for provider video generation.'
+        : 'Still asset uses Remotion motion in the final render.'),
+    fallback_mode: 'image_with_motion',
+    budget_priority: mode === 'video' ? 'premium' : 'standard',
+    review_required: mode === 'video' || raw.review_required === true,
+  };
+}
+
+function normalizeQualityRemotion(scene, index, assetPlan, repairs) {
+  const raw = asObject(scene.remotion);
+  const motion = normalizeQualityEnum(raw.motion_intensity || assetPlan.motion_requirement, QUALITY_MOTION_REQUIREMENTS, assetPlan.motion_requirement || 'medium');
+  const cameraMove = normalizeQualityEnum(raw.camera_move, QUALITY_CAMERA_MOVES, defaultQualityCameraMove(index, motion));
+  const transition = normalizeQualityEnum(raw.transition_type || scene.transition, QUALITY_TRANSITION_TYPES, index === 0 ? 'cut' : 'soft_cut');
+  const normalized = {
+    camera_move: cameraMove,
+    pan_zoom_direction: normalizeQualityEnum(raw.pan_zoom_direction, QUALITY_PAN_ZOOM_DIRECTIONS, defaultQualityPanZoomDirection(cameraMove)),
+    motion_intensity: motion,
+    transition_type: transition,
+    overlay_style: normalizeQualityEnum(raw.overlay_style, QUALITY_OVERLAY_STYLES, motion === 'high' ? 'documentary_shadow' : 'subtle_vignette'),
+    pacing: normalizeQualityEnum(raw.pacing, QUALITY_PACING_VALUES, motion === 'low' ? 'linger' : 'steady'),
+    motion_layers: asArray(raw.motion_layers).map((entry) => trimString(entry)).filter(Boolean).slice(0, 4),
+    instructions: trimString(raw.instructions) || `Use ${cameraMove.replace(/_/g, ' ')} motion to support the scene beat.`,
+  };
+  if (!trimString(raw.camera_move) || !trimString(raw.transition_type)) {
+    repairs.push(`scene ${index + 1}: filled Remotion motion defaults`);
+  }
+  return normalized;
+}
+
+function findGuidanceForScene(guidanceScenes, sceneNumber, index) {
+  return asObject(
+    guidanceScenes.find((scene) => Number(scene?.scene_number ?? 0) === sceneNumber)
+    || guidanceScenes[index],
+  );
+}
+
+function normalizeStoryPackageQuality(row) {
+  const reelType = trimString(row.reel_type || 'video').toLowerCase() || 'video';
+  const targetDurationSeconds = Number(row.target_duration_seconds || 0);
+  const rawResponse = asObject(row.raw_response_json);
+  const storyboard = asArray(row.storyboard_json);
+  const guidanceScenes = asArray(
+    rawResponse.scene_guidance_json
+    || asObject(rawResponse.parsed_response).scene_guidance_json,
+  );
+  const blockingIssues = [];
+  const warnings = [];
+  const repairs = [];
+
+  if (storyboard.length < STORY_SCENE_COUNT_MIN || storyboard.length > STORY_SCENE_COUNT_MAX) {
+    blockingIssues.push(`storyboard_json must contain ${STORY_SCENE_COUNT_MIN}-${STORY_SCENE_COUNT_MAX} scenes; got ${storyboard.length}.`);
+  }
+  if (!trimString(row.selected_hook)) {
+    blockingIssues.push('selected_hook is empty.');
+  }
+  if (!trimString(row.narration_script)) {
+    blockingIssues.push('narration_script is empty.');
+  }
+
+  let currentStartSeconds = 0;
+  const nextGuidanceScenes = [];
+  const nextStoryboard = storyboard.map((sceneValue, index) => {
+    const scene = asObject(sceneValue);
+    const sceneNumber = index + 1;
+    const guidance = findGuidanceForScene(guidanceScenes, Number(scene.scene_number ?? sceneNumber), index);
+    const duration = roundToHundredths(
+      Number(scene.duration_seconds ?? guidance.duration_seconds ?? 0) > 0
+        ? Number(scene.duration_seconds ?? guidance.duration_seconds)
+        : Math.max(2, targetDurationSeconds > 0 ? targetDurationSeconds / Math.max(storyboard.length, 1) : 4),
+    );
+    if (duration <= 0) {
+      blockingIssues.push(`scene ${sceneNumber}: duration_seconds must be positive.`);
+    }
+    if (Number(scene.scene_number ?? sceneNumber) !== sceneNumber) {
+      repairs.push(`scene ${sceneNumber}: repaired sequential scene_number`);
+    }
+
+    const narrationText = trimString(scene.narration_text || guidance.narration_text);
+    const dialogueLines = asArray(scene.dialogue_lines).map((line) => trimString(line)).filter(Boolean);
+    const nextDialogueLines = dialogueLines.length ? dialogueLines : [narrationText].filter(Boolean);
+    if (!narrationText || nextDialogueLines.length === 0) {
+      blockingIssues.push(`scene ${sceneNumber}: narration_text and dialogue_lines are required.`);
+    }
+
+    const visualPrompt = trimString(scene.visual_prompt);
+    const guidanceImagePrompt = trimString(guidance.image_prompt);
+    const visualQuality = visualPromptQuality(visualPrompt);
+    const imageQuality = visualPromptQuality(guidanceImagePrompt);
+    let nextVisualPrompt = visualPrompt;
+    let nextImagePrompt = trimString(scene.image_prompt);
+    if (imageQuality.strong) {
+      const hadImagePrompt = Boolean(nextImagePrompt);
+      nextImagePrompt = guidanceImagePrompt;
+      if (!visualQuality.strong || imageQuality.score > visualQuality.score + 8) {
+        nextVisualPrompt = guidanceImagePrompt;
+        repairs.push(`scene ${sceneNumber}: promoted scene_guidance_json.image_prompt into storyboard visual_prompt`);
+      } else if (!hadImagePrompt) {
+        repairs.push(`scene ${sceneNumber}: copied scene_guidance_json.image_prompt into storyboard image_prompt`);
+      }
+    }
+    const selectedQuality = visualPromptQuality(nextVisualPrompt);
+    if (!selectedQuality.strong) {
+      blockingIssues.push(`scene ${sceneNumber}: visual_prompt is ${selectedQuality.reason}. Add a concrete subject, action, and setting.`);
+    }
+    if (nextImagePrompt && hasVisibleTextRisk(nextImagePrompt)) {
+      blockingIssues.push(`scene ${sceneNumber}: image_prompt appears to request visible text.`);
+    }
+    if (nextVisualPrompt && hasVisibleTextRisk(nextVisualPrompt)) {
+      blockingIssues.push(`scene ${sceneNumber}: visual_prompt appears to request visible text.`);
+    }
+
+    const assetPlan = normalizeQualityAssetPlan(
+      { ...scene, visual_prompt: nextVisualPrompt, image_prompt: nextImagePrompt || guidanceImagePrompt },
+      index,
+      reelType,
+      repairs,
+    );
+    const remotion = normalizeQualityRemotion(scene, index, assetPlan, repairs);
+    const assetType = assetPlan.mode === 'video' ? 'video' : 'image';
+    const transition = trimString(scene.transition || remotion.transition_type || guidance.transition) || (index === 0 ? 'cut' : 'soft_cut');
+    const mood = trimString(scene.mood || guidance.beat_label || guidance.mood) || `scene_${sceneNumber}`;
+    const musicCue = trimString(scene.music_cue || guidance.music_cue);
+    if (!musicCue) {
+      warnings.push(`scene ${sceneNumber}: music_cue is empty.`);
+    }
+
+    const start = roundToHundredths(currentStartSeconds);
+    const end = roundToHundredths(currentStartSeconds + duration);
+    currentStartSeconds = end;
+    nextGuidanceScenes.push({
+      ...guidance,
+      scene_number: sceneNumber,
+      beat_label: trimString(guidance.beat_label || mood) || `scene_${sceneNumber}`,
+      start_time_seconds: start,
+      end_time_seconds: end,
+      duration_seconds: duration,
+      narration_text: narrationText,
+      dialogue_lines: nextDialogueLines,
+      asset_type: assetType,
+      asset_plan: assetPlan,
+      remotion,
+      image_prompt: nextImagePrompt || nextVisualPrompt,
+      music_cue: musicCue,
+      tts_instructions: trimString(scene.tts_instructions || guidance.tts_instructions),
+      includes_primary_character: scene.includes_primary_character === true || guidance.includes_primary_character === true,
+    });
+
+    return {
+      ...scene,
+      scene_number: sceneNumber,
+      duration_seconds: duration,
+      narration_text: narrationText,
+      dialogue_lines: nextDialogueLines,
+      visual_prompt: nextVisualPrompt,
+      ...(nextImagePrompt ? { image_prompt: nextImagePrompt } : {}),
+      asset_type: assetType,
+      asset_plan: assetPlan,
+      remotion,
+      transition,
+      mood,
+      music_cue: musicCue,
+      tts_instructions: trimString(scene.tts_instructions || guidance.tts_instructions),
+      is_face_image: reelType === 'image' && index === 0,
+      face_image_title: index === 0 && reelType === 'image' ? trimString(scene.face_image_title) : '',
+      includes_primary_character: scene.includes_primary_character === true || guidance.includes_primary_character === true,
+    };
+  });
+
+  const totalDurationSeconds = roundToHundredths(nextStoryboard.reduce((sum, scene) => sum + Number(scene.duration_seconds || 0), 0));
+  if (targetDurationSeconds > 0) {
+    const toleranceSeconds = Math.max(2, targetDurationSeconds * 0.2);
+    if (Math.abs(totalDurationSeconds - targetDurationSeconds) > toleranceSeconds) {
+      warnings.push(`storyboard duration ${totalDurationSeconds}s is far from target ${targetDurationSeconds}s.`);
+    }
+  }
+
+  const seed = asObject(row.render_manifest_seed_json);
+  const output = asObject(seed.output);
+  const nextRenderManifestSeed = {
+    ...seed,
+    output: {
+      width: Number(output.width || 1080),
+      height: Number(output.height || 1920),
+      fps: Number(output.fps || 30),
+      format: trimString(output.format || 'mp4') || 'mp4',
+    },
+    timeline: nextStoryboard.map((scene) => ({
+      scene_number: Number(scene.scene_number),
+      duration_seconds: Number(scene.duration_seconds),
+      asset_type: trimString(scene.asset_type),
+      asset_plan: asObject(scene.asset_plan),
+      remotion: asObject(scene.remotion),
+      transition: trimString(scene.transition || scene.remotion?.transition_type || 'cut') || 'cut',
+    })),
+    subtitles: {
+      ...asObject(seed.subtitles),
+      enabled: false,
+      style: trimString(seed.subtitles?.style || 'cinematic_center_safe') || 'cinematic_center_safe',
+    },
+  };
+
+  const parsedResponse = asObject(rawResponse.parsed_response);
+  const nextRawResponse = {
+    ...rawResponse,
+    scene_guidance_json: nextGuidanceScenes,
+    parsed_response: {
+      ...parsedResponse,
+      scene_guidance_json: nextGuidanceScenes,
+      storyboard_json: nextStoryboard,
+      render_manifest_seed_json: nextRenderManifestSeed,
+    },
+    quality_gate: {
+      checked_at: new Date().toISOString(),
+      stage: 'story_package_quality_gate',
+      blocking_issues: blockingIssues,
+      warnings,
+      repairs,
+    },
+  };
+
+  return {
+    blockingIssues,
+    warnings,
+    repairs,
+    storyboardJson: nextStoryboard,
+    sceneGuidanceJson: nextGuidanceScenes,
+    renderManifestSeedJson: nextRenderManifestSeed,
+    rawResponseJson: nextRawResponse,
+    totalDurationSeconds,
+  };
+}
+
+async function runStoryPackageQualityGate({ pool, step }) {
+  const contentId = ensureUuid(step.content_id);
+  const startedAt = new Date().toISOString();
+  const result = await withTransaction(pool, async (client) => {
+    const claim = await client.query(
+      `update content_items
+      set status = 'validating',
+          updated_at = now()
+      where content_id = $1
+        and status in ('storyboard_complete', 'validation_complete', 'validating')
+      returning content_id`,
+      [contentId],
+    );
+    if (claim.rowCount === 0) {
+      fail(`No storyboard_complete content item is ready for story package quality gate: ${contentId}.`);
+    }
+    const rowResult = await client.query(
+      `select
+        ci.content_id,
+        ci.title,
+        ci.reel_type,
+        ci.target_duration_seconds,
+        coalesce(s.selected_hook, '') as selected_hook,
+        coalesce(s.narration_script, '') as narration_script,
+        coalesce(s.raw_response_json, '{}'::jsonb) as raw_response_json,
+        sb.storyboard_json,
+        sb.render_manifest_seed_json
+      from content_items ci
+      join scripts s on s.content_id = ci.content_id
+      join storyboards sb on sb.content_id = ci.content_id
+      where ci.content_id = $1
+        and ci.status = 'validating'
+      for update of ci`,
+      [contentId],
+    );
+    if (rowResult.rowCount === 0) {
+      fail(`Story package quality gate could not load generated package for ${contentId}.`);
+    }
+
+    const gate = normalizeStoryPackageQuality(rowResult.rows[0]);
+    if (gate.blockingIssues.length > 0) {
+      await logWorkflowRun(client, {
+        contentId,
+        workflowName: 'story_package_quality_gate',
+        runStatus: 'failed',
+        startedAt,
+        durationMs: durationMsFrom(startedAt),
+        errorMessage: gate.blockingIssues.join(' | '),
+        details: {
+          blocking_issues: gate.blockingIssues,
+          warnings: gate.warnings,
+          repairs: gate.repairs,
+        },
+      });
+      return {
+        blocked: true,
+        message: gate.blockingIssues.join(' | '),
+        details: gate,
+      };
+    }
+
+    await client.query(
+      `update scripts
+      set raw_response_json = $2::jsonb,
+          generated_at = now()
+      where content_id = $1`,
+      [contentId, JSON.stringify(gate.rawResponseJson)],
+    );
+    await client.query(
+      `update storyboards
+      set storyboard_json = $2::jsonb,
+          render_manifest_seed_json = $3::jsonb,
+          generated_at = now()
+      where content_id = $1`,
+      [
+        contentId,
+        JSON.stringify(gate.storyboardJson),
+        JSON.stringify(gate.renderManifestSeedJson),
+      ],
+    );
+    await client.query(
+      `update content_items
+      set status = 'validation_complete',
+          updated_at = now()
+      where content_id = $1`,
+      [contentId],
+    );
+    await logWorkflowRun(client, {
+      contentId,
+      workflowName: 'story_package_quality_gate',
+      startedAt,
+      durationMs: durationMsFrom(startedAt),
+      details: {
+        scene_count: gate.storyboardJson.length,
+        total_duration_seconds: gate.totalDurationSeconds,
+        warnings: gate.warnings,
+        repairs: gate.repairs,
+      },
+    });
+    return {
+      blocked: false,
+      summary: {
+        content_id: contentId,
+        status_after_success: 'validation_complete',
+        scene_count: gate.storyboardJson.length,
+        total_duration_seconds: gate.totalDurationSeconds,
+        repair_count: gate.repairs.length,
+        warning_count: gate.warnings.length,
+      },
+    };
+  });
+
+  if (result.blocked) {
+    fail(`Story package quality gate blocked media generation: ${result.message}`);
+  }
+  return result.summary;
+}
+
+function compactStrings(values = []) {
+  return asArray(values).map((value) => trimString(value)).filter(Boolean);
+}
+
+function stringifyPromptJson(value, fallback = {}) {
+  const source = value === undefined || value === null ? fallback : value;
+  return JSON.stringify(source, null, 2);
+}
+
+function selectedStylePackFrom(row, directorJson = {}) {
+  const clientContext = asObject(row.client_account_context);
+  return trimString(
+    directorJson.selected_style_pack
+    || clientContext?.style_policy?.preferred_style_pack_id
+    || asObject(row.source_payload_json)?.selected_style_pack
+    || 'cinematic_problem_solution',
+  );
+}
+
+function sceneGuidanceFromRaw(rawResponseJson, storyboardJson) {
+  const raw = asObject(rawResponseJson);
+  return asArray(
+    raw.scene_guidance_json
+    ?? raw.parsed_response?.scene_guidance_json
+    ?? storyboardJson,
+  );
+}
+
+async function runDirectorContract({ pool, step }) {
+  const contentId = ensureUuid(step.content_id);
+  const startedAt = new Date().toISOString();
+  const row = await withTransaction(pool, async (client) => {
+    const result = await client.query(
+      `select
+        ci.content_id,
+        ci.title,
+        ci.category,
+        ci.reel_type,
+        ci.status,
+        ci.target_duration_seconds,
+        ci.source_payload_json,
+        coalesce(s.narration_script, '') as narration_script,
+        coalesce(s.raw_response_json, '{}'::jsonb) as raw_response_json,
+        sb.storyboard_json,
+        coalesce(cac.context_snapshot_json, ci.source_payload_json->'client_account_context', '{}'::jsonb) as client_account_context
+      from content_items ci
+      join scripts s on s.content_id = ci.content_id
+      join storyboards sb on sb.content_id = ci.content_id
+      left join content_account_contexts cac on cac.content_id = ci.content_id
+      where ci.content_id = $1
+        and ci.status in ('validation_complete', 'storyboard_complete')
+      for update of ci`,
+      [contentId],
+    );
+    if (result.rowCount === 0) {
+      fail(`No validation_complete content item is ready for director contract: ${contentId}.`);
+    }
+    return result.rows[0];
+  });
+
+  const sourcePayload = asObject(row.source_payload_json);
+  const rawResponseJson = asObject(row.raw_response_json);
+  const storyboardJson = asArray(row.storyboard_json);
+  const sceneGuidanceJson = sceneGuidanceFromRaw(rawResponseJson, storyboardJson);
+  const directorResult = await invokeStructuredTextStage('director_contract', {
+    content_id: contentId,
+    title: trimString(row.title),
+    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    status_after_success: trimString(row.status) || 'validation_complete',
+    prompt_template_data: {
+      title: trimString(row.title),
+      category: trimString(row.category || 'general') || 'general',
+      target_duration_seconds: String(row.target_duration_seconds || 45),
+      narration_script: trimString(row.narration_script),
+      scene_guidance_json: sceneGuidanceJson,
+      script_scene_guidance_json: stringifyPromptJson(sceneGuidanceJson, []),
+      scene_count: String(sceneGuidanceJson.length || storyboardJson.length || ''),
+      creative_defaults: {
+        reel_type: trimString(row.reel_type || 'video') || 'video',
+        prompt_profile: asObject(sourcePayload.prompt_profile),
+        client_account_context: asObject(row.client_account_context),
+      },
+      creative_defaults_json: stringifyPromptJson({
+        reel_type: trimString(row.reel_type || 'video') || 'video',
+        prompt_profile: asObject(sourcePayload.prompt_profile),
+        client_account_context: asObject(row.client_account_context),
+      }),
+      client_account_context: asObject(row.client_account_context),
+    },
+  });
+  const directorJson = asObject(directorResult.director_contract_response);
+  if (Object.keys(directorJson).length === 0) {
+    fail('director_contract returned an empty director contract.');
+  }
+
+  const nextRawResponseJson = {
+    ...rawResponseJson,
+    director_contract_json: directorJson,
+    director_contract_metadata: {
+      generation_provider: trimString(directorResult.generation_provider),
+      generation_model: trimString(directorResult.generation_model),
+      provider_metadata: asObject(directorResult.provider_metadata),
+      cost: asObject(directorResult.cost),
+    },
+  };
+
+  await withTransaction(pool, async (client) => {
+    await client.query(
+      `insert into directors (
+        content_id,
+        voice_role,
+        tts_delivery,
+        global_visual_style,
+        visual_strategy,
+        global_pacing,
+        global_music_direction,
+        director_json,
+        generation_model
+      ) values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)
+      on conflict (content_id) do update set
+        voice_role = excluded.voice_role,
+        tts_delivery = excluded.tts_delivery,
+        global_visual_style = excluded.global_visual_style,
+        visual_strategy = excluded.visual_strategy,
+        global_pacing = excluded.global_pacing,
+        global_music_direction = excluded.global_music_direction,
+        director_json = excluded.director_json,
+        generation_model = excluded.generation_model,
+        generated_at = now()`,
+      [
+        contentId,
+        trimString(directorJson.voice_role || directorJson.voice_contract?.voice_role),
+        trimString(directorJson.tts_delivery || directorJson.voice_contract?.delivery_summary),
+        trimString(directorJson.global_visual_style || directorJson.visual_contract?.style_summary),
+        trimString(directorJson.visual_strategy),
+        trimString(directorJson.global_pacing),
+        trimString(directorJson.global_music_direction || directorJson.music_sfx_contract?.music_direction),
+        JSON.stringify(directorJson),
+        trimString(directorResult.generation_model),
+      ],
+    );
+    await client.query(
+      `update scripts
+      set raw_response_json = $2::jsonb,
+          generated_at = now()
+      where content_id = $1`,
+      [contentId, JSON.stringify(nextRawResponseJson)],
+    );
+    await logWorkflowRun(client, {
+      contentId,
+      workflowName: 'director_contract',
+      startedAt,
+      durationMs: durationMsFrom(startedAt),
+      details: {
+        generation_provider: trimString(directorResult.generation_provider),
+        generation_model: trimString(directorResult.generation_model),
+        selected_style_pack: trimString(directorJson.selected_style_pack),
+        cost: directorResult.cost ?? {},
+      },
+    });
+  });
+
+  return {
+    content_id: contentId,
+    status_after_success: trimString(row.status) || 'validation_complete',
+    selected_style_pack: trimString(directorJson.selected_style_pack),
+    generation_provider: trimString(directorResult.generation_provider),
+    generation_model: trimString(directorResult.generation_model),
+  };
+}
+
+function mergeVisualPromptPlan(storyboardJson, visualPlan) {
+  const scenes = asArray(storyboardJson);
+  const prompts = asArray(visualPlan.prompts);
+  if (scenes.length === 0) {
+    fail('visual_prompt_builder requires storyboard_json scenes.');
+  }
+  if (prompts.length === 0) {
+    fail('visual_prompt_builder returned no scene prompts.');
+  }
+  const promptsByScene = new Map(prompts.map((prompt, index) => [
+    Number(prompt?.scene_number ?? index + 1),
+    asObject(prompt),
+  ]));
+  const missingScenes = [];
+  const mergedScenes = scenes.map((scene, index) => {
+    const sceneNumber = Number(scene?.scene_number ?? index + 1);
+    const prompt = promptsByScene.get(sceneNumber);
+    if (!prompt) {
+      missingScenes.push(sceneNumber);
+      return scene;
+    }
+    const visualPrompt = trimString(prompt.visual_prompt);
+    if (!visualPrompt) {
+      fail(`visual_prompt_builder scene ${sceneNumber} returned an empty visual_prompt.`);
+    }
+    return {
+      ...scene,
+      visual_prompt: visualPrompt,
+      image_prompt: visualPrompt,
+      negative_prompt: trimString(prompt.negative_prompt || scene.negative_prompt),
+      fallback_prompt: trimString(prompt.fallback_prompt || scene.fallback_prompt),
+      visual_prompt_builder: prompt,
+    };
+  });
+  if (missingScenes.length > 0) {
+    fail(`visual_prompt_builder did not return prompts for scene(s): ${missingScenes.join(', ')}.`);
+  }
+  return mergedScenes;
+}
+
+async function runVisualPromptBuilder({ pool, step }) {
+  const contentId = ensureUuid(step.content_id);
+  const startedAt = new Date().toISOString();
+  const row = await withTransaction(pool, async (client) => {
+    const result = await client.query(
+      `select
+        ci.content_id,
+        ci.title,
+        ci.category,
+        ci.reel_type,
+        ci.status,
+        ci.target_duration_seconds,
+        ci.source_payload_json,
+        coalesce(s.narration_script, '') as narration_script,
+        coalesce(s.raw_response_json, '{}'::jsonb) as raw_response_json,
+        sb.storyboard_json,
+        coalesce(sb.style_notes, '') as style_notes,
+        coalesce(sb.render_manifest_seed_json, '{}'::jsonb) as render_manifest_seed_json,
+        coalesce(d.director_json, '{}'::jsonb) as director_json,
+        coalesce(cac.context_snapshot_json, ci.source_payload_json->'client_account_context', '{}'::jsonb) as client_account_context
+      from content_items ci
+      join scripts s on s.content_id = ci.content_id
+      join storyboards sb on sb.content_id = ci.content_id
+      left join directors d on d.content_id = ci.content_id
+      left join content_account_contexts cac on cac.content_id = ci.content_id
+      where ci.content_id = $1
+        and ci.status in ('validation_complete', 'storyboard_complete')
+      for update of ci`,
+      [contentId],
+    );
+    if (result.rowCount === 0) {
+      fail(`No validation_complete content item is ready for visual prompt builder: ${contentId}.`);
+    }
+    return result.rows[0];
+  });
+
+  const directorJson = asObject(row.director_json);
+  const storyboardJson = asArray(row.storyboard_json);
+  const visualContract = asObject(directorJson.visual_contract);
+  const visualResult = await invokeStructuredTextStage('visual_prompt_builder', {
+    content_id: contentId,
+    title: trimString(row.title),
+    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    status_after_success: trimString(row.status) || 'validation_complete',
+    prompt_template_data: {
+      title: trimString(row.title),
+      category: trimString(row.category || 'general') || 'general',
+      target_duration_seconds: String(row.target_duration_seconds || 45),
+      selected_style_pack: selectedStylePackFrom(row, directorJson),
+      director_plan: directorJson,
+      director_plan_json: stringifyPromptJson(directorJson),
+      storyboard_plan: storyboardJson,
+      storyboard_plan_json: stringifyPromptJson(storyboardJson, []),
+      visual_continuity_notes: compactStrings(visualContract.continuity_rules).join(' | ')
+        || trimString(directorJson.global_visual_style)
+        || 'Maintain consistent characters, environment, lighting, and color across all scenes.',
+      visual_text_policy: trimString(visualContract.text_policy)
+        || 'No readable text, labels, logos, subtitles, captions, signage, or watermarks in generated visuals.',
+      client_account_context: asObject(row.client_account_context),
+    },
+  });
+  const visualPlan = asObject(visualResult.visual_prompt_response);
+  const mergedStoryboard = mergeVisualPromptPlan(storyboardJson, visualPlan);
+  const rawResponseJson = asObject(row.raw_response_json);
+  const nextRawResponseJson = {
+    ...rawResponseJson,
+    visual_prompt_plan_json: visualPlan,
+    visual_prompt_builder_metadata: {
+      generation_provider: trimString(visualResult.generation_provider),
+      generation_model: trimString(visualResult.generation_model),
+      provider_metadata: asObject(visualResult.provider_metadata),
+      cost: asObject(visualResult.cost),
+    },
+  };
+  const styleNotes = [
+    trimString(row.style_notes),
+    `Visual prompt builder: ${trimString(visualPlan.global_continuity?.style_summary || visualPlan.selected_style_pack || '')}`.trim(),
+  ].filter(Boolean).join('\n\n');
+
+  await withTransaction(pool, async (client) => {
+    await client.query(
+      `update storyboards
+      set storyboard_json = $2::jsonb,
+          style_notes = $3,
+          generated_at = now()
+      where content_id = $1`,
+      [contentId, JSON.stringify(mergedStoryboard), styleNotes],
+    );
+    await client.query(
+      `update scripts
+      set raw_response_json = $2::jsonb,
+          generated_at = now()
+      where content_id = $1`,
+      [contentId, JSON.stringify(nextRawResponseJson)],
+    );
+    await logWorkflowRun(client, {
+      contentId,
+      workflowName: 'visual_prompt_builder',
+      startedAt,
+      durationMs: durationMsFrom(startedAt),
+      details: {
+        generation_provider: trimString(visualResult.generation_provider),
+        generation_model: trimString(visualResult.generation_model),
+        scene_count: mergedStoryboard.length,
+        selected_style_pack: trimString(visualPlan.selected_style_pack),
+        cost: visualResult.cost ?? {},
+      },
+    });
+  });
+
+  return {
+    content_id: contentId,
+    status_after_success: trimString(row.status) || 'validation_complete',
+    scene_count: mergedStoryboard.length,
+    generation_provider: trimString(visualResult.generation_provider),
+    generation_model: trimString(visualResult.generation_model),
+  };
+}
+
+function buildVoiceLineMap(storyboardJson) {
+  return asArray(storyboardJson).flatMap((scene, sceneIndex) => {
+    const sceneNumber = Number(scene?.scene_number ?? sceneIndex + 1);
+    const lines = asArray(scene?.dialogue_lines).map((line) => trimString(line)).filter(Boolean);
+    const sourceLines = lines.length > 0 ? lines : [trimString(scene?.narration_text)].filter(Boolean);
+    return sourceLines.map((lineText, lineIndex) => ({
+      voice_line_id: `scene_${sceneNumber}_line_${lineIndex + 1}`,
+      scene_number: sceneNumber,
+      line_index: lineIndex + 1,
+      line_text: lineText,
+      scene_duration_seconds: Number(scene?.duration_seconds || 0),
+      existing_tts_instructions: trimString(scene?.tts_instructions),
+    }));
+  });
+}
+
+function buildMusicSfxContext(rawResponseJson, directorJson, storyboardJson) {
+  const raw = asObject(rawResponseJson);
+  const parsed = asObject(raw.parsed_response);
+  return {
+    music_direction: trimString(parsed.music_direction || raw.music_direction || directorJson.global_music_direction),
+    director_music_direction: trimString(directorJson.global_music_direction || directorJson.music_sfx_contract?.music_direction),
+    scene_music_cues: asArray(storyboardJson).map((scene, index) => ({
+      scene_number: Number(scene?.scene_number ?? index + 1),
+      music_cue: trimString(scene?.music_cue),
+    })),
+  };
+}
+
+function voiceLinesForScene(voicePlan, sceneNumber) {
+  return asArray(voicePlan.lines).filter((line) => Number(line?.scene_number) === Number(sceneNumber));
+}
+
+function buildVoicePerformanceInstruction(scene, voicePlan, directorJson) {
+  const sceneNumber = Number(scene?.scene_number || 0);
+  const lines = voiceLinesForScene(voicePlan, sceneNumber);
+  const voiceProfile = asObject(voicePlan.voice_profile);
+  const parts = [
+    trimString(scene?.tts_instructions),
+    trimString(directorJson.tts_delivery || directorJson.voice_contract?.delivery_summary),
+    trimString(voiceProfile.delivery_summary),
+  ].filter(Boolean);
+  for (const line of lines) {
+    const emphasis = asArray(line.emphasis)
+      .map((entry) => `${trimString(entry.phrase)} => ${trimString(entry.intent)}`.trim())
+      .filter((entry) => entry !== '=>')
+      .join('; ');
+    const pauses = asObject(line.pauses);
+    const pronunciation = asArray(line.pronunciation)
+      .map((entry) => `${trimString(entry.term)}: ${trimString(entry.guidance)}`.trim())
+      .filter((entry) => entry !== ':')
+      .join('; ');
+    parts.push([
+      `Line ${Number(line.line_index || 1)} delivery instruction`,
+      trimString(line.tone) ? `tone: ${trimString(line.tone)}` : '',
+      trimString(line.pace) ? `pace: ${trimString(line.pace)}` : '',
+      `pause before ${Number(pauses.before_seconds || 0)}s, after ${Number(pauses.after_seconds || 0)}s`,
+      trimString(pauses.internal_pause_notes) ? `internal pauses: ${trimString(pauses.internal_pause_notes)}` : '',
+      emphasis ? `emphasis: ${emphasis}` : '',
+      pronunciation ? `pronunciation: ${pronunciation}` : '',
+    ].filter(Boolean).join('; '));
+  }
+  parts.push('Use these as performance instructions only. Do not read emotion tags, parentheticals, brackets, SSML, or stage directions aloud.');
+  return parts.join(' ');
+}
+
+function mergeVoicePerformanceIntoStoryboard(storyboardJson, voicePlan, directorJson) {
+  return asArray(storyboardJson).map((scene) => ({
+    ...scene,
+    tts_instructions: buildVoicePerformanceInstruction(scene, voicePlan, directorJson),
+    voice_performance: {
+      voice_profile: asObject(voicePlan.voice_profile),
+      lines: voiceLinesForScene(voicePlan, Number(scene?.scene_number || 0)),
+      adapter_mapping_policy: asObject(voicePlan.adapter_mapping_policy),
+    },
+  }));
+}
+
+async function runVoicePerformanceScript({ pool, step }) {
+  const contentId = ensureUuid(step.content_id);
+  const startedAt = new Date().toISOString();
+  const row = await withTransaction(pool, async (client) => {
+    const result = await client.query(
+      `select
+        ci.content_id,
+        ci.title,
+        ci.category,
+        ci.reel_type,
+        ci.status,
+        ci.target_duration_seconds,
+        ci.source_payload_json,
+        coalesce(s.narration_script, '') as narration_script,
+        coalesce(s.raw_response_json, '{}'::jsonb) as raw_response_json,
+        sb.storyboard_json,
+        coalesce(d.director_json, '{}'::jsonb) as director_json,
+        count(distinct a.scene_number)::int as scene_asset_count
+      from content_items ci
+      join scripts s on s.content_id = ci.content_id
+      join storyboards sb on sb.content_id = ci.content_id
+      left join directors d on d.content_id = ci.content_id
+      join assets a on a.content_id = ci.content_id
+        and a.asset_role in ('scene_image', 'scene_video')
+        and a.status = 'ready'
+      where ci.content_id = $1
+        and ci.status = 'assets_ready'
+      group by ci.content_id, ci.title, ci.category, ci.reel_type, ci.status, ci.target_duration_seconds,
+        ci.source_payload_json, s.narration_script, s.raw_response_json, sb.storyboard_json, d.director_json
+      having count(distinct a.scene_number) >= jsonb_array_length(sb.storyboard_json)`,
+      [contentId],
+    );
+    if (result.rowCount === 0) {
+      fail(`No assets_ready content item is ready for voice performance scripting: ${contentId}.`);
+    }
+    return result.rows[0];
+  });
+
+  const storyboardJson = asArray(row.storyboard_json);
+  const directorJson = asObject(row.director_json);
+  const rawResponseJson = asObject(row.raw_response_json);
+  const voiceLineMap = buildVoiceLineMap(storyboardJson);
+  if (voiceLineMap.length === 0) {
+    fail('voice_performance_script requires at least one narration line.');
+  }
+  const voiceResult = await invokeStructuredTextStage('voice_performance_script', {
+    content_id: contentId,
+    title: trimString(row.title),
+    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    status_after_success: 'assets_ready',
+    prompt_template_data: {
+      title: trimString(row.title),
+      category: trimString(row.category || 'general') || 'general',
+      target_duration_seconds: String(row.target_duration_seconds || 45),
+      selected_style_pack: selectedStylePackFrom(row, directorJson),
+      narration_style: trimString(directorJson.tts_delivery || directorJson.voice_contract?.delivery_summary)
+        || 'human, emotionally grounded, clear, natural',
+      clean_spoken_script: trimString(row.narration_script),
+      narration_script: trimString(row.narration_script),
+      director_contract: directorJson,
+      director_contract_json: stringifyPromptJson(directorJson),
+      storyboard_plan: storyboardJson,
+      storyboard_plan_json: stringifyPromptJson(storyboardJson, []),
+      voice_line_map: voiceLineMap,
+      voice_line_map_json: stringifyPromptJson(voiceLineMap, []),
+      music_sfx_context: buildMusicSfxContext(rawResponseJson, directorJson, storyboardJson),
+      music_sfx_context_json: stringifyPromptJson(buildMusicSfxContext(rawResponseJson, directorJson, storyboardJson)),
+    },
+  });
+  const voicePlan = asObject(voiceResult.voice_performance_response);
+  const mergedStoryboard = mergeVoicePerformanceIntoStoryboard(storyboardJson, voicePlan, directorJson);
+  const nextRawResponseJson = {
+    ...rawResponseJson,
+    voice_performance_json: voicePlan,
+    voice_performance_metadata: {
+      generation_provider: trimString(voiceResult.generation_provider),
+      generation_model: trimString(voiceResult.generation_model),
+      provider_metadata: asObject(voiceResult.provider_metadata),
+      cost: asObject(voiceResult.cost),
+    },
+  };
+
+  await withTransaction(pool, async (client) => {
+    await client.query(
+      `update storyboards
+      set storyboard_json = $2::jsonb,
+          generated_at = now()
+      where content_id = $1`,
+      [contentId, JSON.stringify(mergedStoryboard)],
+    );
+    await client.query(
+      `update scripts
+      set raw_response_json = $2::jsonb,
+          generated_at = now()
+      where content_id = $1`,
+      [contentId, JSON.stringify(nextRawResponseJson)],
+    );
+    await logWorkflowRun(client, {
+      contentId,
+      workflowName: 'voice_performance_script',
+      startedAt,
+      durationMs: durationMsFrom(startedAt),
+      details: {
+        generation_provider: trimString(voiceResult.generation_provider),
+        generation_model: trimString(voiceResult.generation_model),
+        line_count: asArray(voicePlan.lines).length,
+        scene_count: mergedStoryboard.length,
+        total_estimated_spoken_duration_seconds: Number(voicePlan.total_estimated_spoken_duration_seconds || 0),
+        cost: voiceResult.cost ?? {},
+      },
+    });
+  });
+
+  return {
+    content_id: contentId,
+    status_after_success: 'assets_ready',
+    line_count: asArray(voicePlan.lines).length,
+    generation_provider: trimString(voiceResult.generation_provider),
+    generation_model: trimString(voiceResult.generation_model),
+  };
+}
+
 function buildAssetGenerationPayload(candidate, workflowName) {
   const directorJson = asObject(candidate.director_json);
   return {
@@ -219,6 +1238,7 @@ async function fetchAndClaimAssetCandidate(pool, contentId) {
         ci.content_id,
         ci.title,
         ci.category,
+        ci.reel_type,
         ci.status,
         ci.source_payload_json,
         sb.storyboard_json,
@@ -322,6 +1342,7 @@ async function fetchAndClaimNarrationCandidate(pool, contentId) {
         ci.source_payload_json,
         s.narration_script,
         coalesce(s.raw_response_json->>'v2_story_package', 'false') as is_v2_story_package,
+        coalesce(s.raw_response_json->'voice_performance_json', '{}'::jsonb) as voice_performance_json,
         sb.storyboard_json,
         count(distinct a.scene_number)::int as scene_asset_count,
         coalesce(d.director_json, '{}'::jsonb) as director_json
@@ -354,9 +1375,10 @@ async function runNarrationGeneration({ pool, step }) {
     ...candidate,
     workflow_name: 'wf_narration_generation',
     run_started_at: new Date().toISOString(),
-    director_scenes: asArray(directorJson.scenes),
-    director_tts_delivery: trimString(directorJson.tts_delivery),
-    prompt_profile: asObject(candidate.source_payload_json?.prompt_profile),
+      director_scenes: asArray(directorJson.scenes),
+      director_tts_delivery: trimString(directorJson.tts_delivery),
+      voice_performance_json: asObject(candidate.voice_performance_json),
+      prompt_profile: asObject(candidate.source_payload_json?.prompt_profile),
   };
   const result = runNodeScript(
     'workflows/scripts/generate_and_rehost_narration_audio.mjs',
@@ -433,26 +1455,308 @@ async function runNarrationGeneration({ pool, step }) {
   };
 }
 
-function getHeygenConfig() {
-  const apiKey = trimString(process.env.HEYGEN_API_KEY);
-  const avatarId = trimString(process.env.HEYGEN_AVATAR_ID);
-  const voiceId = trimString(process.env.HEYGEN_VOICE_ID);
+function getHeygenConfig({ failOnMissing = true } = {}) {
+  const apiKey = trimString(firstEnv(['HEYGEN_API_KEY']));
+  const avatarId = trimString(firstEnv(['HEYGEN_AVATAR_ID']));
+  const voiceId = trimString(firstEnv(['HEYGEN_VOICE_ID']));
   const missing = [];
   if (!apiKey) missing.push('HEYGEN_API_KEY');
   if (!avatarId) missing.push('HEYGEN_AVATAR_ID');
   if (!voiceId) missing.push('HEYGEN_VOICE_ID');
-  if (missing.length) {
+  if (missing.length && failOnMissing) {
     fail(`Avatar video generation requires ${missing.join(', ')}.`);
   }
   return {
     apiKey,
     avatarId,
     voiceId,
-    callbackUrl: trimString(process.env.HEYGEN_CALLBACK_URL),
-    pollIntervalMs: Math.max(1000, Number.parseInt(trimString(process.env.HEYGEN_POLL_INTERVAL_SECONDS || '10'), 10) * 1000 || 10000),
-    timeoutMs: Math.max(60000, Number.parseInt(trimString(process.env.HEYGEN_TIMEOUT_SECONDS || '900'), 10) * 1000 || 900000),
-    mockCompletedUrl: trimString(process.env.HEYGEN_MOCK_COMPLETED_URL),
+    missing,
+    configured: missing.length === 0,
+    callbackUrl: trimString(firstEnv(['HEYGEN_CALLBACK_URL'])),
+    pollIntervalMs: Math.max(1000, Number.parseInt(trimString(firstEnv(['HEYGEN_POLL_INTERVAL_SECONDS']) || '10'), 10) * 1000 || 10000),
+    timeoutMs: Math.max(60000, Number.parseInt(trimString(firstEnv(['HEYGEN_TIMEOUT_SECONDS']) || '900'), 10) * 1000 || 900000),
+    mockCompletedUrl: trimString(firstEnv(['HEYGEN_MOCK_COMPLETED_URL'])),
   };
+}
+
+const AVATAR_ROUTE_TYPES = new Set(['synthetic_avatar_asset', 'real_person_avatar_asset']);
+const SAFE_HEYGEN_OPTION_KEYS = new Set([
+  'aspect_ratio',
+  'resolution',
+  'fit',
+  'background',
+  'caption',
+  'captions',
+  'output_format',
+  'voice_settings',
+  'motion_prompt',
+  'expressiveness',
+  'engine',
+]);
+const SECRETISH_KEY_PATTERN = /(secret|token|api[_-]?key|authorization|password|credential)/i;
+const DEFAULT_AVATAR_RULES_SUMMARY = [
+  'Avatar use must pass account avatar policy, consent metadata, presenter suitability, disclosure, provider identity, and final QA.',
+  'Uploaded character references are creative context only and never consent records.',
+  'Presenter direction must remain separate from spoken script text unless a future script rewrite stage explicitly allows script changes.',
+  'Use non-avatar video fallback when consent, provider configuration, disclosure, safety, or suitability is missing or unclear.',
+].join(' ');
+const HEYGEN_CAPABILITY_SUMMARY = [
+  'HeyGen create-video request options may include aspect_ratio, resolution, fit, background, caption/captions, output_format, voice_settings, motion_prompt, expressiveness, and engine when supported.',
+  'Only provider-safe request options may be persisted; never include API keys, tokens, auth headers, secrets, credentials, or provider account secrets.',
+].join(' ');
+
+function heygenProviderInventory(config = getHeygenConfig({ failOnMissing: false })) {
+  return {
+    provider_name: 'heygen',
+    provider_source: 'env',
+    create_video_endpoint: '/v3/videos',
+    configured: config.configured === true,
+    missing_env: asArray(config.missing),
+    env_present: {
+      HEYGEN_API_KEY: Boolean(config.apiKey),
+      HEYGEN_AVATAR_ID: Boolean(config.avatarId),
+      HEYGEN_VOICE_ID: Boolean(config.voiceId),
+      HEYGEN_MOCK_COMPLETED_URL: Boolean(config.mockCompletedUrl),
+    },
+    provider_avatar_id: config.avatarId || null,
+    provider_voice_id: config.voiceId || null,
+    safe_request_options: [...SAFE_HEYGEN_OPTION_KEYS],
+    default_request_options: {
+      aspect_ratio: '9:16',
+      caption: false,
+    },
+    capability_summary: HEYGEN_CAPABILITY_SUMMARY,
+  };
+}
+
+function presenterProfileInventoryFrom({ sourcePayload, clientAccountContext, config }) {
+  const avatarDecision = asObject(sourcePayload.avatar_decision);
+  const sourceProfiles = asArray(
+    sourcePayload.presenter_profile_inventory
+    ?? sourcePayload.presenter_profiles
+    ?? clientAccountContext?.avatar_policy?.presenter_profiles,
+  );
+  const singleProfile = asObject(sourcePayload.presenter_profile ?? avatarDecision.presenter_profile);
+  const profiles = [
+    ...sourceProfiles,
+    ...(Object.keys(singleProfile).length ? [singleProfile] : []),
+  ].filter((profile) => Object.keys(asObject(profile)).length > 0);
+  if (profiles.length > 0) {
+    return profiles;
+  }
+  return [{
+    presenter_profile_id: 'heygen_env_default',
+    display_name: 'Configured HeyGen Presenter',
+    profile_type: clientAccountContext?.avatar_policy?.default_avatar_mode === 'real_person_with_consent'
+      ? 'real_person_with_consent'
+      : 'synthetic_persona',
+    provider_identity: {
+      provider_name: 'heygen',
+      provider_avatar_id: config.avatarId || null,
+      provider_voice_id: config.voiceId || null,
+      provider_config_status: config.configured ? 'approved_for_future_runtime' : 'missing',
+      provider_account_required_now: true,
+    },
+    consent: {
+      consent_status: trimString(clientAccountContext?.avatar_policy?.consent_status) || null,
+      consent_record_uri: trimString(clientAccountContext?.avatar_policy?.consent_record_uri) || null,
+    },
+    notes: 'Derived from HeyGen environment configuration for active avatar routing.',
+  }];
+}
+
+function storyPackageContextFrom(row) {
+  const raw = asObject(row.raw_response_json);
+  return {
+    selected_hook: trimString(row.selected_hook),
+    narration_script_excerpt: trimString(row.narration_script).slice(0, 2500),
+    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    story_package: asObject(
+      raw.story_package_json
+      ?? raw.story_package_v2_json
+      ?? raw.story_package_response
+      ?? raw.parsed_response,
+    ),
+    visual_prompt_plan: asObject(raw.visual_prompt_plan_json),
+  };
+}
+
+function directorAvatarContractFrom(directorJson) {
+  const director = asObject(directorJson);
+  const avatarContract = asObject(
+    director.avatar_contract
+    ?? director.avatar_presenter_contract
+    ?? director.presenter_contract
+    ?? director.avatar,
+  );
+  if (Object.keys(avatarContract).length > 0) {
+    return avatarContract;
+  }
+  return {
+    avatar_requested: true,
+    request_type: 'synthetic_presenter',
+    disclosure_required: true,
+    notes: 'No dedicated director avatar contract was found; selector must decide conservatively from account policy, story, and provider inventory.',
+    director_context: {
+      selected_style_pack: trimString(director.selected_style_pack),
+      voice_delivery_summary: trimString(director.tts_delivery || director.voice_contract?.delivery_summary),
+      visual_strategy: trimString(director.visual_strategy || director.global_visual_style),
+    },
+  };
+}
+
+function avatarDecisionWantsProviderCall(decision) {
+  const summary = asObject(decision.decision_summary);
+  const selectedRoute = asObject(decision.selected_route);
+  const routeType = trimString(selectedRoute.route_type);
+  return AVATAR_ROUTE_TYPES.has(routeType)
+    && summary.avatar_route_enabled === true
+    && (summary.provider_calls_allowed === true || decision.provider_calls_allowed === true || selectedRoute.provider_calls_allowed === true);
+}
+
+function safeProviderOptionValue(value, depth = 0) {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === 'string') return value.slice(0, 1200);
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value === 'boolean') return value;
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, 20)
+      .map((entry) => safeProviderOptionValue(entry, depth + 1))
+      .filter((entry) => entry !== undefined);
+  }
+  if (typeof value === 'object' && depth < 4) {
+    const result = {};
+    for (const [key, entry] of Object.entries(value)) {
+      if (SECRETISH_KEY_PATTERN.test(key)) {
+        continue;
+      }
+      const safeValue = safeProviderOptionValue(entry, depth + 1);
+      if (safeValue !== undefined) {
+        result[key] = safeValue;
+      }
+    }
+    return result;
+  }
+  return undefined;
+}
+
+function sanitizeHeygenRequestOptions(decision = {}) {
+  const rawOptions = asObject(
+    decision.provider_request_options
+    ?? decision.selected_route?.provider_request_options,
+  );
+  const options = {};
+  for (const [key, value] of Object.entries(rawOptions)) {
+    if (!SAFE_HEYGEN_OPTION_KEYS.has(key) || SECRETISH_KEY_PATTERN.test(key)) {
+      continue;
+    }
+    const safeValue = safeProviderOptionValue(value);
+    if (safeValue !== undefined) {
+      options[key] = safeValue;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(options, 'captions') && !Object.prototype.hasOwnProperty.call(options, 'caption')) {
+    options.caption = options.captions;
+  }
+  delete options.captions;
+  if (options.caption === false || options.caption === null || options.caption === '') {
+    delete options.caption;
+  }
+  if (!options.aspect_ratio) {
+    options.aspect_ratio = '9:16';
+  }
+  return options;
+}
+
+function avatarProviderIdentityErrors(decision, config) {
+  const selectedRoute = asObject(decision.selected_route);
+  const presenterProfile = asObject(decision.presenter_profile);
+  const providerIdentity = asObject(presenterProfile.provider_identity);
+  const providerName = trimString(selectedRoute.provider_name || providerIdentity.provider_name || 'heygen').toLowerCase();
+  const avatarId = trimString(selectedRoute.provider_avatar_id || providerIdentity.provider_avatar_id);
+  const voiceId = trimString(selectedRoute.provider_voice_id || providerIdentity.provider_voice_id);
+  const errors = [];
+  if (providerName !== 'heygen') {
+    errors.push(`selected provider '${providerName}' is not supported by avatar_media_generation`);
+  }
+  if (avatarId && config.avatarId && avatarId !== config.avatarId) {
+    errors.push('selected provider avatar id does not match configured HEYGEN_AVATAR_ID');
+  }
+  if (voiceId && config.voiceId && voiceId !== config.voiceId) {
+    errors.push('selected provider voice id does not match configured HEYGEN_VOICE_ID');
+  }
+  return errors;
+}
+
+function avatarDisclosureErrors(decision) {
+  const summaryDisclosureRequired = decision.disclosure_required === true
+    || asObject(decision.selected_route).disclosure_required === true
+    || asObject(decision.presenter_profile).disclosure_policy?.disclosure_required === true;
+  const disclosureText = trimString(
+    asObject(decision.selected_route).disclosure_text
+    || asObject(decision.presenter_profile).disclosure_policy?.disclosure_text,
+  );
+  if (summaryDisclosureRequired && !disclosureText) {
+    return ['avatar decision requires disclosure but did not provide disclosure text'];
+  }
+  return [];
+}
+
+function avatarFallbackReason({ decision, config, consentEvaluation }) {
+  const errors = [];
+  const wantsAvatar = avatarDecisionWantsProviderCall(decision);
+  if (!wantsAvatar) {
+    return trimString(
+      decision.fallback_plan?.reason
+      || decision.decision_summary?.rationale
+      || 'avatar selector chose non-avatar video fallback',
+    ) || 'avatar selector chose non-avatar video fallback';
+  }
+  if (!consentEvaluation.allowed) {
+    errors.push(...consentEvaluation.errors);
+  }
+  if (!config.configured) {
+    errors.push(`missing HeyGen configuration: ${asArray(config.missing).join(', ') || 'unknown'}`);
+  }
+  errors.push(...avatarProviderIdentityErrors(decision, config));
+  errors.push(...avatarDisclosureErrors(decision));
+  if (decision.consent_evaluation?.blocks_avatar_route === true) {
+    errors.push('avatar decision consent_evaluation.blocks_avatar_route is true');
+  }
+  if (errors.length > 0) {
+    return errors.join(' ');
+  }
+  return '';
+}
+
+function buildHeygenRequestBody(row, config, decision = {}) {
+  const narrationScript = trimString(row.narration_script);
+  if (!narrationScript) fail('HeyGen avatar generation requires narration_script.');
+  const providerOptions = sanitizeHeygenRequestOptions(decision);
+  return {
+    type: 'avatar',
+    avatar_id: config.avatarId,
+    voice_id: config.voiceId,
+    script: narrationScript,
+    title: trimString(row.title),
+    ...providerOptions,
+    ...(config.callbackUrl ? { callback_url: config.callbackUrl } : {}),
+  };
+}
+
+async function updateAvatarRunSummary(client, step, summary) {
+  const pipelineRunId = trimString(step?.pipeline_run_id);
+  if (!pipelineRunId) {
+    return;
+  }
+  await client.query(
+    `update pipeline_runs
+    set summary_json = summary_json || $2::jsonb,
+        updated_at = now()
+    where pipeline_run_id = $1`,
+    [pipelineRunId, JSON.stringify(summary ?? {})],
+  );
 }
 
 function evaluateAvatarConsent({ sourcePayload, clientAccountContext }) {
@@ -472,7 +1776,7 @@ function evaluateAvatarConsent({ sourcePayload, clientAccountContext }) {
     avatarPolicy.consent_record_uri
     || presenterConsent.consent_record_uri
     || presenterProfile.consent_record_uri
-    || process.env.HEYGEN_AVATAR_CONSENT_RECORD_URI,
+    || firstEnv(['HEYGEN_AVATAR_CONSENT_RECORD_URI']),
   );
   const requiresConsent = avatarPolicy.requires_consent !== false;
   const avatarAllowed = avatarPolicy.avatar_allowed === true;
@@ -500,6 +1804,165 @@ function evaluateAvatarConsent({ sourcePayload, clientAccountContext }) {
   };
 }
 
+async function runAvatarPresenterSelector({ pool, step }) {
+  const contentId = ensureUuid(step.content_id);
+  const startedAt = new Date().toISOString();
+  const row = await withTransaction(pool, async (client) => {
+    const claim = await client.query(
+      `update content_items
+      set status = 'selecting_avatar_route',
+          updated_at = now()
+      where content_id = $1
+        and reel_type = 'avatar'
+        and status in ('validation_complete', 'storyboard_complete', 'selecting_avatar_route', 'avatar_route_ready')
+      returning content_id`,
+      [contentId],
+    );
+    if (claim.rowCount === 0) {
+      fail(`No avatar validation_complete content item is ready for avatar presenter selector: ${contentId}.`);
+    }
+    const result = await client.query(
+      `select
+        ci.content_id,
+        ci.title,
+        ci.category,
+        ci.reel_type,
+        ci.status,
+        ci.target_duration_seconds,
+        ci.source_payload_json,
+        coalesce(s.selected_hook, '') as selected_hook,
+        coalesce(s.narration_script, '') as narration_script,
+        coalesce(s.raw_response_json, '{}'::jsonb) as raw_response_json,
+        sb.storyboard_json,
+        coalesce(d.director_json, '{}'::jsonb) as director_json,
+        coalesce(cac.account_context_key, '') as account_context_key,
+        coalesce(cac.context_snapshot_json, ci.source_payload_json->'client_account_context', '{}'::jsonb) as client_account_context
+      from content_items ci
+      join scripts s on s.content_id = ci.content_id
+      join storyboards sb on sb.content_id = ci.content_id
+      left join directors d on d.content_id = ci.content_id
+      left join content_account_contexts cac on cac.content_id = ci.content_id
+      where ci.content_id = $1
+      for update of ci`,
+      [contentId],
+    );
+    if (result.rowCount === 0) {
+      fail(`Avatar presenter selector requires script/storyboard rows for ${contentId}.`);
+    }
+    return result.rows[0];
+  });
+
+  const config = getHeygenConfig({ failOnMissing: false });
+  const sourcePayload = asObject(row.source_payload_json);
+  const clientAccountContext = asObject(row.client_account_context);
+  const directorJson = asObject(row.director_json);
+  const storyboardJson = asArray(row.storyboard_json);
+  const selectorResult = await invokeStructuredTextStage('avatar_presenter_selector', {
+    content_id: contentId,
+    title: trimString(row.title),
+    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    package_type: 'instagram_reel',
+    status_after_success: 'avatar_route_ready',
+    prompt_template_data: {
+      title: trimString(row.title),
+      category: trimString(row.category || 'general') || 'general',
+      package_type: 'instagram_reel',
+      selected_style_pack: selectedStylePackFrom(row, directorJson),
+      client_account_context: clientAccountContext,
+      client_account_context_json: stringifyPromptJson(clientAccountContext),
+      story_package_context: storyPackageContextFrom(row),
+      story_package_context_json: stringifyPromptJson(storyPackageContextFrom(row)),
+      director_avatar_contract: directorAvatarContractFrom(directorJson),
+      director_avatar_contract_json: stringifyPromptJson(directorAvatarContractFrom(directorJson)),
+      storyboard_plan: storyboardJson,
+      storyboard_plan_json: stringifyPromptJson(storyboardJson, []),
+      character_reference_context: asObject(sourcePayload.character_reference),
+      character_reference_context_json: stringifyPromptJson(asObject(sourcePayload.character_reference)),
+      presenter_profile_inventory: presenterProfileInventoryFrom({ sourcePayload, clientAccountContext, config }),
+      presenter_profile_inventory_json: stringifyPromptJson(
+        presenterProfileInventoryFrom({ sourcePayload, clientAccountContext, config }),
+        [],
+      ),
+      avatar_provider_inventory: heygenProviderInventory(config),
+      avatar_provider_inventory_json: stringifyPromptJson(heygenProviderInventory(config)),
+      avatar_rules_summary: DEFAULT_AVATAR_RULES_SUMMARY,
+      heygen_capability_summary: HEYGEN_CAPABILITY_SUMMARY,
+    },
+  });
+  const avatarDecision = asObject(selectorResult.avatar_decision_response);
+  if (Object.keys(avatarDecision).length === 0) {
+    fail('avatar_presenter_selector returned an empty avatar decision.');
+  }
+
+  const rawResponseJson = asObject(row.raw_response_json);
+  const nextRawResponseJson = {
+    ...rawResponseJson,
+    avatar_decision_json: avatarDecision,
+    avatar_decision_metadata: {
+      generation_provider: trimString(selectorResult.generation_provider),
+      generation_model: trimString(selectorResult.generation_model),
+      provider_metadata: asObject(selectorResult.provider_metadata),
+      cost: asObject(selectorResult.cost),
+      provider_inventory: heygenProviderInventory(config),
+    },
+  };
+  const fallbackReasonPreview = avatarFallbackReason({
+    decision: avatarDecision,
+    config,
+    consentEvaluation: evaluateAvatarConsent({ sourcePayload, clientAccountContext }),
+  });
+  const effectiveReelTypePreview = fallbackReasonPreview ? 'video' : 'avatar';
+
+  await withTransaction(pool, async (client) => {
+    await client.query(
+      `update scripts
+      set raw_response_json = $2::jsonb,
+          generated_at = now()
+      where content_id = $1`,
+      [contentId, JSON.stringify(nextRawResponseJson)],
+    );
+    await client.query(
+      `update content_items
+      set status = 'avatar_route_ready',
+          updated_at = now()
+      where content_id = $1`,
+      [contentId],
+    );
+    await updateAvatarRunSummary(client, step, {
+      requested_reel_type: 'avatar',
+      effective_reel_type: effectiveReelTypePreview,
+      avatar_decision_status: trimString(avatarDecision.decision_summary?.decision_status),
+      avatar_fallback_reason: fallbackReasonPreview || null,
+    });
+    await logWorkflowRun(client, {
+      contentId,
+      workflowName: 'avatar_presenter_selector',
+      startedAt,
+      durationMs: durationMsFrom(startedAt),
+      details: {
+        decision_status: trimString(avatarDecision.decision_summary?.decision_status),
+        provider_calls_allowed: avatarDecisionWantsProviderCall(avatarDecision),
+        effective_reel_type_preview: effectiveReelTypePreview,
+        avatar_fallback_reason_preview: fallbackReasonPreview || null,
+        generation_provider: trimString(selectorResult.generation_provider),
+        generation_model: trimString(selectorResult.generation_model),
+        cost: selectorResult.cost ?? {},
+      },
+    });
+  });
+
+  return {
+    content_id: contentId,
+    status_after_success: 'avatar_route_ready',
+    decision_status: trimString(avatarDecision.decision_summary?.decision_status),
+    requested_reel_type: 'avatar',
+    effective_reel_type_preview: effectiveReelTypePreview,
+    avatar_fallback_reason_preview: fallbackReasonPreview || null,
+    generation_provider: trimString(selectorResult.generation_provider),
+    generation_model: trimString(selectorResult.generation_model),
+  };
+}
+
 async function runAvatarConsentGate({ pool, step }) {
   const contentId = ensureUuid(step.content_id);
   const startedAt = new Date().toISOString();
@@ -511,7 +1974,7 @@ async function runAvatarConsentGate({ pool, step }) {
           updated_at = now()
       where content_id = $1
         and reel_type = 'avatar'
-        and status in ('storyboard_complete', 'checking_avatar_consent', 'avatar_consent_ready')
+        and status in ('validation_complete', 'storyboard_complete', 'checking_avatar_consent', 'avatar_consent_ready')
       returning content_id`,
       [contentId],
     );
@@ -594,6 +2057,223 @@ async function runAvatarConsentGate({ pool, step }) {
   };
 }
 
+async function loadAvatarMediaCandidate(pool, contentId) {
+  return withTransaction(pool, async (client) => {
+    const claim = await client.query(
+      `update content_items
+      set status = 'generating_avatar_media',
+          updated_at = now()
+      where content_id = $1
+        and reel_type = 'avatar'
+        and status in ('avatar_route_ready', 'generating_avatar_media', 'avatar_consent_ready', 'avatar_ready')
+      returning content_id`,
+      [contentId],
+    );
+    if (claim.rowCount === 0) {
+      fail(`No avatar_route_ready content item is ready for avatar media generation: ${contentId}.`);
+    }
+    const result = await client.query(
+      `select
+        ci.content_id,
+        ci.title,
+        ci.reel_type,
+        ci.source_payload_json,
+        coalesce(s.raw_response_json, '{}'::jsonb) as raw_response_json,
+        coalesce(cac.context_snapshot_json, ci.source_payload_json->'client_account_context', '{}'::jsonb) as client_account_context
+      from content_items ci
+      left join scripts s on s.content_id = ci.content_id
+      left join content_account_contexts cac on cac.content_id = ci.content_id
+      where ci.content_id = $1
+      for update of ci`,
+      [contentId],
+    );
+    if (result.rowCount === 0) {
+      fail(`No content item exists for avatar media generation: ${contentId}.`);
+    }
+    return result.rows[0];
+  });
+}
+
+async function updateAvatarRouteResult(client, contentId, routeResult) {
+  const scriptResult = await client.query(
+    `select coalesce(raw_response_json, '{}'::jsonb) as raw_response_json
+    from scripts
+    where content_id = $1
+    for update`,
+    [contentId],
+  );
+  if (scriptResult.rowCount === 0) {
+    return;
+  }
+  const rawResponseJson = asObject(scriptResult.rows[0].raw_response_json);
+  await client.query(
+    `update scripts
+    set raw_response_json = $2::jsonb,
+        generated_at = now()
+    where content_id = $1`,
+    [
+      contentId,
+      JSON.stringify({
+        ...rawResponseJson,
+        avatar_route_result: routeResult,
+      }),
+    ],
+  );
+}
+
+async function runAvatarVideoFallback({ pool, step, reason, decision, startedAt }) {
+  const contentId = ensureUuid(step.content_id);
+  const routeResult = {
+    requested_reel_type: 'avatar',
+    effective_reel_type: 'video',
+    actual_route: 'fallback_video',
+    avatar_fallback_reason: trimString(reason) || 'avatar route unavailable',
+    provider_calls_attempted: false,
+    provider_calls_allowed: avatarDecisionWantsProviderCall(decision),
+    decided_at: new Date().toISOString(),
+  };
+
+  await withTransaction(pool, async (client) => {
+    await updateAvatarRouteResult(client, contentId, routeResult);
+    await client.query(
+      `update content_items
+      set reel_type = 'video',
+          status = 'validation_complete',
+          updated_at = now()
+      where content_id = $1`,
+      [contentId],
+    );
+    await updateAvatarRunSummary(client, step, {
+      requested_reel_type: 'avatar',
+      effective_reel_type: 'video',
+      avatar_fallback_reason: routeResult.avatar_fallback_reason,
+    });
+    await logWorkflowRun(client, {
+      contentId,
+      workflowName: 'avatar_media_generation',
+      startedAt,
+      durationMs: durationMsFrom(startedAt),
+      details: {
+        route_result: routeResult,
+        decision_status: trimString(decision.decision_summary?.decision_status),
+      },
+    });
+  });
+
+  const assetResult = await runAssetGenerationV3({ pool, step });
+  const voiceResult = await runVoicePerformanceScript({ pool, step });
+  const narrationResult = await runNarrationGeneration({ pool, step });
+  return {
+    content_id: contentId,
+    status_after_success: 'narration_ready',
+    requested_reel_type: 'avatar',
+    effective_reel_type: 'video',
+    actual_route: 'fallback_video',
+    avatar_fallback_reason: routeResult.avatar_fallback_reason,
+    asset_generation: {
+      status_after_success: assetResult.status_after_success,
+      scene_count: assetResult.scene_count,
+      cost: assetResult.cost ?? {},
+    },
+    voice_performance: {
+      status_after_success: voiceResult.status_after_success,
+      line_count: voiceResult.line_count,
+      generation_provider: voiceResult.generation_provider,
+      generation_model: voiceResult.generation_model,
+    },
+    narration_generation: {
+      status_after_success: narrationResult.status_after_success,
+      scene_count: narrationResult.scene_count,
+      total_duration_seconds: narrationResult.total_duration_seconds,
+      cost: narrationResult.cost ?? {},
+    },
+  };
+}
+
+async function runAvatarMediaGeneration({ pool, step }) {
+  const contentId = ensureUuid(step.content_id);
+  const startedAt = new Date().toISOString();
+  const row = await loadAvatarMediaCandidate(pool, contentId);
+  const sourcePayload = asObject(row.source_payload_json);
+  const clientAccountContext = asObject(row.client_account_context);
+  const rawResponseJson = asObject(row.raw_response_json);
+  const decision = asObject(rawResponseJson.avatar_decision_json);
+  const config = getHeygenConfig({ failOnMissing: false });
+  const consentEvaluation = evaluateAvatarConsent({ sourcePayload, clientAccountContext });
+
+  if (Object.keys(decision).length === 0) {
+    return runAvatarVideoFallback({
+      pool,
+      step,
+      reason: 'avatar presenter selector decision is missing',
+      decision,
+      startedAt,
+    });
+  }
+
+  const fallbackReason = avatarFallbackReason({ decision, config, consentEvaluation });
+  if (fallbackReason) {
+    return runAvatarVideoFallback({
+      pool,
+      step,
+      reason: fallbackReason,
+      decision,
+      startedAt,
+    });
+  }
+
+  await withTransaction(pool, async (client) => {
+    await updateAvatarRouteResult(client, contentId, {
+      requested_reel_type: 'avatar',
+      effective_reel_type: 'avatar',
+      actual_route: 'avatar_video',
+      provider: 'heygen',
+      provider_calls_attempted: Boolean(!config.mockCompletedUrl),
+      provider_calls_allowed: true,
+      disclosure_required: decision.disclosure_required === true || decision.selected_route?.disclosure_required === true,
+      decided_at: new Date().toISOString(),
+    });
+    await client.query(
+      `update content_items
+      set reel_type = 'avatar',
+          status = 'avatar_consent_ready',
+          updated_at = now()
+      where content_id = $1`,
+      [contentId],
+    );
+    await updateAvatarRunSummary(client, step, {
+      requested_reel_type: 'avatar',
+      effective_reel_type: 'avatar',
+      avatar_fallback_reason: null,
+    });
+  });
+
+  try {
+    const result = await runHeygenAvatarGeneration({
+      pool,
+      step,
+      avatarDecision: decision,
+      heygenConfig: config,
+      workflowName: 'avatar_media_generation',
+    });
+    return {
+      ...result,
+      requested_reel_type: 'avatar',
+      effective_reel_type: 'avatar',
+      actual_route: 'avatar_video',
+    };
+  } catch (error) {
+    const message = String(error?.message || error || 'HeyGen avatar generation failed.').slice(0, 1000);
+    return runAvatarVideoFallback({
+      pool,
+      step,
+      reason: `HeyGen avatar generation failed; auto-downgraded to video. ${message}`,
+      decision,
+      startedAt,
+    });
+  }
+}
+
 function extractHeygenVideoId(body = {}) {
   const data = asObject(body.data);
   const video = asObject(data.video);
@@ -668,10 +2348,19 @@ async function fetchBinaryAsset(assetUrl, label) {
   };
 }
 
-async function runHeygenAvatarGeneration({ pool, step }) {
+async function runHeygenAvatarGeneration({
+  pool,
+  step,
+  avatarDecision = null,
+  heygenConfig = null,
+  workflowName = 'heygen_avatar_generation',
+} = {}) {
   const contentId = ensureUuid(step.content_id);
   const startedAt = new Date().toISOString();
-  const config = getHeygenConfig();
+  const config = heygenConfig ?? getHeygenConfig();
+  if (config.configured !== true) {
+    fail(`Avatar video generation requires ${asArray(config.missing).join(', ') || 'HeyGen configuration'}.`);
+  }
   const row = await withTransaction(pool, async (client) => {
     const claim = await client.query(
       `update content_items
@@ -692,7 +2381,8 @@ async function runHeygenAvatarGeneration({ pool, step }) {
         ci.title,
         ci.target_duration_seconds,
         coalesce(ci.source_payload_json, '{}'::jsonb) as source_payload_json,
-        coalesce(s.narration_script, '') as narration_script
+        coalesce(s.narration_script, '') as narration_script,
+        coalesce(s.raw_response_json, '{}'::jsonb) as raw_response_json
       from content_items ci
       join scripts s on s.content_id = ci.content_id
       where ci.content_id = $1
@@ -707,14 +2397,9 @@ async function runHeygenAvatarGeneration({ pool, step }) {
 
   const narrationScript = trimString(row.narration_script);
   if (!narrationScript) fail('HeyGen avatar generation requires narration_script.');
-  const requestBody = {
-    type: 'avatar',
-    avatar_id: config.avatarId,
-    voice_id: config.voiceId,
-    script: narrationScript,
-    title: trimString(row.title),
-    ...(config.callbackUrl ? { callback_url: config.callbackUrl } : {}),
-  };
+  const decision = avatarDecision ?? asObject(asObject(row.raw_response_json).avatar_decision_json);
+  const requestBody = buildHeygenRequestBody(row, config, decision);
+  const providerRequestOptions = sanitizeHeygenRequestOptions(decision);
 
   const avatarGeneration = await withTransaction(pool, async (client) => {
     const insert = await client.query(
@@ -737,8 +2422,8 @@ async function runHeygenAvatarGeneration({ pool, step }) {
     let finalStatus = {
       status: 'completed',
       outputUrl: config.mockCompletedUrl,
-      thumbnailUrl: trimString(process.env.HEYGEN_MOCK_THUMBNAIL_URL),
-      durationSeconds: Number(process.env.HEYGEN_MOCK_DURATION_SECONDS || row.target_duration_seconds || 0) || null,
+      thumbnailUrl: trimString(firstEnv(['HEYGEN_MOCK_THUMBNAIL_URL'])),
+      durationSeconds: Number(firstEnv(['HEYGEN_MOCK_DURATION_SECONDS']) || row.target_duration_seconds || 0) || null,
     };
 
     if (!config.mockCompletedUrl) {
@@ -836,6 +2521,9 @@ async function runHeygenAvatarGeneration({ pool, step }) {
             avatar_generation_id: avatarGeneration.avatar_generation_id,
             source_type: config.mockCompletedUrl ? 'mock_completed_url_rehosted' : 'heygen_direct_video_rehosted',
             thumbnail_url: finalStatus.thumbnailUrl || null,
+            avatar_decision_status: trimString(decision.decision_summary?.decision_status),
+            disclosure_required: decision.disclosure_required === true || decision.selected_route?.disclosure_required === true,
+            provider_request_options: providerRequestOptions,
             rehost_provider: storage.mode,
             storage_object_key: storage.objectKey,
             generated_at: new Date().toISOString(),
@@ -860,6 +2548,19 @@ async function runHeygenAvatarGeneration({ pool, step }) {
           JSON.stringify(statusResponse),
         ],
       );
+      await updateAvatarRouteResult(client, contentId, {
+        requested_reel_type: 'avatar',
+        effective_reel_type: 'avatar',
+        actual_route: 'avatar_video',
+        provider: 'heygen',
+        provider_video_id: videoId || 'mock',
+        output_video_url: storage.url,
+        duration_seconds: finalStatus.durationSeconds,
+        disclosure_required: decision.disclosure_required === true || decision.selected_route?.disclosure_required === true,
+        disclosure_text: trimString(decision.selected_route?.disclosure_text || decision.presenter_profile?.disclosure_policy?.disclosure_text) || null,
+        provider_request_options: providerRequestOptions,
+        completed_at: new Date().toISOString(),
+      });
       await client.query(
         `update content_items
         set status = 'avatar_ready',
@@ -869,7 +2570,7 @@ async function runHeygenAvatarGeneration({ pool, step }) {
       );
       await logWorkflowRun(client, {
         contentId,
-        workflowName: 'heygen_avatar_generation',
+        workflowName,
         startedAt,
         durationMs: durationMsFrom(startedAt),
         details: {
@@ -878,6 +2579,8 @@ async function runHeygenAvatarGeneration({ pool, step }) {
           avatar_generation_id: avatarGeneration.avatar_generation_id,
           output_video_url: storage.url,
           duration_seconds: finalStatus.durationSeconds,
+          provider_request_options: providerRequestOptions,
+          avatar_decision_status: trimString(decision.decision_summary?.decision_status),
           cost: { type: 'provider_dashboard', provider: 'heygen', total_usd: 0 },
         },
       });
@@ -913,7 +2616,7 @@ async function runHeygenAvatarGeneration({ pool, step }) {
       );
       await logWorkflowRun(client, {
         contentId,
-        workflowName: 'heygen_avatar_generation',
+        workflowName,
         runStatus: 'failed',
         startedAt,
         durationMs: durationMsFrom(startedAt),
@@ -939,6 +2642,80 @@ function inferAssetType(asset) {
   return 'image';
 }
 
+function normalizeAssetPlanForRender(scene, assetType, asset = {}) {
+  const metadata = asObject(asset?.metadata_json);
+  const rawPlan = asObject(scene?.asset_plan);
+  const metadataPlan = asObject(metadata.asset_plan);
+  const plan = Object.keys(rawPlan).length ? rawPlan : metadataPlan;
+  const requestedMode = trimString(plan.mode || metadata.requested_asset_type || scene?.asset_type).toLowerCase();
+  let mode = requestedMode === 'video' ? 'video' : (requestedMode === 'image' ? 'image' : 'image_with_motion');
+  if (assetType === 'image' && (mode === 'video' || metadata.fallback_from_video === true)) {
+    mode = 'image_with_motion';
+  }
+  return {
+    mode,
+    provider_intent: mode === 'video' ? 'provider_video' : (mode === 'image' ? 'static_image' : 'remotion_motion'),
+    motion_requirement: trimString(plan.motion_requirement || metadata?.remotion?.motion_intensity || 'medium') || 'medium',
+    video_generation_required: mode === 'video',
+    video_generation_reason: trimString(plan.video_generation_reason || ''),
+    fallback_mode: 'image_with_motion',
+    budget_priority: trimString(plan.budget_priority || (mode === 'video' ? 'premium' : 'standard')) || 'standard',
+    review_required: mode === 'video',
+    requested_mode: requestedMode || mode,
+    actual_asset_type: assetType,
+    fallback_from_video: metadata.fallback_from_video === true,
+    fallback_reason: trimString(metadata.fallback_reason),
+  };
+}
+
+function normalizeRemotionForRender(scene, assetPlan, index, asset = {}) {
+  const metadata = asObject(asset?.metadata_json);
+  const raw = Object.keys(asObject(scene?.remotion)).length
+    ? asObject(scene.remotion)
+    : asObject(metadata.remotion);
+  const cameraMoves = new Set(['push_in', 'pull_out', 'pan_left', 'pan_right', 'tilt_up', 'tilt_down', 'drift', 'hold']);
+  const directions = new Set(['center_push', 'center_pull', 'left_to_right', 'right_to_left', 'bottom_to_top', 'top_to_bottom', 'diagonal_up', 'diagonal_down', 'hold']);
+  const transitions = new Set(['cut', 'crossfade', 'soft_cut', 'dip_to_black', 'slide_left', 'slide_right', 'wipe_up', 'match_cut']);
+  const overlays = new Set(['none', 'subtle_vignette', 'warm_gradient', 'cool_gradient', 'documentary_shadow', 'soft_light_leak']);
+  const pacingValues = new Set(['quick', 'steady', 'slow', 'linger']);
+  const motion = trimString(raw.motion_intensity || assetPlan.motion_requirement || 'medium').toLowerCase();
+  const defaultCamera = motion === 'high'
+    ? ['pan_left', 'pan_right', 'tilt_up', 'push_in'][index % 4]
+    : ['push_in', 'pan_right', 'tilt_down', 'drift'][index % 4];
+  const cameraMove = cameraMoves.has(trimString(raw.camera_move).toLowerCase()) ? trimString(raw.camera_move).toLowerCase() : defaultCamera;
+  const directionByMove = {
+    pull_out: 'center_pull',
+    pan_left: 'right_to_left',
+    pan_right: 'left_to_right',
+    tilt_up: 'bottom_to_top',
+    tilt_down: 'top_to_bottom',
+    drift: 'diagonal_up',
+    hold: 'hold',
+  };
+  const panZoomDirection = directions.has(trimString(raw.pan_zoom_direction).toLowerCase())
+    ? trimString(raw.pan_zoom_direction).toLowerCase()
+    : (directionByMove[cameraMove] || 'center_push');
+  const transitionType = transitions.has(trimString(raw.transition_type || scene?.transition).toLowerCase().replace(/[\s-]+/g, '_'))
+    ? trimString(raw.transition_type || scene?.transition).toLowerCase().replace(/[\s-]+/g, '_')
+    : (index === 0 ? 'cut' : 'soft_cut');
+  const overlayStyle = overlays.has(trimString(raw.overlay_style).toLowerCase())
+    ? trimString(raw.overlay_style).toLowerCase()
+    : (motion === 'high' ? 'documentary_shadow' : 'subtle_vignette');
+  const pacing = pacingValues.has(trimString(raw.pacing).toLowerCase())
+    ? trimString(raw.pacing).toLowerCase()
+    : (motion === 'low' ? 'linger' : 'steady');
+  return {
+    camera_move: cameraMove,
+    pan_zoom_direction: panZoomDirection,
+    motion_intensity: ['low', 'medium', 'high'].includes(motion) ? motion : 'medium',
+    transition_type: transitionType,
+    overlay_style: overlayStyle,
+    pacing,
+    motion_layers: asArray(raw.motion_layers).map((entry) => trimString(entry)).filter(Boolean).slice(0, 4),
+    instructions: trimString(raw.instructions),
+  };
+}
+
 function renderOutputSettings(seed) {
   const outputWidth = Number.parseInt(trimString(process.env.RENDER_OUTPUT_WIDTH || seed?.output?.width || '1080'), 10);
   const outputHeight = Number.parseInt(trimString(process.env.RENDER_OUTPUT_HEIGHT || seed?.output?.height || '1920'), 10);
@@ -951,6 +2728,28 @@ function renderOutputSettings(seed) {
     format: outputFormat,
     aspect_ratio: '9:16',
   };
+}
+
+function titleOverlay(text) {
+  const normalizedText = trimString(text);
+  if (!normalizedText) {
+    return null;
+  }
+  return {
+    text: normalizedText,
+    enabled: true,
+    duration_seconds: 2.0,
+    mode: 'opening_title_card',
+    renderer_owned: true,
+  };
+}
+
+function narrationTailPaddingSeconds() {
+  const configured = Number.parseFloat(trimString(process.env.NARRATION_SCENE_TAIL_SECONDS || process.env.RENDER_NARRATION_TAIL_SECONDS || '0.35'));
+  if (!Number.isFinite(configured)) {
+    return 0.35;
+  }
+  return Math.min(1.5, Math.max(0, Number(configured.toFixed(2))));
 }
 
 function buildAvatarRenderManifest(row, {
@@ -1005,7 +2804,7 @@ function buildAvatarRenderManifest(row, {
     reel_type: 'avatar',
     content_id: contentId,
     title,
-    title_overlay: faceImageTitle ? { text: faceImageTitle, enabled: true, duration_seconds: 4.0 } : null,
+    title_overlay: titleOverlay(faceImageTitle),
     output,
     audio: {
       narration: {
@@ -1094,6 +2893,7 @@ function buildRenderManifest(row) {
   const narrationSpeed = Number.isFinite(Number(sceneNarrationAssets[0]?.metadata_json?.speed))
     ? Number(sceneNarrationAssets[0].metadata_json.speed)
     : 1;
+  const narrationTailPadding = narrationTailPaddingSeconds();
   const narrationByScene = Object.fromEntries(sceneNarrationAssets.map((asset) => [Number(asset.scene_number), asset]));
 
   let currentTime = 0;
@@ -1101,7 +2901,8 @@ function buildRenderManifest(row) {
     const sceneNumber = Number(scene?.scene_number ?? index + 1);
     const narrationAsset = narrationByScene[sceneNumber] ?? null;
     if (!narrationAsset) fail(`Missing scene_narration asset for scene ${sceneNumber}.`);
-    const durationSeconds = roundToHundredths(Math.max(Number(narrationAsset.duration_seconds ?? 0), 0.5));
+    const narrationDurationSeconds = roundToHundredths(Math.max(Number(narrationAsset.duration_seconds ?? 0), 0.5));
+    const durationSeconds = roundToHundredths(Math.max(narrationDurationSeconds + narrationTailPadding, 0.5));
     const matchingAsset = sceneAssets.find((asset) => Number(asset?.scene_number ?? 0) === sceneNumber);
     if (!matchingAsset) fail(`Missing scene asset for scene ${sceneNumber}.`);
     if (!trimString(matchingAsset.storage_url)) fail(`Scene ${sceneNumber} asset is missing storage_url.`);
@@ -1110,18 +2911,23 @@ function buildRenderManifest(row) {
     currentTime = endTime;
     const subtitle = subtitleLines.find((line) => Number(line?.scene_number ?? 0) === sceneNumber);
     const assetType = inferAssetType(matchingAsset);
+    const assetPlan = normalizeAssetPlanForRender(scene, assetType, matchingAsset);
+    const remotion = normalizeRemotionForRender(scene, assetPlan, index, matchingAsset);
     return {
       scene_number: sceneNumber,
       start_time_seconds: startTime,
       end_time_seconds: endTime,
       duration_seconds: durationSeconds,
       transition: trimString(scene?.transition),
+      asset_plan: assetPlan,
+      remotion,
       mood: trimString(scene?.mood),
       music_cue: trimString(scene?.music_cue),
       visual_prompt: trimString(scene?.visual_prompt),
       narration_text: trimString(scene?.narration_text),
       narration_url: trimString(narrationAsset.storage_url),
-      narration_duration_seconds: Number(narrationAsset.duration_seconds ?? 0),
+      narration_duration_seconds: narrationDurationSeconds,
+      narration_tail_padding_seconds: narrationTailPadding,
       asset: {
         asset_role: trimString(matchingAsset.asset_role),
         asset_type: assetType,
@@ -1130,6 +2936,7 @@ function buildRenderManifest(row) {
         mime_type: trimString(matchingAsset.mime_type),
         width: Number(matchingAsset.width ?? 0),
         height: Number(matchingAsset.height ?? 0),
+        metadata_json: asObject(matchingAsset.metadata_json),
       },
       subtitle: subtitle ? {
         text: trimString(subtitle.text),
@@ -1145,7 +2952,7 @@ function buildRenderManifest(row) {
     reel_type: reelType,
     content_id: contentId,
     title,
-    title_overlay: faceImageTitle ? { text: faceImageTitle, enabled: true, duration_seconds: 4.0 } : null,
+    title_overlay: titleOverlay(faceImageTitle),
     output,
     audio: {
       narration: {
@@ -1156,6 +2963,7 @@ function buildRenderManifest(row) {
           storage_url: trimString(asset.storage_url),
           mime_type: trimString(asset.mime_type || 'audio/mpeg'),
           duration_seconds: Number(asset.duration_seconds ?? 0),
+          tail_padding_seconds: narrationTailPadding,
         })),
         total_duration_seconds: totalDuration,
         voice: trimString(sceneNarrationAssets[0]?.metadata_json?.voice),
@@ -1182,7 +2990,11 @@ function buildRenderManifest(row) {
       asset_url: scene.asset.storage_url,
       asset_type: scene.asset.asset_type,
       narration_url: scene.narration_url,
+      narration_duration_seconds: scene.narration_duration_seconds,
+      narration_tail_padding_seconds: scene.narration_tail_padding_seconds,
       transition: scene.transition,
+      asset_plan: scene.asset_plan,
+      remotion: scene.remotion,
     })),
     total_duration_seconds: totalDuration,
     cover_image_url: coverImageUrl,
@@ -1199,6 +3011,8 @@ function buildRenderManifest(row) {
       scene_number: scene.scene_number,
       asset_type: scene.asset.asset_type,
       asset_role: scene.asset.asset_role,
+      asset_plan_mode: scene.asset_plan.mode,
+      fallback_from_video: scene.asset_plan.fallback_from_video,
     })),
   };
   return {
@@ -1757,50 +3571,189 @@ async function runCaptionAndHashtags({ pool, step }) {
 async function runFinalQaApprovalGate({ pool, step }) {
   const contentId = ensureUuid(step.content_id);
   const startedAt = new Date().toISOString();
-  return withTransaction(pool, async (client) => {
+  const row = await withTransaction(pool, async (client) => {
     const result = await client.query(
       `select
         ci.content_id,
         ci.title,
+        ci.category,
+        ci.reel_type,
+        ci.target_duration_seconds,
+        ci.source_payload_json,
         ci.status as content_status,
+        coalesce(s.raw_response_json, '{}'::jsonb) as raw_response_json,
+        coalesce(s.selected_hook, '') as selected_hook,
+        coalesce(s.narration_script, '') as narration_script,
+        sb.storyboard_json,
+        coalesce(d.director_json, '{}'::jsonb) as director_json,
         r.render_id,
         r.render_status,
         coalesce(r.output_video_url, '') as output_video_url,
+        coalesce(r.cover_image_url, '') as cover_image_url,
+        r.duration_seconds as render_duration_seconds,
+        coalesce(r.resolution, '') as render_resolution,
+        coalesce(r.aspect_ratio, '') as render_aspect_ratio,
+        coalesce(r.render_log, '') as render_log,
         coalesce(p.caption_final, '') as caption_final,
-        coalesce(cac.context_snapshot_json, '{}'::jsonb) as client_account_context
+        coalesce(p.hashtags_final, '') as hashtags_final,
+        coalesce(p.publish_status, '') as publish_status,
+        coalesce(cac.account_context_key, '') as account_context_key,
+        coalesce(cac.context_snapshot_json, '{}'::jsonb) as client_account_context,
+        coalesce(generated_assets.assets_json, '[]'::jsonb) as generated_assets_json,
+        coalesce(narration_assets.assets_json, '[]'::jsonb) as narration_assets_json
       from content_items ci
+      join scripts s on s.content_id = ci.content_id
+      join storyboards sb on sb.content_id = ci.content_id
       join renders r on r.content_id = ci.content_id
       join publishes p on p.content_id = ci.content_id and p.platform = 'instagram'
+      left join directors d on d.content_id = ci.content_id
       left join content_account_contexts cac on cac.content_id = ci.content_id
+      left join lateral (
+        select jsonb_agg(jsonb_build_object(
+          'asset_id', a.asset_id,
+          'scene_number', a.scene_number,
+          'asset_role', a.asset_role,
+          'provider', a.provider,
+          'storage_url', a.storage_url,
+          'duration_seconds', a.duration_seconds,
+          'status', a.status,
+          'metadata_json', a.metadata_json
+        ) order by a.scene_number, a.asset_role) as assets_json
+        from assets a
+        where a.content_id = ci.content_id
+          and a.asset_role in ('scene_image', 'scene_video')
+      ) generated_assets on true
+      left join lateral (
+        select jsonb_agg(jsonb_build_object(
+          'asset_id', a.asset_id,
+          'scene_number', a.scene_number,
+          'asset_role', a.asset_role,
+          'provider', a.provider,
+          'storage_url', a.storage_url,
+          'duration_seconds', a.duration_seconds,
+          'status', a.status,
+          'metadata_json', a.metadata_json
+        ) order by a.scene_number) as assets_json
+        from assets a
+        where a.content_id = ci.content_id
+          and a.asset_role = 'scene_narration'
+      ) narration_assets on true
       where ci.content_id = $1
       for update of ci`,
       [contentId],
     );
     if (result.rowCount === 0) fail(`No rendered package exists for final QA gate: ${contentId}.`);
-    const row = result.rows[0];
-    if (trimString(row.content_status) !== 'render_complete') fail(`Final QA gate requires content status render_complete, got ${row.content_status || '<empty>'}.`);
-    if (trimString(row.render_status) !== 'success') fail(`Final QA gate requires render_status success, got ${row.render_status || '<empty>'}.`);
-    if (!trimString(row.output_video_url)) fail('Final QA gate requires output_video_url.');
-    if (!trimString(row.caption_final)) fail('Final QA gate requires caption_final.');
-    const clientContext = asObject(row.client_account_context);
-    const platformAccountId = trimString(
-      process.env.INSTAGRAM_IG_USER_ID
-      || process.env.INSTAGRAM_TARGET_IG_USER_ID
-      || clientContext?.publishing_policy?.platform_account_id
-      || clientContext?.platform_account?.platform_account_id,
-    );
-    const platformAccountUsername = trimString(process.env.INSTAGRAM_USERNAME || clientContext?.platform_account?.username);
-    const qaResult = {
-      source: 'code_first_final_qa_gate',
-      publish_decision: 'approved',
-      blocks_publish: false,
-      checked_at: new Date().toISOString(),
-      summary: 'Automated structural QA passed. Studio approval is still required before publish.',
-      publish_requirements: {
-        requires_human_approval: true,
-        blocks_publish: false,
-      },
-    };
+    return result.rows[0];
+  });
+
+  if (trimString(row.content_status) !== 'render_complete') fail(`Final QA gate requires content status render_complete, got ${row.content_status || '<empty>'}.`);
+  if (trimString(row.render_status) !== 'success') fail(`Final QA gate requires render_status success, got ${row.render_status || '<empty>'}.`);
+  if (!trimString(row.output_video_url)) fail('Final QA gate requires output_video_url.');
+  if (!trimString(row.caption_final)) fail('Final QA gate requires caption_final.');
+
+  const rawResponseJson = asObject(row.raw_response_json);
+  const directorJson = asObject(row.director_json);
+  const clientContext = asObject(row.client_account_context);
+  const platformAccountId = trimString(
+    process.env.INSTAGRAM_IG_USER_ID
+    || process.env.INSTAGRAM_TARGET_IG_USER_ID
+    || clientContext?.publishing_policy?.platform_account_id
+    || clientContext?.platform_account?.platform_account_id,
+  );
+  const platformAccountUsername = trimString(
+    process.env.INSTAGRAM_USERNAME
+    || clientContext?.publishing_policy?.platform_account_username
+    || clientContext?.platform_account?.platform_account_username
+    || clientContext?.platform_account?.username,
+  );
+  const captionPublishJson = {
+    publish_status: trimString(row.publish_status),
+    caption_final: trimString(row.caption_final),
+    hashtags_final: trimString(row.hashtags_final),
+  };
+  const renderResultJson = {
+    render_id: trimString(row.render_id),
+    render_status: trimString(row.render_status),
+    output_video_url: trimString(row.output_video_url),
+    cover_image_url: trimString(row.cover_image_url),
+    duration_seconds: Number(row.render_duration_seconds || 0),
+    resolution: trimString(row.render_resolution),
+    aspect_ratio: trimString(row.render_aspect_ratio),
+    render_log: trimString(row.render_log).slice(0, 2000),
+  };
+  const platformPublishContextJson = {
+    platform: 'instagram',
+    account_context_key: trimString(row.account_context_key),
+    platform_account_id: platformAccountId,
+    platform_account_username: platformAccountUsername,
+    human_approval_required: true,
+    output_video_url_present: Boolean(trimString(row.output_video_url)),
+  };
+  const qaInvocation = await invokeStructuredTextStage('final_qa_validator', {
+    content_id: contentId,
+    title: trimString(row.title),
+    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    package_type: 'instagram_reel',
+    status_after_success: 'awaiting_approval',
+    prompt_template_data: {
+      title: trimString(row.title),
+      category: trimString(row.category || 'general') || 'general',
+      package_type: 'instagram_reel',
+      selected_style_pack: selectedStylePackFrom(row, directorJson),
+      director_contract_json: stringifyPromptJson(directorJson),
+      storyboard_plan_json: stringifyPromptJson(asArray(row.storyboard_json), []),
+      visual_prompt_plan_json: stringifyPromptJson(rawResponseJson.visual_prompt_plan_json || {}),
+      voice_performance_json: stringifyPromptJson(rawResponseJson.voice_performance_json || {}),
+      music_sfx_plan_json: stringifyPromptJson(buildMusicSfxContext(rawResponseJson, directorJson, asArray(row.storyboard_json))),
+      generated_assets_json: stringifyPromptJson(asArray(row.generated_assets_json), []),
+      narration_assets_json: stringifyPromptJson(asArray(row.narration_assets_json), []),
+      render_result_json: stringifyPromptJson(renderResultJson),
+      caption_publish_json: stringifyPromptJson(captionPublishJson),
+      avatar_consent_context_json: stringifyPromptJson({
+        reel_type: trimString(row.reel_type || 'video'),
+        avatar_mode: trimString(asObject(row.source_payload_json)?.avatar_mode || clientContext?.avatar_policy?.default_avatar_mode),
+        consent_required: clientContext?.avatar_policy?.requires_consent !== false,
+        avatar_decision: asObject(rawResponseJson.avatar_decision_json),
+        actual_route: trimString(rawResponseJson.avatar_route_result?.actual_route),
+        requested_reel_type: trimString(rawResponseJson.avatar_route_result?.requested_reel_type),
+        effective_reel_type: trimString(rawResponseJson.avatar_route_result?.effective_reel_type || row.reel_type || 'video'),
+        avatar_fallback_reason: trimString(rawResponseJson.avatar_route_result?.avatar_fallback_reason),
+        disclosure_required: rawResponseJson.avatar_route_result?.disclosure_required === true
+          || rawResponseJson.avatar_decision_json?.disclosure_required === true
+          || rawResponseJson.avatar_decision_json?.selected_route?.disclosure_required === true,
+        disclosure_text: trimString(
+          rawResponseJson.avatar_route_result?.disclosure_text
+          || rawResponseJson.avatar_decision_json?.selected_route?.disclosure_text
+          || rawResponseJson.avatar_decision_json?.presenter_profile?.disclosure_policy?.disclosure_text,
+        ),
+      }),
+      platform_publish_context_json: stringifyPromptJson(platformPublishContextJson),
+      client_account_context: clientContext,
+    },
+  });
+  const qaResult = asObject(qaInvocation.final_qa_response);
+  if (Object.keys(qaResult).length === 0) {
+    fail('final_qa_validator returned an empty QA result.');
+  }
+
+  const publishDecision = trimString(qaResult.publish_decision || 'blocked');
+  const blocksPublish = qaResult.summary?.blocks_publish === true
+    || qaResult.publish_requirements?.blocks_publish === true
+    || publishDecision === 'blocked'
+    || !platformAccountId;
+  const qaStatus = blocksPublish
+    ? 'failed'
+    : (publishDecision === 'approved' ? 'passed' : 'needs_review');
+  const approvalStatus = qaStatus === 'passed'
+    ? 'pending'
+    : (qaStatus === 'needs_review' ? 'pending_review' : 'blocked');
+  const approvalNote = trimString(
+    qaResult.final_recommendation
+    || qaResult.summary?.notes
+    || (blocksPublish ? 'Final QA blocked publish.' : 'Awaiting Studio approval.'),
+  ).slice(0, 1000);
+
+  await withTransaction(pool, async (client) => {
     if (platformAccountId) {
       await client.query(
         `insert into publish_approvals (
@@ -1816,7 +3769,7 @@ async function runFinalQaApprovalGate({ pool, step }) {
           approval_status,
           approval_note,
           updated_at
-        ) values ($1,'instagram',$2,nullif($3,''),'instagram_reel',$4,null,'passed',$5::jsonb,'pending','Awaiting Studio approval.',now())
+        ) values ($1,'instagram',$2,nullif($3,''),'instagram_reel',$4,null,$5,$6::jsonb,$7,$8,now())
         on conflict (content_id, platform, package_type) do update set
           platform_account_id = excluded.platform_account_id,
           platform_account_username = excluded.platform_account_username,
@@ -1827,51 +3780,297 @@ async function runFinalQaApprovalGate({ pool, step }) {
           approval_status = case
             when publish_approvals.approval_status = 'approved'
               and publish_approvals.selected_video_id = excluded.selected_video_id
+              and excluded.qa_status = 'passed'
               then publish_approvals.approval_status
-            else 'pending'
+            else excluded.approval_status
           end,
           approved_by = case
             when publish_approvals.approval_status = 'approved'
               and publish_approvals.selected_video_id = excluded.selected_video_id
+              and excluded.qa_status = 'passed'
               then publish_approvals.approved_by
             else null
           end,
           approved_at = case
             when publish_approvals.approval_status = 'approved'
               and publish_approvals.selected_video_id = excluded.selected_video_id
+              and excluded.qa_status = 'passed'
               then publish_approvals.approved_at
             else null
           end,
           approval_note = case
             when publish_approvals.approval_status = 'approved'
               and publish_approvals.selected_video_id = excluded.selected_video_id
+              and excluded.qa_status = 'passed'
               then publish_approvals.approval_note
             else excluded.approval_note
           end,
           updated_at = now()`,
-        [contentId, platformAccountId, platformAccountUsername, row.render_id, JSON.stringify(qaResult)],
+        [
+          contentId,
+          platformAccountId,
+          platformAccountUsername,
+          row.render_id,
+          qaStatus,
+          JSON.stringify(qaResult),
+          approvalStatus,
+          approvalNote,
+        ],
       );
     }
     await logWorkflowRun(client, {
       contentId,
-      workflowName: 'code_first_final_qa_gate',
+      workflowName: 'final_qa_validator',
+      runStatus: blocksPublish ? 'failed' : 'success',
       startedAt,
       durationMs: durationMsFrom(startedAt),
+      errorMessage: blocksPublish ? approvalNote : null,
       details: {
         qa_result: qaResult,
-        approval_record: platformAccountId ? 'pending' : 'not_created_missing_platform_account_id',
+        generation_provider: trimString(qaInvocation.generation_provider),
+        generation_model: trimString(qaInvocation.generation_model),
+        cost: qaInvocation.cost ?? {},
+        approval_record: platformAccountId ? approvalStatus : 'not_created_missing_platform_account_id',
         selected_video_id: row.render_id,
       },
     });
+  });
+
+  if (blocksPublish) {
+    fail(approvalNote || 'Final QA blocked publish.');
+  }
+
+  return {
+    content_id: contentId,
+    pipeline_status_after_success: 'awaiting_approval',
+    content_status_after_success: 'render_complete',
+    qa_status: qaStatus,
+    approval_status: platformAccountId ? approvalStatus : 'not_created_missing_platform_account_id',
+    selected_video_id: row.render_id,
+  };
+}
+
+function joinGuidanceList(values = []) {
+  return compactStrings(values).join('\n');
+}
+
+async function runPerformanceFeedbackAnalysis({ pool, step }) {
+  const contentId = ensureUuid(step.content_id);
+  const startedAt = new Date().toISOString();
+  const data = await withTransaction(pool, async (client) => {
+    const targetResult = await client.query(
+      `select
+        ci.content_id,
+        ci.title,
+        ci.category,
+        ci.reel_type,
+        ci.status,
+        ci.target_duration_seconds,
+        ci.source_payload_json,
+        coalesce(s.selected_hook, '') as selected_hook,
+        coalesce(s.narration_script, '') as narration_script,
+        coalesce(p.caption_final, '') as caption_final,
+        coalesce(p.hashtags_final, '') as hashtags_final,
+        coalesce(r.duration_seconds, 0) as render_duration_seconds,
+        coalesce(d.director_json, '{}'::jsonb) as director_json,
+        cac.account_context_id,
+        coalesce(cac.account_context_key, '') as account_context_key,
+        coalesce(cac.context_snapshot_json, cc.context_json, ci.source_payload_json->'client_account_context', '{}'::jsonb) as client_account_context,
+        coalesce(cc.context_json->'performance_guidance', '{}'::jsonb) as existing_performance_guidance
+      from content_items ci
+      left join scripts s on s.content_id = ci.content_id
+      left join publishes p on p.content_id = ci.content_id and p.platform = 'instagram'
+      left join renders r on r.content_id = ci.content_id
+      left join directors d on d.content_id = ci.content_id
+      left join content_account_contexts cac on cac.content_id = ci.content_id
+      left join client_account_contexts cc on cc.account_context_id = cac.account_context_id
+      where ci.content_id = $1`,
+      [contentId],
+    );
+    if (targetResult.rowCount === 0) {
+      fail(`No content item exists for performance feedback analysis: ${contentId}.`);
+    }
+    const target = targetResult.rows[0];
+    const accountContextKey = trimString(target.account_context_key);
+    const insightsResult = await client.query(
+      `select
+        i.snapshot_id,
+        i.content_id,
+        ci.title,
+        ci.category,
+        ci.reel_type,
+        coalesce(s.selected_hook, '') as selected_hook,
+        coalesce(p.caption_final, '') as caption_final,
+        i.platform,
+        i.snapshot_window,
+        i.views,
+        i.plays,
+        i.reach,
+        i.likes,
+        i.comments,
+        i.shares,
+        i.saves,
+        i.engagement_rate,
+        i.completion_rate,
+        i.raw_payload_json,
+        i.snapshot_taken_at
+      from insight_snapshots i
+      join content_items ci on ci.content_id = i.content_id
+      left join content_account_contexts cac on cac.content_id = ci.content_id
+      left join scripts s on s.content_id = ci.content_id
+      left join publishes p on p.content_id = ci.content_id and p.platform = i.platform
+      where i.platform = 'instagram'
+        and (
+          i.content_id = $1
+          or ($2 <> '' and cac.account_context_key = $2)
+        )
+      order by i.snapshot_taken_at desc
+      limit 30`,
+      [contentId, accountContextKey],
+    );
+    const reviewResult = await client.query(
+      `select
+        pr.content_id,
+        ci.title,
+        pr.review_summary,
+        pr.what_worked,
+        pr.what_failed,
+        pr.hook_analysis,
+        pr.category_analysis,
+        pr.visual_analysis,
+        pr.next_recommendation,
+        pr.review_generated_at
+      from performance_reviews pr
+      join content_items ci on ci.content_id = pr.content_id
+      left join content_account_contexts cac on cac.content_id = ci.content_id
+      where pr.content_id = $1
+        or ($2 <> '' and cac.account_context_key = $2)
+      order by pr.review_generated_at desc
+      limit 10`,
+      [contentId, accountContextKey],
+    );
     return {
-      content_id: contentId,
-      pipeline_status_after_success: 'awaiting_approval',
-      content_status_after_success: 'render_complete',
-      qa_status: 'passed',
-      approval_status: platformAccountId ? 'pending' : 'not_created_missing_platform_account_id',
-      selected_video_id: row.render_id,
+      target,
+      insights: insightsResult.rows,
+      priorReviews: reviewResult.rows,
     };
   });
+
+  if (data.insights.length === 0) {
+    fail(`No Instagram insight snapshots are available for performance feedback analysis: ${contentId}.`);
+  }
+
+  const target = data.target;
+  const targetContentJson = {
+    content_id: trimString(target.content_id),
+    title: trimString(target.title),
+    category: trimString(target.category),
+    reel_type: trimString(target.reel_type),
+    status: trimString(target.status),
+    target_duration_seconds: Number(target.target_duration_seconds || 0),
+    selected_hook: trimString(target.selected_hook),
+    narration_script_excerpt: trimString(target.narration_script).slice(0, 1200),
+    caption_final: trimString(target.caption_final),
+    hashtags_final: trimString(target.hashtags_final),
+    render_duration_seconds: Number(target.render_duration_seconds || 0),
+    director_contract: asObject(target.director_json),
+  };
+  const accountContextKey = trimString(target.account_context_key) || 'default';
+  const feedbackInvocation = await invokeStructuredTextStage('performance_feedback_analysis', {
+    content_id: contentId,
+    title: trimString(target.title),
+    account_context_key: accountContextKey,
+    platform: 'instagram',
+    status_after_success: 'performance_feedback_updated',
+    prompt_template_data: {
+      account_context_key: accountContextKey,
+      platform: 'instagram',
+      analysis_window: `Latest ${data.insights.length} Instagram insight snapshot(s) available in the database.`,
+      account_context_json: stringifyPromptJson(asObject(target.client_account_context)),
+      target_content_json: stringifyPromptJson(targetContentJson),
+      recent_insights_json: stringifyPromptJson(data.insights, []),
+      prior_performance_reviews_json: stringifyPromptJson(data.priorReviews, []),
+      existing_performance_guidance_json: stringifyPromptJson(asObject(target.existing_performance_guidance)),
+    },
+  });
+  const feedback = asObject(feedbackInvocation.performance_feedback_response);
+  if (Object.keys(feedback).length === 0) {
+    fail('performance_feedback_analysis returned an empty guidance object.');
+  }
+
+  await withTransaction(pool, async (client) => {
+    await client.query(
+      `insert into performance_reviews (
+        content_id,
+        review_summary,
+        what_worked,
+        what_failed,
+        hook_analysis,
+        category_analysis,
+        visual_analysis,
+        next_recommendation,
+        review_generated_at
+      ) values ($1,$2,$3,$4,$5,$6,$7,$8,now())
+      on conflict (content_id) do update set
+        review_summary = excluded.review_summary,
+        what_worked = excluded.what_worked,
+        what_failed = excluded.what_failed,
+        hook_analysis = excluded.hook_analysis,
+        category_analysis = excluded.category_analysis,
+        visual_analysis = excluded.visual_analysis,
+        next_recommendation = excluded.next_recommendation,
+        review_generated_at = now()`,
+      [
+        contentId,
+        trimString(feedback.summary),
+        joinGuidanceList(feedback.winning_patterns),
+        joinGuidanceList(feedback.weak_patterns),
+        trimString(feedback.hook_guidance),
+        trimString(feedback.generation_guidance),
+        trimString(feedback.visual_guidance),
+        [
+          trimString(feedback.voice_guidance),
+          trimString(feedback.caption_guidance),
+          compactStrings(feedback.avoid_repeating).length
+            ? `Avoid repeating:\n${joinGuidanceList(feedback.avoid_repeating)}`
+            : '',
+        ].filter(Boolean).join('\n\n'),
+      ],
+    );
+    if (target.account_context_id) {
+      await client.query(
+        `update client_account_contexts
+        set context_json = jsonb_set(context_json, '{performance_guidance}', $2::jsonb, true),
+            updated_at = now()
+        where account_context_id = $1`,
+        [target.account_context_id, JSON.stringify(feedback)],
+      );
+    }
+    await logWorkflowRun(client, {
+      contentId,
+      workflowName: 'performance_feedback_analysis',
+      startedAt,
+      durationMs: durationMsFrom(startedAt),
+      details: {
+        generation_provider: trimString(feedbackInvocation.generation_provider),
+        generation_model: trimString(feedbackInvocation.generation_model),
+        account_context_key: accountContextKey,
+        updated_account_context: Boolean(target.account_context_id),
+        insight_snapshot_count: data.insights.length,
+        confidence: trimString(feedback.confidence),
+        cost: feedbackInvocation.cost ?? {},
+      },
+    });
+  });
+
+  return {
+    content_id: contentId,
+    status_after_success: 'performance_feedback_updated',
+    account_context_key: accountContextKey,
+    updated_account_context: Boolean(target.account_context_id),
+    insight_snapshot_count: data.insights.length,
+    confidence: trimString(feedback.confidence),
+  };
 }
 
 function isLocalOnlyAssetHost(assetUrl) {
@@ -2251,9 +4450,15 @@ async function runInstagramReelPublish({ pool, step }) {
 
 const STAGE_HANDLERS = Object.freeze({
   story_package_generation: runStoryPackageGeneration,
+  story_package_quality_gate: runStoryPackageQualityGate,
+  director_contract: runDirectorContract,
+  visual_prompt_builder: runVisualPromptBuilder,
   image_asset_generation: runImageAssetGeneration,
   asset_generation_v3: runAssetGenerationV3,
+  voice_performance_script: runVoicePerformanceScript,
   narration_generation: runNarrationGeneration,
+  avatar_presenter_selector: runAvatarPresenterSelector,
+  avatar_media_generation: runAvatarMediaGeneration,
   avatar_consent_gate: runAvatarConsentGate,
   heygen_avatar_generation: runHeygenAvatarGeneration,
   remotion_manifest: runRenderManifestConstruction,
@@ -2263,6 +4468,15 @@ const STAGE_HANDLERS = Object.freeze({
   caption_and_hashtags: runCaptionAndHashtags,
   final_qa_approval_gate: runFinalQaApprovalGate,
   instagram_reel_publish: runInstagramReelPublish,
+  performance_feedback_analysis: runPerformanceFeedbackAnalysis,
+});
+
+export const __avatarRuntimeTestHooks = Object.freeze({
+  getHeygenConfig,
+  avatarDecisionWantsProviderCall,
+  avatarFallbackReason,
+  sanitizeHeygenRequestOptions,
+  buildHeygenRequestBody,
 });
 
 export async function executePipelineStage(stageKey, context) {

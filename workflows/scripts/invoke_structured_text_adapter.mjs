@@ -2,7 +2,7 @@
 
 import { buildStageRequest } from './build_prompt_request.mjs';
 import { decodeBase64JsonArg } from './prompt_utils.mjs';
-import { providerNotImplemented, selectTextApiKey } from './adapter_config.mjs';
+import { firstEnv, providerNotImplemented, selectTextApiKey } from './adapter_config.mjs';
 import { computeLlmCost } from './cost_calculator.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -92,6 +92,46 @@ const RESPONSE_KEYS = {
     metadataKey: 'provider_metadata',
     passthroughKeys: ['prompt_path'],
   },
+  visual_prompt_builder: {
+    requestKey: 'openai_request_visual_prompt_builder',
+    responseKey: 'visual_prompt_response',
+    modelKey: 'generation_model',
+    providerKey: 'generation_provider',
+    metadataKey: 'provider_metadata',
+    passthroughKeys: ['content_id', 'title', 'status_after_success', 'target_duration_seconds'],
+  },
+  voice_performance_script: {
+    requestKey: 'openai_request_voice_performance_script',
+    responseKey: 'voice_performance_response',
+    modelKey: 'generation_model',
+    providerKey: 'generation_provider',
+    metadataKey: 'provider_metadata',
+    passthroughKeys: ['content_id', 'title', 'status_after_success', 'target_duration_seconds'],
+  },
+  avatar_presenter_selector: {
+    requestKey: 'openai_request_avatar_presenter_selector',
+    responseKey: 'avatar_decision_response',
+    modelKey: 'generation_model',
+    providerKey: 'generation_provider',
+    metadataKey: 'provider_metadata',
+    passthroughKeys: ['content_id', 'title', 'status_after_success', 'target_duration_seconds', 'package_type'],
+  },
+  final_qa_validator: {
+    requestKey: 'openai_request_final_qa_validator',
+    responseKey: 'final_qa_response',
+    modelKey: 'generation_model',
+    providerKey: 'generation_provider',
+    metadataKey: 'provider_metadata',
+    passthroughKeys: ['content_id', 'title', 'status_after_success', 'target_duration_seconds', 'package_type'],
+  },
+  performance_feedback_analysis: {
+    requestKey: 'openai_request_performance_feedback_analysis',
+    responseKey: 'performance_feedback_response',
+    modelKey: 'generation_model',
+    providerKey: 'generation_provider',
+    metadataKey: 'provider_metadata',
+    passthroughKeys: ['content_id', 'title', 'account_context_key', 'platform', 'status_after_success'],
+  },
 };
 
 async function invokeOpenAi(request, stageKey) {
@@ -148,6 +188,115 @@ async function invokeOpenAi(request, stageKey) {
   };
 }
 
+function anthropicSystemAndMessages(messages = []) {
+  const system = [];
+  const conversation = [];
+  for (const message of Array.isArray(messages) ? messages : []) {
+    const role = String(message?.role || '').trim().toLowerCase();
+    const content = String(message?.content || '').trim();
+    if (!content) {
+      continue;
+    }
+    if (role === 'system') {
+      system.push(content);
+    } else if (role === 'assistant') {
+      conversation.push({ role: 'assistant', content });
+    } else {
+      conversation.push({ role: 'user', content });
+    }
+  }
+  if (conversation.length === 0) {
+    conversation.push({ role: 'user', content: 'Return the requested JSON object only.' });
+  }
+  return {
+    system: system.join('\n\n'),
+    messages: conversation,
+  };
+}
+
+function parseJsonText(text, providerName) {
+  const content = String(text || '').trim();
+  if (!content) {
+    fail(`${providerName} structured generation returned empty text content.`);
+  }
+  try {
+    return JSON.parse(content);
+  } catch (error) {
+    const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
+    if (fenced) {
+      try {
+        return JSON.parse(fenced);
+      } catch {}
+    }
+    fail(`${providerName} structured generation returned invalid JSON: ${error.message}`);
+  }
+}
+
+async function invokeAnthropic(request, stageKey) {
+  const apiKey = String(selectTextApiKey(stageKey, 'anthropic')).trim();
+  if (!apiKey) {
+    fail(`Set ${stageKey.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_ANTHROPIC_API_KEY, TEXT_ANTHROPIC_API_KEY, or ANTHROPIC_API_KEY before running text stage '${stageKey}'.`);
+  }
+
+  const { system, messages } = anthropicSystemAndMessages(request.messages);
+  const toolName = 'structured_generation';
+  const body = {
+    model: request.model,
+    max_tokens: Number.parseInt(firstEnv(['ANTHROPIC_MAX_TOKENS']) || '4096', 10) || 4096,
+    ...(system ? { system } : {}),
+    messages,
+    tools: [
+      {
+        name: toolName,
+        description: 'Return the complete structured JSON response for this stage.',
+        input_schema: request.response_schema,
+      },
+    ],
+    tool_choice: {
+      type: 'tool',
+      name: toolName,
+    },
+  };
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': firstEnv(['ANTHROPIC_VERSION']) || '2023-06-01',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const responseBody = await response.json().catch(() => ({}));
+  if (!response.ok || responseBody.error) {
+    fail(`Anthropic structured generation failed (${response.status || 'no status'}): ${responseBody?.error?.message ?? 'unknown error'}`);
+  }
+
+  const toolUse = Array.isArray(responseBody.content)
+    ? responseBody.content.find((entry) => entry?.type === 'tool_use' && entry?.name === toolName)
+    : null;
+  const parsed = toolUse?.input && typeof toolUse.input === 'object'
+    ? toolUse.input
+    : parseJsonText(
+        Array.isArray(responseBody.content)
+          ? responseBody.content.map((entry) => entry?.text || '').filter(Boolean).join('\n')
+          : '',
+        'Anthropic',
+      );
+
+  return {
+    model: String(responseBody.model ?? request.model),
+    parsed,
+    providerMetadata: {
+      response_id: responseBody.id ?? null,
+      usage: responseBody.usage ?? null,
+      stop_reason: responseBody.stop_reason ?? null,
+      stop_sequence: responseBody.stop_sequence ?? null,
+    },
+  };
+}
+
 export async function invokeStructuredTextStage(stageKey, payload) {
   const responseConfig = RESPONSE_KEYS[stageKey];
   if (!responseConfig) {
@@ -161,11 +310,14 @@ export async function invokeStructuredTextStage(stageKey, payload) {
   }
 
   const provider = String(request.provider || built.llm_provider || 'openai').trim().toLowerCase();
+  const effectiveProvider = provider === 'claude' ? 'anthropic' : provider;
   let result;
-  if (provider === 'openai') {
+  if (effectiveProvider === 'openai') {
     result = await invokeOpenAi(request, stageKey);
+  } else if (effectiveProvider === 'anthropic') {
+    result = await invokeAnthropic(request, stageKey);
   } else {
-    providerNotImplemented('text generation', provider, stageKey);
+    providerNotImplemented('text generation', effectiveProvider, stageKey);
   }
 
   const output = {};
@@ -174,12 +326,12 @@ export async function invokeStructuredTextStage(stageKey, payload) {
       output[key] = built[key];
     }
   }
-  output.llm_provider = provider;
-  output[responseConfig.providerKey] = provider;
+  output.llm_provider = effectiveProvider;
+  output[responseConfig.providerKey] = effectiveProvider;
   output[responseConfig.modelKey] = result.model;
   output[responseConfig.responseKey] = result.parsed;
   output[responseConfig.metadataKey] = result.providerMetadata;
-  output.cost = computeLlmCost(result.model, result.providerMetadata?.usage ?? {}, undefined, provider);
+  output.cost = computeLlmCost(result.model, result.providerMetadata?.usage ?? {}, undefined, effectiveProvider);
   return output;
 }
 

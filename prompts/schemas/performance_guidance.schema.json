@@ -1,0 +1,100 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "performance_guidance_version",
+    "source_stage",
+    "account_context_key",
+    "platform",
+    "analysis_window",
+    "summary",
+    "winning_patterns",
+    "weak_patterns",
+    "generation_guidance",
+    "hook_guidance",
+    "visual_guidance",
+    "voice_guidance",
+    "caption_guidance",
+    "avoid_repeating",
+    "confidence",
+    "qa_notes"
+  ],
+  "properties": {
+    "performance_guidance_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "source_stage": {
+      "type": "string",
+      "enum": ["performance_feedback_analysis"]
+    },
+    "account_context_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "platform": {
+      "type": "string",
+      "minLength": 1
+    },
+    "analysis_window": {
+      "type": "string",
+      "minLength": 1
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "winning_patterns": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "weak_patterns": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "generation_guidance": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hook_guidance": {
+      "type": "string",
+      "minLength": 1
+    },
+    "visual_guidance": {
+      "type": "string",
+      "minLength": 1
+    },
+    "voice_guidance": {
+      "type": "string",
+      "minLength": 1
+    },
+    "caption_guidance": {
+      "type": "string",
+      "minLength": 1
+    },
+    "avoid_repeating": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "qa_notes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

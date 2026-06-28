@@ -20,6 +20,7 @@ Read this for Docker Compose, service ports, schema, render worker, asset-hostin
 - `postgres/init/004_add_client_account_contexts.sql`: reusable and per-content client/account context snapshot schema.
 - `postgres/init/005_add_pipeline_orchestration.sql`: code-first pipeline run/step/event schema.
 - `postgres/init/006_add_reel_types_avatar_generations.sql`: `reel_type` columns and `avatar_generations` schema.
+- `postgres/init/007_add_pipeline_reviews.sql`: opt-in human review checkpoint schema and active-run index update for `awaiting_review`.
 - `remotion-renderer/`: default code-first render service using Remotion SSR.
 - `render-worker/app.py`: Flask render worker and FFmpeg fallback implementation.
 - `render-worker/Dockerfile`, `render-worker/requirements.txt`: render worker image.

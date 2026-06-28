@@ -3,8 +3,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { providerNotImplemented, selectTextApiKey, selectTextProvider } from './adapter_config.mjs';
-import { getPromptBuilderHardRules } from './prompt_hard_rules.mjs';
+import { firstEnv, providerNotImplemented, selectTextApiKey, selectTextProvider } from './adapter_config.mjs';
+import { getPromptBuilderHardRules, getRuntimePromptSafetyAppendix } from './prompt_hard_rules.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -100,6 +100,31 @@ const PROMPT_STEP_METADATA = Object.freeze({
     stepTitle: 'Narration Generation',
     label: 'Voice Instructions',
   },
+  'workflow/visual_prompt_builder.md': {
+    stepKey: 'visual_prompt_builder',
+    stepTitle: 'Visual Prompt Builder',
+    label: 'Visual Prompt Contract',
+  },
+  'workflow/voice_performance_script.md': {
+    stepKey: 'voice_performance_script',
+    stepTitle: 'Voice Performance Script',
+    label: 'Voice Performance Contract',
+  },
+  'workflow/avatar_video_selector.md': {
+    stepKey: 'avatar_presenter_selector',
+    stepTitle: 'Avatar Presenter Selector',
+    label: 'Avatar Route Contract',
+  },
+  'workflow/final_qa_validator.md': {
+    stepKey: 'final_qa_validator',
+    stepTitle: 'Final QA Validator',
+    label: 'QA Prompt',
+  },
+  'workflow/performance_feedback_analysis.md': {
+    stepKey: 'performance_feedback_analysis',
+    stepTitle: 'Performance Feedback Analysis',
+    label: 'Feedback Prompt',
+  },
   'post_image_generation/prompt.md': {
     stepKey: 'post_image_generation',
     stepTitle: 'Post Image Generation',
@@ -111,10 +136,11 @@ const DEFAULT_RUNTIME_PROMPT_BUILDER_TARGETS = Object.freeze([
   'research_and_script',
   'director_contract',
   'storyboard_and_prompts',
+  'visual_prompt_builder',
+  'voice_performance_script',
+  'avatar_presenter_selector',
   'caption_and_hashtags',
-  'scene_asset_generation',
-  'narration_generation',
-  'post_image_generation',
+  'final_qa_validator',
 ]);
 
 function unique(values) {
@@ -195,6 +221,18 @@ function shouldApplyRuntimePromptBuilder(config, relativePath) {
     return false;
   }
   return config.targets.includes(promptMeta.stepKey) || config.targets.includes(promptMeta.path);
+}
+
+function appendRuntimePromptSafetyAppendix(relativePath, prompt) {
+  const appendix = getRuntimePromptSafetyAppendix(relativePath);
+  const normalizedPrompt = String(prompt || '').trim();
+  if (!appendix) {
+    return normalizedPrompt;
+  }
+  if (normalizedPrompt.includes('Runtime locked visual rules:')) {
+    return normalizedPrompt;
+  }
+  return `${normalizedPrompt}\n\n${appendix}`;
 }
 
 export function decodeBase64JsonArg(index = 2) {
@@ -337,12 +375,126 @@ async function invokeOpenAiStructuredRequest(request) {
   }
 }
 
+function anthropicSystemAndMessages(messages = []) {
+  const system = [];
+  const conversation = [];
+  for (const message of Array.isArray(messages) ? messages : []) {
+    const role = String(message?.role || '').trim().toLowerCase();
+    const content = String(message?.content || '').trim();
+    if (!content) {
+      continue;
+    }
+    if (role === 'system') {
+      system.push(content);
+    } else if (role === 'assistant') {
+      conversation.push({ role: 'assistant', content });
+    } else {
+      conversation.push({ role: 'user', content });
+    }
+  }
+  if (conversation.length === 0) {
+    conversation.push({ role: 'user', content: 'Return the requested JSON object only.' });
+  }
+  return {
+    system: system.join('\n\n'),
+    messages: conversation,
+  };
+}
+
+function parseStructuredJsonText(text, providerName) {
+  const content = String(text || '').trim();
+  if (!content) {
+    throw new Error(`${providerName} runtime prompt builder returned empty text content.`);
+  }
+  try {
+    return JSON.parse(content);
+  } catch (error) {
+    const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
+    if (fenced) {
+      try {
+        return JSON.parse(fenced);
+      } catch {}
+    }
+    throw new Error(`${providerName} runtime prompt builder returned invalid JSON: ${error.message}`);
+  }
+}
+
+async function invokeAnthropicStructuredRequest(request) {
+  const apiKey = String(selectTextApiKey('prompt_builder', 'anthropic')).trim();
+  if (!apiKey) {
+    throw new Error('Set PROMPT_BUILDER_ANTHROPIC_API_KEY, TEXT_ANTHROPIC_API_KEY, or ANTHROPIC_API_KEY before using the runtime prompt builder with Anthropic.');
+  }
+
+  const { system, messages } = anthropicSystemAndMessages(request.messages);
+  const toolName = 'runtime_prompt_builder';
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': firstEnv(['ANTHROPIC_VERSION']) || '2023-06-01',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: request.model,
+      max_tokens: Number.parseInt(firstEnv(['ANTHROPIC_MAX_TOKENS']) || '4096', 10) || 4096,
+      ...(system ? { system } : {}),
+      messages,
+      tools: [
+        {
+          name: toolName,
+          description: 'Return the revised prompt builder JSON response.',
+          input_schema: request.response_schema,
+        },
+      ],
+      tool_choice: {
+        type: 'tool',
+        name: toolName,
+      },
+    }),
+  });
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body.error) {
+    throw new Error(`Anthropic runtime prompt builder failed (${response.status || 'no status'}): ${body?.error?.message ?? 'unknown error'}`);
+  }
+  const toolUse = Array.isArray(body.content)
+    ? body.content.find((entry) => entry?.type === 'tool_use' && entry?.name === toolName)
+    : null;
+  const parsed = toolUse?.input && typeof toolUse.input === 'object'
+    ? toolUse.input
+    : parseStructuredJsonText(
+        Array.isArray(body.content)
+          ? body.content.map((entry) => entry?.text || '').filter(Boolean).join('\n')
+          : '',
+        'Anthropic',
+      );
+  return {
+    parsed,
+    model: String(body.model ?? request.model),
+    provider: 'anthropic',
+  };
+}
+
 async function invokeRuntimePromptBuilder(request) {
   const provider = String(request.provider || 'openai').trim().toLowerCase();
   if (provider === 'openai') {
     return invokeOpenAiStructuredRequest(request);
   }
+  if (provider === 'anthropic' || provider === 'claude') {
+    return invokeAnthropicStructuredRequest(request);
+  }
   providerNotImplemented('text generation', provider, 'prompt_builder');
+}
+
+function selectRuntimePromptBuilderModel(provider) {
+  const normalizedProvider = String(provider || 'openai').trim().toLowerCase();
+  if (normalizedProvider === 'anthropic' || normalizedProvider === 'claude') {
+    return selectModel(
+      ['PROMPT_BUILDER_ANTHROPIC_MODEL', 'TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'],
+      'claude-sonnet-4-6',
+    );
+  }
+  return selectModel(['PROMPT_BUILDER_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'], 'gpt-4o-mini');
 }
 
 export async function buildRuntimePromptDraft(relativePath, currentPrompt, runtimePromptBuilderConfig = null) {
@@ -389,9 +541,10 @@ export async function buildRuntimePromptDraft(relativePath, currentPrompt, runti
     {},
     { applyRuntimeBuilder: false },
   );
+  const provider = selectTextProvider('prompt_builder');
   const request = {
-    provider: selectTextProvider('prompt_builder'),
-    model: selectModel(['PROMPT_BUILDER_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'], 'gpt-4o-mini'),
+    provider,
+    model: selectRuntimePromptBuilderModel(provider),
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
@@ -410,7 +563,7 @@ export async function buildRuntimePromptDraft(relativePath, currentPrompt, runti
 
   return {
     applied: true,
-    draft,
+    draft: appendRuntimePromptSafetyAppendix(relativePath, draft),
     summary: String(result?.parsed?.change_summary || '').trim(),
     promptMeta,
     placeholders,
@@ -434,14 +587,7 @@ export async function loadRenderedJsonAsset(relativePath, templateData = {}, { a
 }
 
 export function selectModel(envKeys = [], fallback) {
-  for (const key of envKeys) {
-    const value = String(process.env[key] || '').trim();
-    if (value) {
-      return value;
-    }
-  }
-
-  return String(fallback || '').trim();
+  return firstEnv(envKeys) || String(fallback || '').trim();
 }
 
 export function toBase64Json(value) {

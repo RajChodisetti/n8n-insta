@@ -1,25 +1,49 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   selectImageApiKey,
   selectNarrationApiKey,
+  selectTextProvider,
   selectTextApiKey,
   selectVideoApiKey,
 } from '../workflows/scripts/adapter_config.mjs';
 
 const KEYS = [
+  'PIPELINE_DISABLE_RUNTIME_ENV_FILE',
+  'PIPELINE_RUNTIME_ENV_FILE',
   'OPENAI_API_KEY',
   'LLL_API_KEY',
   'TEXT_OPENAI_API_KEY',
+  'PREMIUM_TEXT_OPENAI_API_KEY',
   'IDEA_INGEST_OPENAI_API_KEY',
   'PROMPT_BUILDER_OPENAI_API_KEY',
   'STORY_PACKAGE_OPENAI_API_KEY',
   'STORY_PACKAGE_V2_OPENAI_API_KEY',
   'DIRECTOR_OPENAI_API_KEY',
+  'VISUAL_PROMPT_OPENAI_API_KEY',
+  'VOICE_PERFORMANCE_OPENAI_API_KEY',
+  'AVATAR_OPENAI_API_KEY',
+  'FINAL_QA_OPENAI_API_KEY',
+  'PERFORMANCE_FEEDBACK_OPENAI_API_KEY',
   'RESEARCH_OPENAI_API_KEY',
   'STORYBOARD_OPENAI_API_KEY',
   'CAPTION_OPENAI_API_KEY',
+  'ANTHROPIC_API_KEY',
+  'TEXT_ANTHROPIC_API_KEY',
+  'PREMIUM_TEXT_ANTHROPIC_API_KEY',
+  'PROMPT_BUILDER_ANTHROPIC_API_KEY',
+  'VISUAL_PROMPT_ANTHROPIC_API_KEY',
+  'VOICE_PERFORMANCE_ANTHROPIC_API_KEY',
+  'AVATAR_ANTHROPIC_API_KEY',
+  'FINAL_QA_ANTHROPIC_API_KEY',
+  'PERFORMANCE_FEEDBACK_ANTHROPIC_API_KEY',
+  'AVATAR_LLM_PROVIDER',
+  'PREMIUM_TEXT_LLM_PROVIDER',
+  'TEXT_LLM_PROVIDER',
   'IMAGE_OPENAI_API_KEY',
   'SCENE_IMAGE_OPENAI_API_KEY',
   'POST_IMAGE_OPENAI_API_KEY',
@@ -40,11 +64,13 @@ const KEYS = [
 ];
 
 const original = Object.fromEntries(KEYS.map((key) => [key, process.env[key]]));
+let tempDir = '';
 
 function resetEnv(values = {}) {
   for (const key of KEYS) {
     delete process.env[key];
   }
+  process.env.PIPELINE_DISABLE_RUNTIME_ENV_FILE = '1';
   for (const [key, value] of Object.entries(values)) {
     process.env[key] = value;
   }
@@ -61,6 +87,29 @@ try {
 
   resetEnv({ OPENAI_API_KEY: 'global-openai' });
   assert.equal(selectTextApiKey('caption_and_hashtags', 'openai'), 'global-openai');
+
+  resetEnv({ FINAL_QA_OPENAI_API_KEY: 'final-qa-openai', TEXT_OPENAI_API_KEY: 'text-openai' });
+  assert.equal(selectTextApiKey('final_qa_validator', 'openai'), 'final-qa-openai');
+
+  resetEnv({ FINAL_QA_ANTHROPIC_API_KEY: 'final-qa-anthropic', TEXT_ANTHROPIC_API_KEY: 'text-anthropic', ANTHROPIC_API_KEY: 'global-anthropic' });
+  assert.equal(selectTextApiKey('final_qa_validator', 'anthropic'), 'final-qa-anthropic');
+
+  resetEnv({ PREMIUM_TEXT_ANTHROPIC_API_KEY: 'premium-anthropic', TEXT_ANTHROPIC_API_KEY: 'text-anthropic' });
+  assert.equal(selectTextApiKey('visual_prompt_builder', 'anthropic'), 'premium-anthropic');
+  assert.equal(selectTextApiKey('voice_performance_script', 'anthropic'), 'premium-anthropic');
+  assert.equal(selectTextApiKey('performance_feedback_analysis', 'anthropic'), 'premium-anthropic');
+
+  resetEnv({ AVATAR_OPENAI_API_KEY: 'avatar-openai', PREMIUM_TEXT_OPENAI_API_KEY: 'premium-openai', TEXT_OPENAI_API_KEY: 'text-openai' });
+  assert.equal(selectTextApiKey('avatar_presenter_selector', 'openai'), 'avatar-openai');
+
+  resetEnv({ AVATAR_ANTHROPIC_API_KEY: 'avatar-anthropic', PREMIUM_TEXT_ANTHROPIC_API_KEY: 'premium-anthropic', TEXT_ANTHROPIC_API_KEY: 'text-anthropic' });
+  assert.equal(selectTextApiKey('avatar_presenter_selector', 'anthropic'), 'avatar-anthropic');
+
+  resetEnv({ AVATAR_LLM_PROVIDER: 'anthropic', PREMIUM_TEXT_LLM_PROVIDER: 'openai', TEXT_LLM_PROVIDER: 'openai' });
+  assert.equal(selectTextProvider('avatar_presenter_selector'), 'anthropic');
+
+  resetEnv({ PROMPT_BUILDER_ANTHROPIC_API_KEY: 'prompt-builder-anthropic', TEXT_ANTHROPIC_API_KEY: 'text-anthropic' });
+  assert.equal(selectTextApiKey('prompt_builder', 'anthropic'), 'prompt-builder-anthropic');
 
   resetEnv({ SCENE_IMAGE_OPENAI_API_KEY: 'scene-image-openai', IMAGE_OPENAI_API_KEY: 'image-openai', OPENAI_API_KEY: 'global-openai' });
   assert.equal(selectImageApiKey('scene_image', 'openai'), 'scene-image-openai');
@@ -83,8 +132,25 @@ try {
   resetEnv({});
   assert.equal(selectTextApiKey('idea_ingest', 'openai'), '');
 
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'provider-env-'));
+  const envFile = path.join(tempDir, '.env');
+  fs.writeFileSync(envFile, [
+    'AVATAR_LLM_PROVIDER=anthropic',
+    'AVATAR_ANTHROPIC_API_KEY=runtime-avatar-anthropic',
+    '',
+  ].join('\n'));
+  resetEnv({
+    PIPELINE_DISABLE_RUNTIME_ENV_FILE: '',
+    PIPELINE_RUNTIME_ENV_FILE: envFile,
+  });
+  assert.equal(selectTextProvider('avatar_presenter_selector'), 'anthropic');
+  assert.equal(selectTextApiKey('avatar_presenter_selector', 'anthropic'), 'runtime-avatar-anthropic');
+
   process.stdout.write('provider key resolution ok\n');
 } finally {
+  if (tempDir) {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
   for (const [key, value] of Object.entries(original)) {
     if (value === undefined) {
       delete process.env[key];

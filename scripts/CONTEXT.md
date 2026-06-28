@@ -31,7 +31,7 @@ Read this before running or editing smoke tests, token scripts, live publish pre
 - `validate_model_route_fixture.mjs`: no-dependency validator for Session 15 model provider router fixtures.
 - `validate_render_manifest_v2_fixture.mjs`: no-dependency validator for Session 16 renderer-neutral render manifest bridge fixtures.
 - `validate_remotion_edit_plan_fixture.mjs`: no-dependency validator for Session 17 Remotion-compatible edit-plan fixtures.
-- `validate_avatar_decision_fixture.mjs`: no-dependency validator for Session 18 avatar/presenter selector fixtures.
+- `validate_avatar_decision_fixture.mjs`: no-dependency validator for active avatar/presenter selector fixtures, including active HeyGen, fallback-video, and invalid consent cases.
 - `validate_ai_video_contract_regressions.mjs`: no-dependency offline regression runner for the high-risk AI video contract fixtures and publish blockers.
 
 ## Inputs
@@ -86,7 +86,7 @@ Run the script you changed against a running local stack. For docs-only changes,
 - `validate_model_route_fixture.mjs` is local-only and enforces planning-only provider routing with no adapter selection changes.
 - `validate_render_manifest_v2_fixture.mjs` is local-only and enforces renderer-neutral timing, public media URLs, and compatibility with the current local FFmpeg request shape.
 - `validate_remotion_edit_plan_fixture.mjs` is local-only and enforces plan-only Remotion data, contiguous frame timing, no dependency/runtime changes, and local FFmpeg fallback.
-- `validate_avatar_decision_fixture.mjs` is local-only and enforces consent-gated avatar asset routing with no provider calls, runtime changes, dependencies, or publish route.
+- `validate_avatar_decision_fixture.mjs` is local-only and enforces consent-gated avatar asset routing, provider calls only for active `1.1` decisions, fallback availability, no dependencies, and no publish route.
 - `validate_ai_video_contract_regressions.mjs` is local-only and runs fixture validators only; it does not call Docker, n8n, providers, renderers, or publish APIs.
 
 ## Uncertainties

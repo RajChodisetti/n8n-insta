@@ -1,24 +1,25 @@
 # Editing Rules
 
-Use for scene timing, pacing, transitions, subtitle metadata, and render seed data.
+Use for timing, scene order, transitions, subtitles, overlays, render manifests, and Remotion edit plans.
 
 ## Blocking
 
-- Scene timings must be contiguous, start near 0 seconds, have positive durations, and end close to the target duration.
-- Subtitles are metadata only in the current pipeline; `render_manifest_seed_json.subtitles.enabled` must be `false` unless a later renderer contract changes this.
-- Scene 1 title-card duration must be 4 seconds or less.
+- Timelines must be contiguous, positive-duration, and close to target duration.
+- Captions/subtitles are renderer metadata, not generated-image text.
+- Scene 1 title-card overlay must be renderer-owned, last 2 seconds, and must not force generated text into assets.
+- Do not publish renders with missing media, broken public URLs, or failed quality gates.
 
 ## Must
 
-- Do not add, remove, or reorder scenes when a prior scene guide or director contract already defines scene count and numbering.
-- Preserve narration-aligned dialogue, timing, asset type, and music cues unless a schema or safety rule requires cleanup.
-- Avoid overloading a single scene with too much narration for the visual beat.
+- Preserve scene order and narration alignment unless safety/schema correction requires a change.
+- Use frame-practical timing for 30fps vertical output.
+- Keep overlays inside safe areas and avoid occluding core subject matter.
 
 ## Should
 
-- Transitions should support pacing and comprehension instead of distracting from narration.
-- Fast hooks should move quickly, but not at the cost of clear story comprehension.
+- Let transitions support comprehension, not distract.
+- Keep the hook visually immediate.
 
 ## Preference
 
-- Default to simple cuts, match cuts, or soft cuts unless a style pack calls for more expressive editing.
+- Default to simple cuts, soft cuts, or restrained motion unless a style pack calls for stronger edits.

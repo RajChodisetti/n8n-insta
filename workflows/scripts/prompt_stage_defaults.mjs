@@ -26,6 +26,17 @@ function compactList(value = []) {
     : [];
 }
 
+function jsonString(value, fallback = '{}') {
+  if (typeof value === 'string') {
+    const normalized = value.trim();
+    return normalized || fallback;
+  }
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+  return JSON.stringify(value, null, 2);
+}
+
 function summarizeClientAccountContext(context = {}) {
   const client = plainObject(context.client);
   const platformAccount = plainObject(context.platform_account);
@@ -193,6 +204,16 @@ function resolveLanguageGuidance(stageKey, language, existingValue = '') {
       return 'Keep any implied signage, documents, or printed details absent or unreadable. Only scene 1 may use a very short English opening title if explicitly needed.';
     case 'narration_generation':
       return 'Speak naturally in English with clear pronunciation that fits a human voiceover track.';
+    case 'voice_performance_script':
+      return 'Keep spoken words in natural English and put emotion, intent, pacing, pauses, and emphasis into delivery instructions instead of audible stage directions.';
+    case 'avatar_presenter_selector':
+      return 'Keep avatar presenter direction separate from the spoken narration script. Treat direction as provider instructions and metadata, not words to be read aloud.';
+    case 'visual_prompt_builder':
+      return 'Keep generated visual prompts text-free and tied to the spoken English story beat.';
+    case 'final_qa_validator':
+      return 'Evaluate all audience-facing copy and delivery artifacts as natural English Instagram Reel output.';
+    case 'performance_feedback_analysis':
+      return 'Return reusable English generation guidance based on measured Instagram performance evidence.';
     default:
       return 'Keep the output aligned to natural English.';
   }
@@ -399,6 +420,126 @@ export function resolveStagePromptTemplateData(stageKey, templateData = {}) {
       merged.scene_timing_plan,
       buildSceneTimingPlan(merged.storyboard_json, { speedMultiplier }),
     );
+  }
+
+  if (stageKey === 'visual_prompt_builder') {
+    const directorPlan = plainObject(merged.director_plan ?? merged.director_json ?? merged.director_contract_json);
+    const storyboardPlan = Array.isArray(merged.storyboard_plan ?? merged.storyboard_json)
+      ? (merged.storyboard_plan ?? merged.storyboard_json)
+      : plainObject(merged.storyboard_plan ?? {});
+    const visualContract = plainObject(directorPlan.visual_contract);
+    merged.selected_style_pack = firstNonEmpty(
+      merged.selected_style_pack,
+      directorPlan.selected_style_pack,
+      merged.preferred_style_pack_id,
+      'cinematic_problem_solution',
+    );
+    merged.director_plan_json = jsonString(merged.director_plan_json || directorPlan);
+    merged.storyboard_plan_json = jsonString(merged.storyboard_plan_json || storyboardPlan, '[]');
+    merged.visual_continuity_notes = firstNonEmpty(
+      merged.visual_continuity_notes,
+      Array.isArray(visualContract.continuity_rules) ? visualContract.continuity_rules.join(' | ') : '',
+      directorPlan.global_visual_style,
+      'Maintain consistent style, characters, environments, lighting, and color across all scenes.',
+    );
+    merged.visual_text_policy = firstNonEmpty(
+      merged.visual_text_policy,
+      visualContract.text_policy,
+      'Do not request readable text, logos, labels, captions, subtitles, watermarks, or signage in generated assets.',
+    );
+  }
+
+  if (stageKey === 'voice_performance_script') {
+    const directorContract = plainObject(merged.director_contract ?? merged.director_json);
+    const storyboardPlan = Array.isArray(merged.storyboard_plan ?? merged.storyboard_json)
+      ? (merged.storyboard_plan ?? merged.storyboard_json)
+      : plainObject(merged.storyboard_plan ?? {});
+    const voiceContract = plainObject(directorContract.voice_contract);
+    merged.selected_style_pack = firstNonEmpty(
+      merged.selected_style_pack,
+      directorContract.selected_style_pack,
+      merged.preferred_style_pack_id,
+      'cinematic_problem_solution',
+    );
+    merged.narration_style = firstNonEmpty(
+      merged.narration_style,
+      voiceContract.delivery_summary,
+      directorContract.tts_delivery,
+      resolveNarrationStyle(merged),
+    );
+    merged.clean_spoken_script = firstNonEmpty(merged.clean_spoken_script, merged.narration_script);
+    merged.director_contract_json = jsonString(merged.director_contract_json || directorContract);
+    merged.storyboard_plan_json = jsonString(merged.storyboard_plan_json || storyboardPlan, '[]');
+    merged.voice_line_map_json = jsonString(merged.voice_line_map_json || merged.voice_line_map || [], '[]');
+    merged.music_sfx_context_json = jsonString(merged.music_sfx_context_json || merged.music_sfx_context || {}, '{}');
+  }
+
+  if (stageKey === 'avatar_presenter_selector') {
+    const directorContract = plainObject(merged.director_contract ?? merged.director_json ?? merged.director_avatar_contract);
+    const storyboardPlan = Array.isArray(merged.storyboard_plan ?? merged.storyboard_json)
+      ? (merged.storyboard_plan ?? merged.storyboard_json)
+      : plainObject(merged.storyboard_plan ?? {});
+    const storyPackageContext = plainObject(merged.story_package_context ?? merged.story_package_json ?? merged.story_package);
+    const characterReferenceContext = plainObject(merged.character_reference_context ?? merged.character_reference);
+    const presenterProfileInventory = Array.isArray(merged.presenter_profile_inventory)
+      ? merged.presenter_profile_inventory
+      : (merged.presenter_profile_inventory && typeof merged.presenter_profile_inventory === 'object' ? [merged.presenter_profile_inventory] : []);
+    const avatarProviderInventory = plainObject(merged.avatar_provider_inventory ?? merged.provider_inventory);
+    merged.package_type = firstNonEmpty(merged.package_type, 'instagram_reel');
+    merged.selected_style_pack = firstNonEmpty(
+      merged.selected_style_pack,
+      directorContract.selected_style_pack,
+      merged.preferred_style_pack_id,
+      'avatar_sales_outreach',
+    );
+    merged.story_package_context_json = jsonString(merged.story_package_context_json || storyPackageContext);
+    merged.director_avatar_contract_json = jsonString(merged.director_avatar_contract_json || directorContract);
+    merged.storyboard_plan_json = jsonString(merged.storyboard_plan_json || storyboardPlan, '[]');
+    merged.character_reference_context_json = jsonString(merged.character_reference_context_json || characterReferenceContext);
+    merged.presenter_profile_inventory_json = jsonString(merged.presenter_profile_inventory_json || presenterProfileInventory, '[]');
+    merged.avatar_provider_inventory_json = jsonString(merged.avatar_provider_inventory_json || avatarProviderInventory);
+    merged.avatar_rules_summary = firstNonEmpty(
+      merged.avatar_rules_summary,
+      'Use avatar only when account policy, explicit consent metadata, presenter suitability, disclosure, provider identity, and safety gates all pass. Uploaded character references are creative context only and never consent. Direction must stay separate from spoken script. Auto-downgrade to video when anything is missing, unsafe, or unavailable.',
+    );
+    merged.heygen_capability_summary = firstNonEmpty(
+      merged.heygen_capability_summary,
+      'HeyGen create-video request options may include aspect_ratio, resolution, captions/caption, fit, background, voice_settings, motion_prompt, expressiveness, and engine when supported. Do not include secrets or unsupported provider-specific hacks.',
+    );
+  }
+
+  if (stageKey === 'final_qa_validator') {
+    merged.package_type = firstNonEmpty(merged.package_type, 'instagram_reel');
+    merged.selected_style_pack = firstNonEmpty(merged.selected_style_pack, merged.director_json?.selected_style_pack, merged.preferred_style_pack_id, 'unknown');
+    for (const key of [
+      'director_contract_json',
+      'storyboard_plan_json',
+      'visual_prompt_plan_json',
+      'voice_performance_json',
+      'music_sfx_plan_json',
+      'generated_assets_json',
+      'narration_assets_json',
+      'render_result_json',
+      'caption_publish_json',
+      'avatar_consent_context_json',
+      'platform_publish_context_json',
+    ]) {
+      const isArrayJson = key === 'generated_assets_json' || key === 'narration_assets_json' || key === 'storyboard_plan_json';
+      const fallback = isArrayJson ? '[]' : '{}';
+      const defaultValue = isArrayJson ? [] : {};
+      merged[key] = jsonString(key in merged ? merged[key] : defaultValue, fallback);
+    }
+  }
+
+  if (stageKey === 'performance_feedback_analysis') {
+    merged.account_context_key = firstNonEmpty(merged.account_context_key, 'unknown');
+    merged.platform = firstNonEmpty(merged.platform, 'instagram');
+    merged.analysis_window = firstNonEmpty(merged.analysis_window, 'latest available insight snapshots');
+    merged.account_context_json = jsonString(merged.account_context_json || merged.client_account_context || {}, '{}');
+    merged.target_content_json = jsonString(merged.target_content_json || {}, '{}');
+    merged.recent_insights_json = jsonString(merged.recent_insights_json || [], '[]');
+    merged.prior_performance_reviews_json = jsonString(merged.prior_performance_reviews_json || [], '[]');
+    merged.existing_performance_guidance_json = jsonString(merged.existing_performance_guidance_json || {}, '{}');
   }
 
   if (stageKey === 'post_image_generation') {

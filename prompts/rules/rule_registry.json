@@ -1,12 +1,12 @@
 {
-  "version": "1.0",
-  "last_reviewed": "2026-06-21",
+  "version": "2.0",
+  "last_reviewed": "2026-06-25",
   "status": "contract_assets_only_not_runtime_loaded",
   "severity_levels": {
-    "blocking": "A violation should stop generation, validation, approval, or publish for the mapped stage.",
-    "must": "A required rule that should be enforced whenever that rule set is loaded.",
-    "should": "A strong default that may be overridden by explicit client, account, style-pack, or user direction if still safe.",
-    "preference": "A default taste or quality preference that should not block generation by itself."
+    "blocking": "A violation should stop generation, approval, render, validation, or publish for the mapped stage.",
+    "must": "A required rule whenever the rule set is loaded.",
+    "should": "A strong default that may be overridden only by safe client/account/style direction.",
+    "preference": "A default taste or quality preference that should not block by itself."
   },
   "stage_keys": [
     "idea_ingest",
@@ -22,6 +22,8 @@
     "caption_and_hashtags",
     "prompt_builder",
     "render_manifest",
+    "remotion_edit_plan",
+    "avatar_video_selector",
     "provider_adapter",
     "approval",
     "publish"
@@ -31,7 +33,7 @@
       "id": "brand_safety",
       "file": "brand_safety_rules.md",
       "title": "Brand Safety Rules",
-      "read_when": "Any stage creates story facts, captions, visual plans, or publish-facing copy.",
+      "read_when": "Any stage creates facts, story copy, captions, visual plans, or publish-facing copy.",
       "default_stages": [
         "idea_ingest",
         "research_and_script",
@@ -40,40 +42,44 @@
         "director",
         "storyboard_and_prompts",
         "caption_and_hashtags",
-        "prompt_builder",
         "approval",
         "publish"
       ],
       "rules": [
         {
-          "id": "brand_safety.no_unsupported_facts",
+          "id": "brand_safety.no_unsupported_claims",
           "severity": "blocking",
-          "stages": ["research_and_script", "story_package_generation", "director_contract", "director", "storyboard_and_prompts", "caption_and_hashtags", "publish"],
-          "text": "Do not invent facts, quotes, names, locations, dates, motives, outcomes, product claims, metrics, endorsements, or source URLs not supported by the input payload."
+          "stages": [
+            "research_and_script",
+            "story_package_generation",
+            "caption_and_hashtags",
+            "publish"
+          ],
+          "text": "Do not invent unsupported facts, quotes, dates, places, claims, metrics, endorsements, outcomes, or source URLs."
         },
         {
-          "id": "brand_safety.sensitive_topics_non_exploitative",
+          "id": "brand_safety.sensitive_topics_safe",
           "severity": "blocking",
-          "stages": ["research_and_script", "story_package_generation", "director_contract", "director", "storyboard_and_prompts", "scene_asset_generation", "caption_and_hashtags"],
-          "text": "For harm, abuse, violence, coercion, victim testimony, or similar sensitive topics, keep wording and imagery trauma-informed, non-graphic, non-sexualized, and non-sensational."
+          "stages": [
+            "research_and_script",
+            "story_package_generation",
+            "storyboard_and_prompts",
+            "scene_asset_generation",
+            "caption_and_hashtags"
+          ],
+          "text": "Sensitive topics must stay non-graphic, non-exploitative, non-sexualized, and trauma-informed."
         },
         {
-          "id": "brand_safety.english_only_current_pipeline",
+          "id": "brand_safety.english_current_pipeline",
           "severity": "must",
-          "stages": ["idea_ingest", "idea_prompt_profile", "research_and_script", "story_package_generation", "storyboard_and_prompts", "caption_and_hashtags"],
-          "text": "Keep current pipeline outputs in English unless a later architecture change explicitly adds multilingual support."
-        },
-        {
-          "id": "brand_safety.no_spam_or_false_urgency",
-          "severity": "must",
-          "stages": ["research_and_script", "story_package_generation", "caption_and_hashtags", "publish"],
-          "text": "Avoid spammy, deceptive, guaranteed-result, clickbait, or false-scarcity language."
-        },
-        {
-          "id": "brand_safety.concise_credible_language",
-          "severity": "preference",
-          "stages": ["research_and_script", "story_package_generation", "caption_and_hashtags"],
-          "text": "Prefer concise, credible, mobile-native language unless a style pack or client profile intentionally chooses a different safe voice."
+          "stages": [
+            "idea_ingest",
+            "idea_prompt_profile",
+            "research_and_script",
+            "story_package_generation",
+            "caption_and_hashtags"
+          ],
+          "text": "Keep current pipeline outputs in English unless multilingual support is explicitly added."
         }
       ]
     },
@@ -81,53 +87,50 @@
       "id": "visual_consistency",
       "file": "visual_consistency_rules.md",
       "title": "Visual Consistency Rules",
-      "read_when": "Any stage plans scene visuals, image/video prompts, cover prompts, or render-facing metadata.",
+      "read_when": "Any stage plans visuals, image/video prompts, cover prompts, or render-facing visual metadata.",
       "default_stages": [
-        "idea_ingest",
         "story_package_generation",
         "director_contract",
         "director",
         "storyboard_and_prompts",
         "scene_asset_generation",
         "post_image_generation",
-        "render_manifest"
+        "render_manifest",
+        "remotion_edit_plan"
       ],
       "rules": [
         {
-          "id": "visual_consistency.no_visible_generated_text",
+          "id": "visual.no_generated_text",
           "severity": "blocking",
-          "stages": ["story_package_generation", "storyboard_and_prompts", "scene_asset_generation", "post_image_generation"],
-          "text": "Generated visuals must not request visible text, typography, subtitles, captions, labels, logos, UI, watermarks, signage, documents, newspapers, placards, speech bubbles, or other readable text elements."
+          "stages": [
+            "story_package_generation",
+            "storyboard_and_prompts",
+            "scene_asset_generation",
+            "post_image_generation"
+          ],
+          "text": "Do not request readable or unreadable generated text, fake writing, random glyphs, subtitles, captions, logos, UI, watermarks, labels, signs, maps, diagrams, charts, documents, plaques, inscriptions, newspapers, or speech bubbles from image/video models. Use blank unmarked surfaces or non-text visual evidence instead."
         },
         {
-          "id": "visual_consistency.face_image_metadata_only",
-          "severity": "blocking",
-          "stages": ["story_package_generation", "storyboard_and_prompts", "scene_asset_generation", "render_manifest"],
-          "text": "Scene 1 must use face-image/title-card metadata only: `is_face_image=true`, `asset_type=image`, `face_image_title` of 2-5 words, duration 4 seconds or less; the generated image prompt itself remains text-free."
-        },
-        {
-          "id": "visual_consistency.no_face_title_after_scene_one",
-          "severity": "blocking",
-          "stages": ["story_package_generation", "storyboard_and_prompts", "scene_asset_generation"],
-          "text": "Scenes after scene 1 must not carry a face-image title and should normally use video assets unless a specific safe exception is supplied."
-        },
-        {
-          "id": "visual_consistency.scene_specific_prompts",
+          "id": "visual.scene_specificity",
           "severity": "must",
-          "stages": ["story_package_generation", "storyboard_and_prompts", "scene_asset_generation", "post_image_generation"],
-          "text": "Every visual prompt must identify a concrete focal subject, action or situation, setting, and story-specific evidence tied to the matching narration beat."
+          "stages": [
+            "story_package_generation",
+            "storyboard_and_prompts",
+            "scene_asset_generation",
+            "post_image_generation"
+          ],
+          "text": "Every visual prompt needs a concrete subject, action/situation, setting, composition, and story-specific beat."
         },
         {
-          "id": "visual_consistency.shared_style_contract",
+          "id": "visual.continuity",
           "severity": "should",
-          "stages": ["director_contract", "director", "storyboard_and_prompts", "scene_asset_generation"],
-          "text": "Preserve the selected visual style contract across scenes unless safety or factual boundaries require a change."
-        },
-        {
-          "id": "visual_consistency.documentary_realism_default",
-          "severity": "preference",
-          "stages": ["story_package_generation", "storyboard_and_prompts", "scene_asset_generation", "post_image_generation"],
-          "text": "Prefer documentary-realistic, mobile-readable compositions unless the selected style pack calls for a different safe visual treatment."
+          "stages": [
+            "director_contract",
+            "storyboard_and_prompts",
+            "scene_asset_generation",
+            "render_manifest"
+          ],
+          "text": "Preserve continuity for style, recurring subjects, palette, lighting, and camera language."
         }
       ]
     },
@@ -135,46 +138,42 @@
       "id": "voice",
       "file": "voice_rules.md",
       "title": "Voice Rules",
-      "read_when": "Any stage writes narration, dialogue lines, TTS instructions, or voice performance metadata.",
+      "read_when": "Any stage writes narration, dialogue lines, TTS instructions, avatar speech, or voice metadata.",
       "default_stages": [
-        "idea_ingest",
         "research_and_script",
         "story_package_generation",
-        "director_contract",
-        "director",
         "storyboard_and_prompts",
-        "narration_generation"
+        "narration_generation",
+        "avatar_video_selector"
       ],
       "rules": [
         {
-          "id": "voice.dialogue_matches_narration",
-          "severity": "blocking",
-          "stages": ["research_and_script", "story_package_generation", "storyboard_and_prompts", "narration_generation"],
-          "text": "`dialogue_lines` must match or cleanly slice from the spoken `narration_text` for the same scene, without missing or reordered narration beats."
-        },
-        {
           "id": "voice.clean_script_preserved",
+          "severity": "blocking",
+          "stages": [
+            "voice_performance_script",
+            "narration_generation"
+          ],
+          "text": "Do not change the clean spoken script when adding performance metadata."
+        },
+        {
+          "id": "voice.scene_alignment",
           "severity": "must",
-          "stages": ["research_and_script", "story_package_generation", "narration_generation"],
-          "text": "Preserve a clean human-readable narration script; provider-specific emotion syntax belongs in delivery metadata where possible."
+          "stages": [
+            "story_package_generation",
+            "storyboard_and_prompts",
+            "narration_generation"
+          ],
+          "text": "Do not drop, reorder, or add narration beats between script, scene lines, and TTS input."
         },
         {
-          "id": "voice.tts_instructions_per_scene",
-          "severity": "must",
-          "stages": ["director_contract", "director", "story_package_generation", "storyboard_and_prompts", "narration_generation"],
-          "text": "Each scene should carry narration-aligned delivery or TTS instructions that describe emotion, pacing, and energy without changing the facts."
-        },
-        {
-          "id": "voice.breathable_sentences",
-          "severity": "should",
-          "stages": ["research_and_script", "story_package_generation", "narration_generation"],
-          "text": "Keep narration breathable for a spoken Reel: vary sentence length and avoid long run-on passages."
-        },
-        {
-          "id": "voice.grounded_delivery_default",
-          "severity": "preference",
-          "stages": ["research_and_script", "story_package_generation", "narration_generation"],
-          "text": "Prefer grounded human delivery over announcer-style narration unless the selected style pack intentionally calls for a more performed voice."
+          "id": "voice.consent",
+          "severity": "blocking",
+          "stages": [
+            "avatar_video_selector",
+            "publish"
+          ],
+          "text": "Do not use a real voice or implied endorsement without explicit consent metadata."
         }
       ]
     },
@@ -182,36 +181,40 @@
       "id": "music_sfx",
       "file": "music_sfx_rules.md",
       "title": "Music and SFX Rules",
-      "read_when": "Any stage creates music direction, SFX cues, render audio metadata, or music licensing decisions.",
+      "read_when": "Any stage plans or validates music, SFX, render audio, or licensing.",
       "default_stages": [
-        "idea_ingest",
-        "research_and_script",
-        "story_package_generation",
-        "director_contract",
-        "director",
-        "storyboard_and_prompts",
+        "music_sfx_plan",
         "render_manifest",
-        "approval",
+        "final_qa",
         "publish"
       ],
       "rules": [
         {
-          "id": "music_sfx.license_uncertainty_blocks_publish",
+          "id": "music.license_required",
           "severity": "blocking",
-          "stages": ["approval", "publish"],
-          "text": "Unknown or unclear music/SFX license status must block publish until resolved."
+          "stages": [
+            "music_sfx_plan",
+            "final_qa",
+            "publish"
+          ],
+          "text": "Unknown, unclear, or non-publishable license status must block publish."
         },
         {
-          "id": "music_sfx.no_vocals_by_default",
+          "id": "music.no_commercial_soundalikes",
+          "severity": "blocking",
+          "stages": [
+            "music_sfx_plan"
+          ],
+          "text": "Do not request copyrighted tracks, artist soundalikes, or recognizable commercial music unless explicitly licensed."
+        },
+        {
+          "id": "music.narration_clarity",
           "severity": "must",
-          "stages": ["research_and_script", "story_package_generation", "director_contract", "director", "storyboard_and_prompts", "render_manifest"],
-          "text": "Default background music should be subtle, instrumental, and low enough to sit under narration; vocals require explicit creative direction and licensing confidence."
-        },
-        {
-          "id": "music_sfx.cues_match_scene_emotion",
-          "severity": "should",
-          "stages": ["story_package_generation", "director_contract", "director", "storyboard_and_prompts"],
-          "text": "Scene music and SFX cues should match local emotional intensity without overpowering the spoken story."
+          "stages": [
+            "music_sfx_plan",
+            "render_manifest"
+          ],
+          "text": "Narration clarity wins over music/SFX intensity."
         }
       ]
     },
@@ -219,37 +222,39 @@
       "id": "avatar",
       "file": "avatar_rules.md",
       "title": "Avatar Rules",
-      "read_when": "Any stage selects, describes, or routes an avatar, presenter, or likeness-based asset.",
+      "read_when": "Any stage evaluates presenter, avatar, likeness, voice, or consent-sensitive generation.",
       "default_stages": [
-        "idea_ingest",
-        "story_package_generation",
-        "avatar_presenter_selector",
-        "director_contract",
-        "director",
-        "storyboard_and_prompts",
-        "scene_asset_generation",
-        "provider_adapter",
-        "approval",
+        "avatar_video_selector",
+        "final_qa",
         "publish"
       ],
       "rules": [
         {
-          "id": "avatar.consent_required_for_real_likeness",
+          "id": "avatar.consent_required",
           "severity": "blocking",
-          "stages": ["story_package_generation", "avatar_presenter_selector", "director_contract", "director", "storyboard_and_prompts", "scene_asset_generation", "provider_adapter", "approval", "publish"],
-          "text": "Do not use a real person's likeness, voice, or implied endorsement without explicit consent metadata."
+          "stages": [
+            "avatar_video_selector",
+            "final_qa",
+            "publish"
+          ],
+          "text": "Missing, ambiguous, expired, or out-of-scope consent must block avatar generation and publish."
         },
         {
-          "id": "avatar.synthetic_disclosure_required",
+          "id": "avatar.references_not_consent",
           "severity": "must",
-          "stages": ["story_package_generation", "avatar_presenter_selector", "director_contract", "director", "storyboard_and_prompts", "approval", "publish"],
-          "text": "Synthetic avatar routes must remain transparent and must not pretend to be an unrecorded real-person message."
+          "stages": [
+            "avatar_video_selector"
+          ],
+          "text": "Uploaded character references are creative context, not consent proof."
         },
         {
-          "id": "avatar.route_is_optional",
-          "severity": "should",
-          "stages": ["story_package_generation", "avatar_presenter_selector", "director_contract", "director", "storyboard_and_prompts"],
-          "text": "Prefer non-avatar visuals unless the task, client profile, or style pack clearly calls for an avatar route."
+          "id": "avatar.publish_separate",
+          "severity": "must",
+          "stages": [
+            "avatar_video_selector",
+            "publish"
+          ],
+          "text": "Avatar generation remains separate from QA, approval, and publish."
         }
       ]
     },
@@ -257,45 +262,40 @@
       "id": "editing",
       "file": "editing_rules.md",
       "title": "Editing Rules",
-      "read_when": "Any stage sets scene timing, pacing, transitions, subtitle metadata, or render seed data.",
+      "read_when": "Any stage creates timing, transitions, overlays, render manifest, or Remotion plan.",
       "default_stages": [
-        "research_and_script",
-        "story_package_generation",
-        "director_contract",
-        "director",
         "storyboard_and_prompts",
-        "render_manifest"
+        "render_manifest",
+        "remotion_edit_plan"
       ],
       "rules": [
         {
-          "id": "editing.contiguous_timing",
+          "id": "editing.timeline_contiguous",
           "severity": "blocking",
-          "stages": ["research_and_script", "story_package_generation", "storyboard_and_prompts", "render_manifest"],
-          "text": "Scene timings must be contiguous, start near 0 seconds, have positive durations, and end close to the target duration."
+          "stages": [
+            "storyboard_and_prompts",
+            "render_manifest",
+            "remotion_edit_plan"
+          ],
+          "text": "Timelines must be contiguous, positive-duration, and close to target duration."
         },
         {
-          "id": "editing.subtitles_metadata_only_current_renderer",
-          "severity": "blocking",
-          "stages": ["research_and_script", "story_package_generation", "storyboard_and_prompts", "render_manifest"],
-          "text": "Subtitles are metadata only in the current pipeline; `render_manifest_seed_json.subtitles.enabled` must be false unless a later renderer contract changes this."
-        },
-        {
-          "id": "editing.preserve_scene_count",
+          "id": "editing.renderer_owns_text",
           "severity": "must",
-          "stages": ["director_contract", "director", "storyboard_and_prompts", "render_manifest"],
-          "text": "Do not add, remove, or reorder scenes when a prior scene guide or director contract already defines scene count and numbering."
+          "stages": [
+            "render_manifest",
+            "remotion_edit_plan"
+          ],
+          "text": "Captions/subtitles/overlays are renderer metadata, not generated-image text."
         },
         {
-          "id": "editing.transitions_support_story",
-          "severity": "should",
-          "stages": ["story_package_generation", "storyboard_and_prompts", "render_manifest"],
-          "text": "Transitions should support pacing and comprehension; avoid decorative transition choices that distract from narration."
-        },
-        {
-          "id": "editing.simple_transitions_default",
-          "severity": "preference",
-          "stages": ["story_package_generation", "storyboard_and_prompts", "render_manifest"],
-          "text": "Prefer simple cuts, match cuts, or soft cuts unless a style pack calls for more expressive editing."
+          "id": "editing.frame_practical",
+          "severity": "must",
+          "stages": [
+            "render_manifest",
+            "remotion_edit_plan"
+          ],
+          "text": "Use frame-practical timing for 30fps vertical output."
         }
       ]
     },
@@ -303,39 +303,41 @@
       "id": "provider_routing",
       "file": "provider_routing_rules.md",
       "title": "Provider Routing Rules",
-      "read_when": "Any stage chooses models, providers, adapters, host providers, or render providers.",
+      "read_when": "Any stage plans providers, adapters, hosting, rendering, or cost-aware routing.",
       "default_stages": [
-        "prompt_builder",
+        "model_provider_router",
         "provider_adapter",
         "scene_asset_generation",
-        "post_image_generation",
         "narration_generation",
         "render_manifest"
       ],
       "rules": [
         {
-          "id": "provider_routing.fail_fast_unimplemented",
+          "id": "provider.no_silent_fallback",
           "severity": "blocking",
-          "stages": ["provider_adapter"],
-          "text": "If a selected provider is not implemented for a component, fail fast instead of silently falling back to a different provider."
+          "stages": [
+            "provider_adapter",
+            "model_provider_router"
+          ],
+          "text": "If a selected provider is not implemented for a component, fail fast instead of silently using another provider."
         },
         {
-          "id": "provider_routing.normalize_outputs",
+          "id": "provider.no_secret_exposure",
+          "severity": "blocking",
+          "stages": [
+            "prompt_builder",
+            "provider_adapter",
+            "publish"
+          ],
+          "text": "Do not expose API keys, tokens, service account material, or secret env values."
+        },
+        {
+          "id": "provider.normalize_outputs",
           "severity": "must",
-          "stages": ["provider_adapter", "scene_asset_generation", "post_image_generation", "narration_generation", "render_manifest"],
-          "text": "Provider-specific responses must be normalized to the repo's stable asset, script, storyboard, render, or cost shape before downstream use."
-        },
-        {
-          "id": "provider_routing.no_provider_logic_in_workflow_json",
-          "severity": "should",
-          "stages": ["provider_adapter", "prompt_builder"],
-          "text": "Keep provider branching in helper scripts/adapters, not scattered through n8n workflow JSON."
-        },
-        {
-          "id": "provider_routing.do_not_call_paid_api_for_contract_docs",
-          "severity": "must",
-          "stages": ["prompt_builder", "provider_adapter"],
-          "text": "Do not call paid external APIs for documentation, fixture, or contract-only sessions."
+          "stages": [
+            "provider_adapter"
+          ],
+          "text": "Normalize provider outputs to repo contracts before downstream use."
         }
       ]
     },
@@ -343,7 +345,7 @@
       "id": "platform_publishing",
       "file": "platform_publishing_rules.md",
       "title": "Platform Publishing Rules",
-      "read_when": "Any stage prepares captions, hashtags, publish rows, media URLs, or live publish actions.",
+      "read_when": "Any stage prepares captions, approvals, public URLs, publish rows, or Instagram Graph calls.",
       "default_stages": [
         "caption_and_hashtags",
         "approval",
@@ -351,28 +353,29 @@
       ],
       "rules": [
         {
-          "id": "platform_publishing.no_live_publish_without_enabled_flag",
+          "id": "publish.approval_required",
           "severity": "blocking",
-          "stages": ["publish"],
-          "text": "Live publish must not run unless the explicit publish enable flag and required Instagram credentials are present in runtime configuration."
+          "stages": [
+            "approval",
+            "publish"
+          ],
+          "text": "Publish requires selected-render approval, QA pass, approved_by, approved_at, and matching platform account."
         },
         {
-          "id": "platform_publishing.public_media_url_required",
+          "id": "publish.public_url_required",
           "severity": "blocking",
-          "stages": ["approval", "publish"],
-          "text": "Publishable media URLs must be public HTTPS URLs and must not point to local-only or private network hosts."
+          "stages": [
+            "publish"
+          ],
+          "text": "Publishable media URLs must be public HTTPS URLs, not local/private hosts."
         },
         {
-          "id": "platform_publishing.duplicate_publish_protection",
+          "id": "publish.no_duplicate",
           "severity": "blocking",
-          "stages": ["publish"],
-          "text": "Do not publish if existing platform media IDs or published timestamps indicate the content was already published."
-        },
-        {
-          "id": "platform_publishing.caption_hashtags_separate",
-          "severity": "must",
-          "stages": ["caption_and_hashtags", "publish"],
-          "text": "Keep caption copy and hashtags cleanly separated until final composition for the platform."
+          "stages": [
+            "publish"
+          ],
+          "text": "Do not publish if existing media IDs or published timestamps indicate prior publication."
         }
       ]
     },
@@ -380,36 +383,38 @@
       "id": "approval",
       "file": "approval_rules.md",
       "title": "Approval Rules",
-      "read_when": "Any stage validates final packages, marks approval status, selects final render output, or gates publish.",
+      "read_when": "Any stage validates final QA, selected render approval, retry, or publish readiness.",
       "default_stages": [
+        "final_qa",
         "approval",
-        "publish",
-        "render_manifest"
+        "publish"
       ],
       "rules": [
         {
-          "id": "approval.selected_video_required_for_future_publish_gate",
+          "id": "approval.exact_render",
           "severity": "blocking",
-          "stages": ["approval", "publish"],
-          "text": "Once selected-video approval is implemented, publish must require the approved selected render, not merely any successful render."
+          "stages": [
+            "approval",
+            "publish"
+          ],
+          "text": "Publish must require approval for the exact selected render, not any successful render."
         },
         {
-          "id": "approval.reject_incomplete_package",
+          "id": "approval.complete_package",
           "severity": "blocking",
-          "stages": ["approval", "publish"],
-          "text": "Reject or block packages with missing script, storyboard, visual assets, narration assets, render output, caption, or required license metadata."
+          "stages": [
+            "final_qa",
+            "approval"
+          ],
+          "text": "Missing required artifacts, consent, license, caption, render output, or account match must block publish."
         },
         {
-          "id": "approval.human_review_for_live_publish",
+          "id": "approval.audit_fields",
           "severity": "must",
-          "stages": ["approval", "publish"],
-          "text": "Live publish paths should preserve an explicit review/approval step when a workflow is intended for public posting."
-        },
-        {
-          "id": "approval.record_review_reason",
-          "severity": "should",
-          "stages": ["approval"],
-          "text": "Approval or rejection should record a concise review note for auditability."
+          "stages": [
+            "approval"
+          ],
+          "text": "Approval records must include selected render, QA status, approval status, approved_by, approved_at, and platform account ID."
         }
       ]
     }

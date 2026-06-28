@@ -1,24 +1,24 @@
 # Approval Rules
 
-Use for validation, final QA, selected render approval, and publish gates.
+Use for final QA, selected render approval, retry decisions, and publish gates.
 
 ## Blocking
 
-- Once selected-video approval is implemented, publish must require the approved selected render, not merely any successful render.
-- Reject or block packages with missing script, storyboard, visual assets, narration assets, render output, caption, or required license metadata.
-- Reject or block packages that violate safety, consent, platform, or public-media URL rules.
+- Publish must require approval for the exact selected render, not any successful render.
+- Missing script, assets, narration, render output, caption, QA pass, consent, license, public URL, or account match must block publish.
+- Rejections must not silently fall through to publishable states.
 
 ## Must
 
-- Live publish paths should preserve an explicit review/approval step when a workflow is intended for public posting.
-- Approval state must be persisted in a way publish workflows can verify.
-- Rejections should not silently fall through to publishable states.
+- Approval records must include platform, package type, selected render, QA status, approval status, approved_by, approved_at, and platform account ID.
+- QA must name the failed upstream stage or contract for every blocker.
+- Preserve partial artifacts for review and resume.
 
 ## Should
 
-- Approval or rejection should record a concise review note for auditability.
-- QA checks should report the specific contract that failed.
+- Approval/rejection notes should be concise and auditable.
+- Manual approval should remain explicit in Studio/API flows.
 
 ## Preference
 
-- Prefer small, inspectable review packages over large opaque blobs.
+- Prefer small review packages that a human can inspect quickly.

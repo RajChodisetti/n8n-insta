@@ -37,7 +37,7 @@ Prompt-backed workflow notes:
 - `wf_instagram_simple_post_publish` now requires `qa_approved`; it no longer publishes simple posts directly from `assets_ready`
 - `prompts/workflow/render_manifest_v2.md` is a renderer-neutral contract only; active render manifest construction and dispatch still use the current n8n workflow exports and local FFmpeg worker request shape
 - `prompts/workflow/remotion_edit_plan.md` is a contract-only planning asset; no Remotion app, dependency, Studio command, workflow export, or FFmpeg replacement is active
-- `prompts/workflow/avatar_video_selector.md` is a contract-only avatar/presenter decision asset; no avatar provider, account setup, video generation, publish route, or workflow export is active
+- `prompts/workflow/avatar_video_selector.md` is active in the code-first avatar plan; it selects HeyGen avatar generation or video fallback, while provider calls still require runtime consent/config revalidation and publish remains approval-gated
 
 Operational references:
 

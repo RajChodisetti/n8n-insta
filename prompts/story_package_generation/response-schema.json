@@ -70,7 +70,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["scene_number", "beat_label", "start_time_seconds", "end_time_seconds", "duration_seconds", "narration_text", "dialogue_lines", "asset_type", "image_prompt", "music_cue", "tts_instructions", "includes_primary_character"],
+        "required": ["scene_number", "beat_label", "start_time_seconds", "end_time_seconds", "duration_seconds", "narration_text", "dialogue_lines", "asset_type", "asset_plan", "remotion", "image_prompt", "music_cue", "tts_instructions", "includes_primary_character"],
         "properties": {
           "scene_number": { "type": "integer", "minimum": 1 },
           "beat_label": { "type": "string" },
@@ -84,6 +84,39 @@
             "items": { "type": "string" }
           },
           "asset_type": { "type": "string", "enum": ["image", "video"] },
+          "asset_plan": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode", "provider_intent", "motion_requirement", "video_generation_required", "video_generation_reason", "fallback_mode", "budget_priority", "review_required"],
+            "properties": {
+              "mode": { "type": "string", "enum": ["image", "video", "image_with_motion"] },
+              "provider_intent": { "type": "string", "enum": ["static_image", "remotion_motion", "provider_video"] },
+              "motion_requirement": { "type": "string", "enum": ["low", "medium", "high"] },
+              "video_generation_required": { "type": "boolean" },
+              "video_generation_reason": { "type": "string" },
+              "fallback_mode": { "type": "string", "enum": ["image_with_motion"] },
+              "budget_priority": { "type": "string", "enum": ["standard", "premium"] },
+              "review_required": { "type": "boolean" }
+            }
+          },
+          "remotion": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["camera_move", "pan_zoom_direction", "motion_intensity", "transition_type", "overlay_style", "pacing", "motion_layers", "instructions"],
+            "properties": {
+              "camera_move": { "type": "string", "enum": ["push_in", "pull_out", "pan_left", "pan_right", "tilt_up", "tilt_down", "drift", "hold"] },
+              "pan_zoom_direction": { "type": "string", "enum": ["center_push", "center_pull", "left_to_right", "right_to_left", "bottom_to_top", "top_to_bottom", "diagonal_up", "diagonal_down", "hold"] },
+              "motion_intensity": { "type": "string", "enum": ["low", "medium", "high"] },
+              "transition_type": { "type": "string", "enum": ["cut", "crossfade", "soft_cut", "dip_to_black", "slide_left", "slide_right", "wipe_up", "match_cut"] },
+              "overlay_style": { "type": "string", "enum": ["none", "subtle_vignette", "warm_gradient", "cool_gradient", "documentary_shadow", "soft_light_leak"] },
+              "pacing": { "type": "string", "enum": ["quick", "steady", "slow", "linger"] },
+              "motion_layers": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "instructions": { "type": "string" }
+            }
+          },
           "image_prompt": { "type": "string" },
           "music_cue": { "type": "string" },
           "tts_instructions": { "type": "string" },
@@ -98,7 +131,7 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["scene_number", "duration_seconds", "narration_text", "dialogue_lines", "visual_prompt", "asset_type", "transition", "mood", "music_cue", "tts_instructions", "is_face_image", "face_image_title", "includes_primary_character"],
+        "required": ["scene_number", "duration_seconds", "narration_text", "dialogue_lines", "visual_prompt", "asset_type", "asset_plan", "remotion", "transition", "mood", "music_cue", "tts_instructions", "is_face_image", "face_image_title", "includes_primary_character"],
         "properties": {
           "scene_number": { "type": "integer", "minimum": 1 },
           "duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
@@ -110,6 +143,39 @@
           },
           "visual_prompt": { "type": "string" },
           "asset_type": { "type": "string", "enum": ["image", "video"] },
+          "asset_plan": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode", "provider_intent", "motion_requirement", "video_generation_required", "video_generation_reason", "fallback_mode", "budget_priority", "review_required"],
+            "properties": {
+              "mode": { "type": "string", "enum": ["image", "video", "image_with_motion"] },
+              "provider_intent": { "type": "string", "enum": ["static_image", "remotion_motion", "provider_video"] },
+              "motion_requirement": { "type": "string", "enum": ["low", "medium", "high"] },
+              "video_generation_required": { "type": "boolean" },
+              "video_generation_reason": { "type": "string" },
+              "fallback_mode": { "type": "string", "enum": ["image_with_motion"] },
+              "budget_priority": { "type": "string", "enum": ["standard", "premium"] },
+              "review_required": { "type": "boolean" }
+            }
+          },
+          "remotion": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["camera_move", "pan_zoom_direction", "motion_intensity", "transition_type", "overlay_style", "pacing", "motion_layers", "instructions"],
+            "properties": {
+              "camera_move": { "type": "string", "enum": ["push_in", "pull_out", "pan_left", "pan_right", "tilt_up", "tilt_down", "drift", "hold"] },
+              "pan_zoom_direction": { "type": "string", "enum": ["center_push", "center_pull", "left_to_right", "right_to_left", "bottom_to_top", "top_to_bottom", "diagonal_up", "diagonal_down", "hold"] },
+              "motion_intensity": { "type": "string", "enum": ["low", "medium", "high"] },
+              "transition_type": { "type": "string", "enum": ["cut", "crossfade", "soft_cut", "dip_to_black", "slide_left", "slide_right", "wipe_up", "match_cut"] },
+              "overlay_style": { "type": "string", "enum": ["none", "subtle_vignette", "warm_gradient", "cool_gradient", "documentary_shadow", "soft_light_leak"] },
+              "pacing": { "type": "string", "enum": ["quick", "steady", "slow", "linger"] },
+              "motion_layers": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "instructions": { "type": "string" }
+            }
+          },
           "transition": { "type": "string" },
           "mood": { "type": "string" },
           "music_cue": { "type": "string" },

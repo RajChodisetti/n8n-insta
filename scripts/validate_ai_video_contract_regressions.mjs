@@ -51,7 +51,10 @@ const tests = [
   ['Remotion edit plan runtime install blocks', ['scripts/validate_remotion_edit_plan_fixture.mjs', '--expect-fail', 'fixtures/ai-video/founder_explainer/invalid_remotion_edit_plan_runtime_install.json']],
   ['Remotion edit plan frame gap blocks', ['scripts/validate_remotion_edit_plan_fixture.mjs', '--expect-fail', 'fixtures/ai-video/founder_explainer/invalid_remotion_edit_plan_frame_gap.json']],
   ['avatar decision valid fixture', ['scripts/validate_avatar_decision_fixture.mjs', 'fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision.json']],
+  ['avatar decision active HeyGen fixture', ['scripts/validate_avatar_decision_fixture.mjs', 'fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision_active_heygen.json']],
+  ['avatar decision fallback fixture', ['scripts/validate_avatar_decision_fixture.mjs', 'fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision_fallback_video.json']],
   ['avatar decision missing consent blocks', ['scripts/validate_avatar_decision_fixture.mjs', '--expect-fail', 'fixtures/ai-video/avatar_sales_outreach/invalid_avatar_decision_missing_consent.json']],
+  ['avatar decision character reference consent blocks', ['scripts/validate_avatar_decision_fixture.mjs', '--expect-fail', 'fixtures/ai-video/avatar_sales_outreach/invalid_avatar_decision_character_reference_consent.json']],
   ['story package v2 compatibility helper syntax', ['--check', 'workflows/scripts/story_package_v2_compat.mjs']],
 ];
 

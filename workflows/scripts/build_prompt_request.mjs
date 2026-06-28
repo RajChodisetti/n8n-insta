@@ -92,7 +92,89 @@ const STAGES = {
     modelEnvKeys: ['PROMPT_BUILDER_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
     fallbackModel: 'gpt-4o-mini',
   },
+  visual_prompt_builder: {
+    system: 'workflow/visual_prompt_builder.md',
+    userText: 'Return the final provider-neutral visual prompt plan as JSON only.',
+    schema: 'schemas/visual_prompt.schema.json',
+    outputKey: 'openai_request_visual_prompt_builder',
+    modelEnvKeys: ['VISUAL_PROMPT_MODEL', 'PROMPT_BUILDER_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
+    fallbackModel: 'gpt-4.1-mini',
+    anthropicFallbackModel: 'claude-sonnet-4-6',
+  },
+  voice_performance_script: {
+    system: 'workflow/voice_performance_script.md',
+    userText: 'Return the voice performance metadata as JSON only.',
+    schema: 'schemas/voice_performance.schema.json',
+    outputKey: 'openai_request_voice_performance_script',
+    modelEnvKeys: ['VOICE_PERFORMANCE_MODEL', 'PREMIUM_TEXT_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
+    fallbackModel: 'gpt-4.1-mini',
+    anthropicFallbackModel: 'claude-sonnet-4-6',
+  },
+  avatar_presenter_selector: {
+    system: 'workflow/avatar_video_selector.md',
+    userText: 'Return the avatar route decision as JSON only.',
+    schema: 'schemas/avatar_decision.schema.json',
+    outputKey: 'openai_request_avatar_presenter_selector',
+    modelEnvKeys: ['AVATAR_MODEL', 'PREMIUM_TEXT_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
+    fallbackModel: 'gpt-4.1-mini',
+    anthropicFallbackModel: 'claude-sonnet-4-6',
+  },
+  final_qa_validator: {
+    system: 'workflow/final_qa_validator.md',
+    userText: 'Return the final QA verdict as JSON only.',
+    schema: 'schemas/qa_result.schema.json',
+    outputKey: 'openai_request_final_qa_validator',
+    modelEnvKeys: ['FINAL_QA_MODEL', 'PREMIUM_TEXT_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
+    fallbackModel: 'gpt-4.1',
+    anthropicFallbackModel: 'claude-sonnet-4-6',
+  },
+  performance_feedback_analysis: {
+    system: 'workflow/performance_feedback_analysis.md',
+    userText: 'Return the reusable performance guidance as JSON only.',
+    schema: 'schemas/performance_guidance.schema.json',
+    outputKey: 'openai_request_performance_feedback_analysis',
+    modelEnvKeys: ['PERFORMANCE_FEEDBACK_MODEL', 'PREMIUM_TEXT_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
+    fallbackModel: 'gpt-4.1-mini',
+    anthropicFallbackModel: 'claude-sonnet-4-6',
+  },
 };
+
+function stageEnvPrefix(stageKey) {
+  const normalized = String(stageKey || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const mapping = {
+    storyboard_and_prompts: 'STORYBOARD',
+    caption_and_hashtags: 'CAPTION',
+    research_and_script: 'RESEARCH',
+    director_contract: 'DIRECTOR',
+    director: 'DIRECTOR',
+    idea_prompt_profile: 'PROMPT_BUILDER',
+    visual_prompt_builder: 'VISUAL_PROMPT',
+    voice_performance_script: 'VOICE_PERFORMANCE',
+    avatar_presenter_selector: 'AVATAR',
+    final_qa_validator: 'FINAL_QA',
+    performance_feedback_analysis: 'PERFORMANCE_FEEDBACK',
+  };
+  return mapping[normalized] || normalized.toUpperCase();
+}
+
+function selectStageModel(stageKey, stage, provider) {
+  const normalizedProvider = String(provider || 'openai').trim().toLowerCase();
+  if (normalizedProvider === 'anthropic' || normalizedProvider === 'claude') {
+    const prefix = stageEnvPrefix(stageKey);
+    const model = selectModel(
+      stage.anthropicModelEnvKeys || [
+        `${prefix}_ANTHROPIC_MODEL`,
+        'PREMIUM_TEXT_ANTHROPIC_MODEL',
+        'TEXT_ANTHROPIC_MODEL',
+        'ANTHROPIC_TEXT_MODEL',
+        'ANTHROPIC_MODEL',
+      ],
+      stage.anthropicFallbackModel || 'claude-sonnet-4-6',
+    );
+    return model;
+  }
+  return selectModel(stage.modelEnvKeys, stage.fallbackModel);
+}
 
 export async function buildStageRequest(stageKey, payload) {
   const stage = STAGES[stageKey];
@@ -102,13 +184,15 @@ export async function buildStageRequest(stageKey, payload) {
 
   const templateData = resolveStagePromptTemplateData(stageKey, payload.prompt_template_data ?? payload);
   const systemPrompt = await loadRenderedPromptAsset(stage.system, templateData);
-  const userPrompt = await loadRenderedPromptAsset(stage.user, templateData);
+  const userPrompt = stage.user
+    ? await loadRenderedPromptAsset(stage.user, templateData)
+    : String(stage.userText || 'Return JSON only.').trim();
   const responseSchema = await loadRenderedJsonAsset(stage.schema, templateData);
-  const model = selectModel(stage.modelEnvKeys, stage.fallbackModel);
+  const provider = selectTextProvider(stageKey);
+  const model = selectStageModel(stageKey, stage, provider);
   if (!model) {
     throw new Error(`No model was configured for prompt stage '${stageKey}'.`);
   }
-  const provider = selectTextProvider(stageKey);
 
   return {
     ...payload,

@@ -2,26 +2,26 @@
 
 ## Purpose
 
-This folder contains the local browser control panel for injecting ideas, selecting reel type, editing prompt files, editing selected runtime settings, queueing code-first pipeline runs, launching legacy n8n workflows, managing hosted objects, and inspecting recent pipeline items/costs.
+This folder contains the local browser control panel for injecting ideas, configuring runtime provider/model/avatar settings, entering provider API keys through a collapsed secret section, opting into human review checkpoints, queueing code-first pipeline runs, approving/editing generated review artifacts, approving selected renders, managing hosted objects, and inspecting recent pipeline status.
 
 ## When to read this
 
-Read this for Studio UI routes, local frontend changes, reel-type selection, prompt editor behavior, runtime settings UI, code-first pipeline enqueue/status behavior, legacy workflow launcher behavior, character-reference upload, cleanup, or recent item/cost display work.
+Read this for Studio UI routes, local frontend changes, runtime env/settings editing, review-mode behavior, code-first pipeline enqueue/status behavior, selected-render approval, cleanup, or recent item display work.
 
 ## Important files and subfolders
 
-- `server.mjs`: local HTTP server, DB access, prompt/env editing, client/account context snapshots, selected-render approval, reel-type aware code-first pipeline enqueue/status endpoints, legacy workflow launcher, hosted-object cleanup, cost aggregation.
-- `public/index.html`: UI markup.
-- `public/app.js`: browser behavior.
-- `public/styles.css`: UI styling.
+- `server.mjs`: local HTTP server, DB access, prompt/env editing endpoints, client/account context snapshots, selected-render approval, review approval endpoints, reel-type aware code-first pipeline enqueue/status endpoints, legacy workflow launcher endpoints, hosted-object cleanup, cost aggregation.
+- `public/index.html`: UI markup, including the Settings panel shell.
+- `public/app.js`: browser behavior, including `/api/config` rendering/saving and masked secret handling.
+- `public/styles.css`: UI styling, including settings grids and collapsed secret sections.
 
 ## Inputs
 
-Studio UI consumes Postgres env vars, repo-root `.env`, prompt files, workflow exports, adapter helpers, hosted assets, client/account context payloads, and user form submissions.
+Studio UI consumes Postgres env vars, repo-root `.env`, prompt files, workflow exports, adapter helpers, hosted assets, client/account context payloads, pipeline review rows, and user form submissions.
 
 ## Outputs
 
-It can write `content_items`, `client_account_contexts`, `content_account_contexts`, `publish_approvals`, `pipeline_runs`, `pipeline_steps`, `pipeline_events`, prompt files, repo-root `.env`, hosted character-reference objects, legacy workflow jobs, and cleanup requests.
+It can write `content_items`, `client_account_contexts`, `content_account_contexts`, `publish_approvals`, `pipeline_runs`, `pipeline_steps`, `pipeline_events`, `pipeline_reviews`, prompt files, repo-root `.env`, hosted character-reference objects, legacy workflow jobs, and cleanup requests. The visible UI is intentionally narrowed to idea injection, opt-in review approvals, pipeline status, final render approval, and delete cleanup.
 
 ## Depends on
 
@@ -36,9 +36,9 @@ Local operators who want to use the pipeline without editing raw workflow JSON o
 
 ## Common change patterns
 
-- Add or adjust a visible runtime setting when a new env-backed field is introduced.
+- Keep the visible UI focused on idea injection, runtime provider/model/avatar settings, review approvals, pipeline status, and final approval; prompt and legacy workflow endpoints may exist for compatibility without being exposed as first-screen controls.
 - Add code-first pipeline actions in `pipeline/` before making them the recommended Studio route; keep legacy workflow launcher entries clearly fallback-oriented.
-- Keep the Studio reel-type selector in sync with `pipeline/runs.mjs` valid `reel_type` values.
+- Keep review-mode UI in sync with `pipeline/reviews.mjs` reviewable stage keys.
 - Show avatar setup requirements, but do not bypass the worker-side avatar consent gate.
 - Update prompt file group metadata when active prompt files change.
 - Adjust UI rendering in `public/` while keeping server write behavior explicit.
@@ -63,10 +63,9 @@ Then inspect the local UI at `http://localhost:7780` when the stack is running. 
 
 ## Gotchas
 
-- Prompt edits apply on the next workflow run without container recreation.
-- `.env` edits require recreating affected containers.
-- Runtime settings mask secret-like keys (`API_KEY`, token, password, secret). Leaving the mask unchanged must not overwrite the real value.
+- Prompt edit endpoints still exist, but the visible UI only exposes the curated runtime env/settings subset from `/api/config`.
 - The fast path queues code-first `pipeline_runs`; the legacy workflow launcher still uses `execute_workflow_by_name.mjs`, which interacts with the running n8n instance.
+- Review-mode runs pause with `pipeline_runs.status = 'awaiting_review'` until a `pipeline_reviews` row is approved, then resume at the next pending step.
 - Server code protects prompt paths against path traversal; keep that boundary if adding file-edit routes.
 
 ## Uncertainties

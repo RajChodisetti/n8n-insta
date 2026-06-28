@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { providerNotImplemented, selectImageApiKey, selectImageProvider } from './adapter_config.mjs';
+import { getNoVisibleTextGenerationDirective, getNoVisibleTextNegativePrompt } from './prompt_hard_rules.mjs';
 
 function fail(message) {
   throw new Error(message);
@@ -16,6 +17,79 @@ function ensureString(name, value) {
 
 function isGptImageModel(model) {
   return /^(gpt-image-|chatgpt-image-)/i.test(model);
+}
+
+function firstGptImageModel(...values) {
+  for (const value of values) {
+    const normalized = String(value || '').trim();
+    if (isGptImageModel(normalized)) {
+      return normalized;
+    }
+  }
+  return 'gpt-image-1-mini';
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    const normalized = String(value ?? '').trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return '';
+}
+
+function normalizeOpenAiFallbackRequest(request = {}) {
+  return {
+    ...request,
+    provider: 'openai',
+    model: firstGptImageModel(
+      request.openai_model,
+      request.model,
+      process.env.OPENAI_SCENE_IMAGE_MODEL,
+      process.env.OPENAI_IMAGE_MODEL,
+      process.env.SCENE_IMAGE_MODEL,
+      process.env.IMAGE_MODEL,
+    ),
+    size: firstNonEmpty(
+      request.openai_size,
+      request.size,
+      process.env.OPENAI_SCENE_IMAGE_SIZE,
+      process.env.OPENAI_IMAGE_SIZE,
+      process.env.SCENE_IMAGE_SIZE,
+      process.env.IMAGE_SIZE,
+      '1024x1536',
+    ),
+    quality: firstNonEmpty(
+      request.openai_quality,
+      request.quality,
+      process.env.OPENAI_SCENE_IMAGE_QUALITY,
+      process.env.OPENAI_IMAGE_QUALITY,
+      process.env.SCENE_IMAGE_QUALITY,
+      process.env.IMAGE_QUALITY,
+      'medium',
+    ),
+    output_compression: firstNonEmpty(
+      request.openai_output_compression,
+      request.output_compression,
+      process.env.OPENAI_SCENE_IMAGE_COMPRESSION,
+      process.env.OPENAI_IMAGE_COMPRESSION,
+      process.env.SCENE_IMAGE_COMPRESSION,
+      process.env.IMAGE_COMPRESSION,
+      '92',
+    ),
+  };
+}
+
+function isProviderBillingOrQuotaError(error) {
+  return /\b(exhausted|balance|top up|billing|quota|credit|payment|locked|403)\b/i.test(String(error?.message || error || ''));
+}
+
+function shouldFallbackFalImageToOpenAi(component, error) {
+  if (String(process.env.DISABLE_FAL_IMAGE_OPENAI_FALLBACK || '').trim().toLowerCase() === 'true') {
+    return false;
+  }
+  return isProviderBillingOrQuotaError(error) && Boolean(String(selectImageApiKey(component, 'openai')).trim());
 }
 
 function normalizeReferenceImages(value) {
@@ -55,6 +129,7 @@ async function generateWithOpenAi(prompt, request, contextLabel) {
 
   const referenceImages = normalizeReferenceImages(request.reference_images);
   const rawPrompt = [
+    getNoVisibleTextGenerationDirective(),
     ensureString('image prompt', prompt),
     referenceImages.length
       ? String(request.reference_prompt || 'Use the input reference image(s) to preserve the same character, subject, visual identity, composition cues, and overall style while creating the requested new scene.').trim()
@@ -126,7 +201,11 @@ async function generateWithFalAi(prompt, request, contextLabel) {
     fail(`Set ${component.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_FAL_AI_API_KEY, IMAGE_FAL_AI_API_KEY, or FAL_AI_API_KEY before running ${contextLabel}.`);
   }
 
-  const rawPrompt = ensureString('image prompt', prompt);
+  const rawPrompt = [
+    getNoVisibleTextGenerationDirective(),
+    ensureString('image prompt', prompt),
+    getNoVisibleTextGenerationDirective(),
+  ].join('\n\n');
   const appId = falAppIdFromModel(request.model || process.env.SCENE_IMAGE_MODEL || process.env.IMAGE_MODEL);
 
   const sizeMatch = String(request.size || '').trim().match(/^(\d+)x(\d+)$/i);
@@ -136,7 +215,7 @@ async function generateWithFalAi(prompt, request, contextLabel) {
 
   const body = {
     prompt: rawPrompt.length > 4000 ? rawPrompt.slice(0, 4000) : rawPrompt,
-    negative_prompt: 'text, words, letters, captions, subtitles, watermark, logo, speech bubble, speech bubbles, dialogue bubble, thought bubble, comic text, writing, typography, readable characters, Chinese characters, Japanese characters, Arabic script, Devanagari, Cyrillic, any script, signage, label, caption box, banner, title card, overlay text',
+    negative_prompt: getNoVisibleTextNegativePrompt(),
     image_size: imageSize,
     num_inference_steps: 4,
     num_images: 1,
@@ -200,7 +279,18 @@ export async function generateImageAsset(component, prompt, request, contextLabe
     return generateWithOpenAi(prompt, requestWithComponent, contextLabel);
   }
   if (provider === 'fal_ai' || provider === 'fal-ai' || provider === 'fal') {
-    return generateWithFalAi(prompt, requestWithComponent, contextLabel);
+    try {
+      return await generateWithFalAi(prompt, requestWithComponent, contextLabel);
+    } catch (error) {
+      if (!shouldFallbackFalImageToOpenAi(component, error)) {
+        throw error;
+      }
+      return generateWithOpenAi(
+        prompt,
+        normalizeOpenAiFallbackRequest(requestWithComponent),
+        `${contextLabel} (Fal image billing/quota fallback to OpenAI)`,
+      );
+    }
   }
 
   providerNotImplemented('image generation', provider, component);

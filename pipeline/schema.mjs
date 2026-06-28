@@ -12,6 +12,7 @@ const SCHEMA_FILES = [
   'infra/postgres/init/004_add_client_account_contexts.sql',
   'infra/postgres/init/005_add_pipeline_orchestration.sql',
   'infra/postgres/init/006_add_reel_types_avatar_generations.sql',
+  'infra/postgres/init/007_add_pipeline_reviews.sql',
 ];
 
 export async function ensurePipelineSchema(client) {

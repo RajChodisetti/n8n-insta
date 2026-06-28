@@ -21,6 +21,7 @@ The system should persist content lifecycle data so each Reel can be tracked fro
 11. `insight_snapshots`
 12. `performance_reviews`
 13. `workflow_runs`
+14. `pipeline_reviews`
 
 ---
 
@@ -155,7 +156,7 @@ Stores scene-level plan.
 ]
 ```
 
-**Note:** Scene 1 is the face image/title-card opening. `face_image_title` contains the short title text (2-5 words) that the renderer overlays centered in the frame. Generated image/video prompts should remain text-free. All subsequent scenes have `is_face_image` set to false and no `face_image_title`.
+**Note:** Scene 1 is the face image/title-card opening. `face_image_title` contains the short title text (2-5 words) that the renderer overlays centered for 2 seconds. Generated image/video prompts should remain text-free. All subsequent scenes have `is_face_image` set to false and no `face_image_title`.
 
 ---
 
@@ -300,6 +301,33 @@ Tracks n8n or worker execution details.
 - `retry_count`
 
 ---
+
+## 14. pipeline_reviews
+
+Stores opt-in human review checkpoints for generated artifacts before the next pipeline phase uses them.
+
+### Fields
+- `review_id` (uuid)
+- `pipeline_run_id`
+- `content_id`
+- `stage_key` - source stage that generated the reviewable artifact
+- `review_kind` - idea_payload / story_package / render_manifest / caption_package
+- `review_status` - pending / approved
+- `title`
+- `summary`
+- `artifact_json` - immutable-ish snapshot shown for context
+- `editable_json` - editable payload shown in Studio
+- `approved_json` - payload approved and applied by the reviewer
+- `reviewer`
+- `review_note`
+- `created_at`
+- `updated_at`
+- `approved_at`
+
+Notes:
+- Review mode is opt-in per `pipeline_runs.summary_json.review_mode`.
+- Pending reviews pause the run with `pipeline_runs.status = awaiting_review`.
+- Approving a review applies edits to the concrete downstream tables (`content_items`, `scripts`, `storyboards`, `renders`, or `publishes`) before the next pending step is queued.
 
 ## Minimal prototype schema
 

@@ -1,13 +1,14 @@
-Create a first-pass caption strategy package for this Instagram post.
-
 Title:
 {{title}}
 
 Category:
 {{category}}
 
-Current content status:
+Content status:
 {{content_status}}
+
+Brand tone:
+{{brand_tone}}
 
 Selected hook:
 {{selected_hook}}
@@ -15,23 +16,13 @@ Selected hook:
 Narration script:
 {{narration_script}}
 
-Existing caption draft:
+Caption draft, if any:
 {{caption_draft_or_none}}
 
-CTA line:
+CTA line, if any:
 {{cta_line_or_none}}
 
-Cover prompt context:
+Cover prompt, if any:
 {{cover_prompt_or_none}}
 
-Brand tone:
-{{brand_tone}}
-
-Requirements:
-
-- produce 3 clearly distinct caption options
-- keep each option short-post friendly
-- briefly explain which option is strongest and why
-- return one recommended caption for refinement
-
-Return only JSON.
+Return three caption options, a selection rationale, and a recommended caption_final.

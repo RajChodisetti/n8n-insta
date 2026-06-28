@@ -1,13 +1,68 @@
 #!/usr/bin/env node
 
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const REPO_ROOT = path.resolve(__dirname, '../..');
+
 function normalize(value, fallback = '') {
   const normalized = String(value ?? '').trim().toLowerCase();
   return normalized || String(fallback ?? '').trim().toLowerCase();
 }
 
-function firstEnv(keys = []) {
+function runtimeEnvFileDisabled() {
+  return ['1', 'true', 'yes'].includes(String(process.env.PIPELINE_DISABLE_RUNTIME_ENV_FILE || '').trim().toLowerCase());
+}
+
+function runtimeEnvFilePaths() {
+  if (runtimeEnvFileDisabled()) {
+    return [];
+  }
+  return [
+    path.join(REPO_ROOT, 'infra/.env'),
+    path.join(REPO_ROOT, '.env'),
+    process.env.PIPELINE_RUNTIME_ENV_FILE,
+  ].filter(Boolean);
+}
+
+function parseRuntimeEnvFile(content) {
+  const values = {};
+  for (const line of String(content || '').split(/\r?\n/)) {
+    const match = line.match(/^\s*(?:export\s+)?([A-Z0-9_]+)=(.*)$/);
+    if (!match) {
+      continue;
+    }
+    let value = match[2].trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"'))
+      || (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    values[match[1]] = value.replace(/\\n/g, '\n');
+  }
+  return values;
+}
+
+function loadRuntimeEnvValues() {
+  const merged = {};
+  for (const envFile of runtimeEnvFilePaths()) {
+    try {
+      Object.assign(merged, parseRuntimeEnvFile(fs.readFileSync(envFile, 'utf8')));
+    } catch {
+      // Missing local env files are valid in CI and hosted runtimes.
+    }
+  }
+  return merged;
+}
+
+export function firstEnv(keys = []) {
+  const runtimeValues = loadRuntimeEnvValues();
   for (const key of keys) {
-    const value = String(process.env[key] || '').trim();
+    const value = String(runtimeValues[key] ?? process.env[key] ?? '').trim();
     if (value) {
       return value;
     }
@@ -30,6 +85,11 @@ function stageEnvPrefix(stageKey) {
   if (normalized === 'research_and_script') return 'RESEARCH';
   if (normalized === 'director_contract' || normalized === 'director') return 'DIRECTOR';
   if (normalized === 'idea_prompt_profile') return 'PROMPT_BUILDER';
+  if (normalized === 'visual_prompt_builder') return 'VISUAL_PROMPT';
+  if (normalized === 'voice_performance_script') return 'VOICE_PERFORMANCE';
+  if (normalized === 'avatar_presenter_selector') return 'AVATAR';
+  if (normalized === 'final_qa_validator') return 'FINAL_QA';
+  if (normalized === 'performance_feedback_analysis') return 'PERFORMANCE_FEEDBACK';
   return normalized.toUpperCase();
 }
 
@@ -45,6 +105,11 @@ export function selectTextProvider(stageKey) {
     storyboard_and_prompts: ['STORYBOARD_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
     caption_and_hashtags: ['CAPTION_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
     prompt_builder: ['PROMPT_BUILDER_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
+    visual_prompt_builder: ['VISUAL_PROMPT_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
+    voice_performance_script: ['VOICE_PERFORMANCE_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
+    avatar_presenter_selector: ['AVATAR_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
+    final_qa_validator: ['FINAL_QA_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
+    performance_feedback_analysis: ['PERFORMANCE_FEEDBACK_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
   };
   return normalize(firstEnv(mapping[stageKey] || ['TEXT_LLM_PROVIDER']), 'openai');
 }
@@ -63,6 +128,11 @@ export function selectTextApiKey(stageKey, provider) {
     research_and_script: [`RESEARCH_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
     storyboard_and_prompts: [`STORYBOARD_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
     caption_and_hashtags: [`CAPTION_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
+    visual_prompt_builder: [`VISUAL_PROMPT_${providerPrefix}_API_KEY`, `PREMIUM_TEXT_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
+    voice_performance_script: [`VOICE_PERFORMANCE_${providerPrefix}_API_KEY`, `PREMIUM_TEXT_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
+    avatar_presenter_selector: [`AVATAR_${providerPrefix}_API_KEY`, `PREMIUM_TEXT_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
+    final_qa_validator: [`FINAL_QA_${providerPrefix}_API_KEY`, `PREMIUM_TEXT_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
+    performance_feedback_analysis: [`PERFORMANCE_FEEDBACK_${providerPrefix}_API_KEY`, `PREMIUM_TEXT_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
   };
   const providerFallbacks = providerPrefix === 'OPENAI'
     ? ['OPENAI_API_KEY', 'LLL_API_KEY']
@@ -138,7 +208,7 @@ export function selectAssetHostProvider(component) {
 }
 
 export function selectRenderProvider() {
-  return normalize(firstEnv(['RENDER_PROVIDER']), 'local_ffmpeg');
+  return normalize(firstEnv(['RENDER_PROVIDER']), 'remotion');
 }
 
 export function providerNotImplemented(kind, provider, component) {

@@ -15,7 +15,7 @@ Current prompt groups:
 - `prompt_builder/` for the Studio UI prompt generator
 - `rules/` for reusable global rule assets and stage routing metadata
 - `style_packs/` for reusable creative style contracts and `style_pack_registry.json`
-- `schemas/` for shared prompt contract schemas, including active `director_contract.schema.json` and contract assets such as `client_account_context.schema.json`, `model_route.schema.json`, `render_manifest_v2.schema.json`, `remotion_edit_plan.schema.json`, `avatar_decision.schema.json`, and `presenter_profile.schema.json`
+- `schemas/` for shared prompt contract schemas, including active `director_contract.schema.json`, `visual_prompt.schema.json`, `voice_performance.schema.json`, `qa_result.schema.json`, `performance_guidance.schema.json`, and contract assets such as `client_account_context.schema.json`, `model_route.schema.json`, `render_manifest_v2.schema.json`, `remotion_edit_plan.schema.json`, `avatar_decision.schema.json`, and `presenter_profile.schema.json`
 - `workflow/` for workflow-level prompt contracts
 - `examples/` for sanitized contract examples
 
@@ -32,15 +32,29 @@ How prompt loading works:
 - `style_packs/` is a reusable creative asset layer; the active `director_contract` stage now selects registry IDs
 - `workflow/director_contract*.md` is the active prompt path for the `director_contract` stage
 - `workflow/storyboard_and_shot_plan.md` is a contract-only storyboard planning asset; the active `storyboard_and_prompts/` path still creates legacy `visual_prompt`, cover, subtitle metadata, and render seed fields
-- `workflow/visual_prompt_builder.md` is a contract-only visual prompt builder asset; the active scene asset flow still consumes legacy `storyboard_json.visual_prompt` until a later wiring session
-- `workflow/voice_performance_script.md` is a contract-only voice performance asset; the active narration flow still uses `narration_generation/instructions.md` and per-scene clean script text until a later wiring session
+- `workflow/visual_prompt_builder.md` is active in code-first generation and writes final scene-level `visual_prompt`, `image_prompt`, `negative_prompt`, and fallback prompt metadata before asset generation
+- `workflow/voice_performance_script.md` is active for image/video code-first narration and enriches `storyboard_json[].tts_instructions` without changing clean spoken narration text
 - `workflow/music_sfx_plan.md` is a contract-only music/SFX planning asset; the active render worker still selects from `workflows/assets/music/library.json`
-- `workflow/final_qa_validator.md` is a contract-only final QA asset; the active publish workflows do not require this QA result until a later approval-gate wiring session
+- `workflow/final_qa_validator.md` is active in the code-first approval gate; only a passed QA record can be used by the explicit publish action
+- `workflow/performance_feedback_analysis.md` is active for the explicit `analyze_performance` action and updates reusable account-context guidance from stored insight snapshots
 - `workflow/model_provider_router.md` is a contract-only provider routing planner; it does not change adapter selection behavior or call providers
 - `workflow/render_manifest_v2.md` is a contract-only renderer-neutral manifest bridge; the active render manifest workflow and local FFmpeg worker are unchanged until a later wiring session
 - `workflow/remotion_edit_plan.md` is a contract-only Remotion-compatible edit-plan asset; no Remotion dependency, app, Studio, or render command is added by this contract
-- `workflow/avatar_video_selector.md` is a contract-only avatar/presenter selector asset; it keeps avatar output as an asset route, requires consent metadata, and does not generate avatar videos or call providers
+- `workflow/avatar_video_selector.md` is active in code-first avatar runs; it decides HeyGen avatar vs video fallback, keeps avatar output as an asset route, requires consent/disclosure/provider metadata, and must not rewrite spoken narration or bypass approval
 - `workflow/story_package_generation_v2*.md` can be loaded only when `STORY_PACKAGE_GENERATION_STAGE=story_package_generation_v2` or `STORY_PACKAGE_STAGE=v2`; the default story package workflow still uses `story_package_generation/`
+
+Runtime overwrite model:
+
+- immutable at runtime: response schemas, placeholder names, stage wiring, safety/approval/consent/license/provider-secret rules, and prompt-builder guardrails
+- partially runtime-variable: rendered placeholders, `creative_defaults`, legacy allowlisted `prompt_profile` fields, and client/account context snapshots
+- fully AI-built at runtime: stage outputs and optional runtime prompt-builder drafts for selected stages
+- runtime prompt-builder excludes `prompt_builder`, `idea_ingest`, and `idea_prompt_profile`; default targets also avoid provider-facing asset/narration prompts to reduce output drift
+- if visual prompts are explicitly targeted by runtime prompt-builder, a text-free renderer-owned-title safety appendix is appended to the in-memory draft
+- durable prompt improvements should be copied back into saved prompt files and validated
+
+Strategy reference:
+
+- [Runtime Prompt Orchestration Strategy](/Users/rajchodisetti/n8n-insta/docs/prompts/runtime-prompt-orchestration-strategy.md)
 
 Editing rule:
 
@@ -65,6 +79,7 @@ Editing rule:
 - when editing `prompts/schemas/remotion_edit_plan.schema.json`, update `scripts/validate_remotion_edit_plan_fixture.mjs`, Remotion edit-plan fixtures, and integration prerequisite notes together; do not install Remotion unless a later runtime session explicitly approves it
 - when editing `prompts/schemas/avatar_decision.schema.json` or `prompts/schemas/presenter_profile.schema.json`, update `scripts/validate_avatar_decision_fixture.mjs` and avatar decision fixtures together; do not add avatar provider calls, accounts, API keys, or publish routes unless a later runtime session explicitly approves it
 - after changing AI video prompt contracts, run `node scripts/validate_ai_video_contract_regressions.mjs` to cover the offline fixture regressions
+- when changing prompt governance or runtime rewrite behavior, also read [docs/prompts/runtime-prompt-orchestration-strategy.md](/Users/rajchodisetti/n8n-insta/docs/prompts/runtime-prompt-orchestration-strategy.md)
 
 Prompt model reference:
 

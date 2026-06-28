@@ -2,13 +2,14 @@
 
 This page documents the local browser UI for operating the pipeline.
 
-The UI is meant to cover the common local tasks without opening raw workflow JSON:
+The visible UI is intentionally narrow and meant to cover the normal operating loop without opening raw workflow JSON:
 
-- inject a new idea and choose `image`, `video`, or `avatar` reel type
-- edit prompt files under `prompts/`
-- tune env-backed placeholder defaults, timing guidance, models, providers, voice, and host settings
-- queue code-first pipeline runs or launch legacy n8n fallback workflows
-- inspect recent pipeline items
+- inject a new idea into the default code-first Reel pipeline
+- optionally require human approval before generated downstream artifacts are used by the next phase
+- configure runtime providers, models, avatar settings, and collapsed provider API key inputs
+- approve or edit pending review artifacts
+- inspect each idea as a step-by-step pipeline
+- approve the selected render before explicit publish actions
 
 ## Start the UI
 
@@ -34,12 +35,12 @@ http://localhost:7780
 
 ### Topic injection
 
-The `New Idea` form writes a new row directly into `content_items` with:
+The `New Idea` form calls the idea-ingest helper, writes a new row into `content_items`, and queues a `generate_reel` pipeline run. The visible form only asks for the idea text and an optional review-mode toggle. The inserted topic still stores:
 
 - `status = idea_approved`
 - `title`, `category`, `confidence_label`
 - `target_duration_seconds`
-- `reel_type`
+- `reel_type` (`image`, `video`, or `avatar`, selected by the submit button)
 - `source_payload_json`
 
 The target-duration field is configurable through these `.env` keys:
@@ -54,59 +55,43 @@ Current repo defaults:
 - maximum: `180`
 - default: `45`
 
-That means the code-first pipeline worker or a legacy fallback workflow can claim it immediately.
+With review mode off, the code-first pipeline worker can claim it immediately and run without human intervention.
 
-### Prompt files
+### Runtime settings
 
-The prompt editor writes directly to files in [prompts/](/Users/rajchodisetti/n8n-insta/prompts/README.md).
+The `Runtime Settings` panel renders the visible subset of `/api/config`:
 
-Examples:
+- `Narration & Voice` for voice style, TTS voice, speed, and extra delivery instructions
+- `Adapters & Models` for OpenAI/Anthropic provider routing, premium text routing, stage models, image/video/TTS provider defaults, render provider, and default Reel type
+- `Provider API Keys`, collapsed by default, for OpenAI, Anthropic, Fal, Fish Audio, Smallest AI, and related stage-specific keys
+- `Avatar Video` for HeyGen identity, polling, consent fallback URI, and offline mock avatar outputs
 
-- [prompts/research_and_script/system.md](/Users/rajchodisetti/n8n-insta/prompts/research_and_script/system.md)
-- [prompts/storyboard_and_prompts/user.md](/Users/rajchodisetti/n8n-insta/prompts/storyboard_and_prompts/user.md)
-- [prompts/scene_asset_generation/prompt.md](/Users/rajchodisetti/n8n-insta/prompts/scene_asset_generation/prompt.md)
+Secret values are masked in the browser. Keeping the mask preserves the existing value; replacing or clearing it writes the changed value to the repo-root `.env`.
 
-Prompt-file changes do not require container recreation. They apply on the next workflow run because the helper scripts read the prompt files at runtime.
+### Human review mode
 
-The prompt editor is now organized by workflow step and shows:
+When review mode is enabled for a run, Studio sets `summary_json.review_mode = true` on `pipeline_runs`. The worker pauses the run with `status = awaiting_review` and writes a `pipeline_reviews` row at these checkpoints:
 
-- active prompt files grouped by stage
-- a runtime placeholder catalog for the selected file
-- tooltips and example values for each placeholder
+- `idea_ingest` before story package generation
+- `story_package_generation` before asset generation
+- `remotion_manifest` before rendering
+- `caption_and_hashtags` before final QA
 
-Prompt-save proof:
+Pending reviews appear in the `Human Review` panel as editable JSON. Approving a review applies edits to the same tables the next stage reads, then resumes the run at the next pending step.
 
-- saving a prompt through `POST /api/prompt` updates the same file bundle read by [build_prompt_request.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/build_prompt_request.mjs) and the image or narration helpers
-- prompt edits apply immediately on the next run without recreating containers
+With review mode off, none of these intermediate pauses are created.
 
-### Env-backed runtime settings
+### Hidden compatibility endpoints
 
-The `Runtime Settings` panel edits the repo-root `.env`.
+The server still contains prompt, upload, and legacy workflow endpoints used by older local workflows and scripts, but the visible UI no longer exposes prompt-file editing, character-reference upload, or legacy workflow launching as general operator controls.
 
-These settings are now split into collapsible sections for:
-
-- Studio UI range/default settings
-- global prompt defaults like `CONTENT_LANGUAGE`
-- stage-specific placeholder defaults for research, storyboard, scene images, narration, captions, and post images
-- model/provider selectors for text, image, video, narration, render, and reel type defaults
-- masked provider API keys, including stage-specific keys; blank stage keys fall back to component/global provider keys and then fail before a provider call if no key exists
-- adapter and model selection in a separate section
-- asset-host, publish, and render-timing settings
-- default reel type, Remotion endpoint/stub mode, and HeyGen avatar placeholders
-- Google Cloud Storage hosting fields for GCS-backed public delivery
-
-Secret-like keys are masked in the UI. Leaving the mask unchanged on save should not overwrite the existing secret value.
-
-Each editable env field now includes:
-
-- a tooltip that explains what it controls
-- two example entries you can click into the field
-
-Env-backed changes do require recreating the relevant containers before workflow runs use the new values.
+Prompt-file changes still do not require container recreation when made through compatible endpoints or direct file edits.
 
 ## Restart boundary
 
-After changing `.env` through the UI, recreate:
+New Node-side model/provider calls read the repo-root `.env` at call time through `adapter_config.mjs`, so Studio-saved LLM keys, provider choices, model names, default Reel type, and HeyGen avatar config are picked up by new text/avatar calls without recreating containers.
+
+Still recreate affected containers after changing lower-level service settings, render service settings, Docker-only env, or anything consumed by a non-Node service:
 
 ```bash
 docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --force-recreate studio-ui pipeline-worker remotion-renderer
@@ -114,19 +99,19 @@ docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --force-r
 
 Why:
 
-- `studio-ui` needs the new env for UI defaults and API enqueue behavior
-- `pipeline-worker` needs the new env for provider, render, and avatar stage behavior
+- `studio-ui` may need the new env for non-overlay UI defaults and API enqueue behavior
+- `pipeline-worker` may need the new env for settings that are not routed through the runtime env overlay
 - `remotion-renderer` needs the new env for render-related settings
 - recreate `n8n` or `render-worker` too if you intentionally use legacy fallback paths
 
 Google Cloud Storage note:
 
-- if you switch any host selector to `google_cloud_storage`, the same `Runtime Settings` panel exposes `GOOGLE_CLOUD_STORAGE_BUCKET`, `GOOGLE_CLOUD_STORAGE_SERVICE_ACCOUNT_KEY_PATH`, `GOOGLE_CLOUD_STORAGE_ENDPOINT`, and `GOOGLE_CLOUD_STORAGE_PUBLIC_BASE_URL`
+- if you switch any host selector to `google_cloud_storage`, configure `GOOGLE_CLOUD_STORAGE_BUCKET`, `GOOGLE_CLOUD_STORAGE_SERVICE_ACCOUNT_KEY_PATH`, `GOOGLE_CLOUD_STORAGE_ENDPOINT`, and `GOOGLE_CLOUD_STORAGE_PUBLIC_BASE_URL` in `.env` or through the compatibility config API
 - see [docs/runbooks/google-cloud-storage-asset-host.md](/Users/rajchodisetti/n8n-insta/docs/runbooks/google-cloud-storage-asset-host.md) for the full setup sequence
 
 ## Workflow launching
 
-The `Workflow Launcher` panel runs the same workflow exports that already live in [workflows/n8n/](/Users/rajchodisetti/n8n-insta/workflows/README.md).
+The visible UI no longer includes the legacy workflow launcher. The server endpoint still runs the same workflow exports that already live in [workflows/n8n/](/Users/rajchodisetti/n8n-insta/workflows/README.md) for fallback/debug use.
 
 Important entries:
 
@@ -147,59 +132,14 @@ The one-click Reel launcher is resume-aware:
 - if there are multiple unfinished candidates, it fails and tells you to clear the queue first
 - if the render worker is not running in `webhook` mode, it switches to the sync render workflow automatically instead of waiting on the old stub queue path
 
-## Current placeholder-default env keys
-
-These are the main prompt-default keys the UI is designed around:
-
-- `CONTENT_LANGUAGE`
-- `RESEARCH_LANGUAGE`
-- `RESEARCH_BRAND_TONE`
-- `RESEARCH_NARRATOR_STYLE`
-- `RESEARCH_ENDING_SIGNATURE_FAMILY`
-- `RESEARCH_TIMING_GUIDANCE`
-- `STORYBOARD_LANGUAGE`
-- `STORYBOARD_BRAND_TONE`
-- `STORYBOARD_VISUAL_STYLE_RULES`
-- `STORYBOARD_SUBTITLE_STYLE_RULES`
-- `STORYBOARD_TIMING_GUIDANCE`
-- `STORYBOARD_NARRATION_ALIGNMENT_GUIDANCE`
-- `STORYBOARD_RENDER_TIMING_GUIDANCE`
-- `CAPTION_LANGUAGE`
-- `CAPTION_BRAND_TONE`
-- `CAPTION_LANGUAGE_GUIDANCE`
-- `SCENE_IMAGE_LANGUAGE`
-- `SCENE_STYLE_NOTES_DEFAULT`
-- `SCENE_IMAGE_TIMING_GUIDANCE`
-- `SCENE_IMAGE_STORY_ALIGNMENT_GUIDANCE`
-- `NARRATION_LANGUAGE`
-- `NARRATION_TIMING_GUIDANCE`
-- `POST_IMAGE_COVER_PROMPT_DIRECTION_DEFAULT`
-- `POST_IMAGE_STYLE_NOTES_DEFAULT`
-- `POST_IMAGE_LANGUAGE`
-- `POST_IMAGE_STORY_ALIGNMENT_GUIDANCE`
-
-These are now consumed directly in:
-
-- [wf_research_and_script.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_research_and_script.json:1)
-- [wf_storyboard_and_prompts.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_storyboard_and_prompts.json:1)
-- [wf_caption_and_hashtags.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_caption_and_hashtags.json:1)
-- [wf_asset_generation.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_asset_generation.json:1)
-- [wf_simple_post_image_asset.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_simple_post_image_asset.json:1)
-
-Prompt editing note:
-
-- prompt file edits in the Studio UI are hot-loaded and apply on the next workflow run
-- `.env` edits in the Studio UI still require recreating `studio-ui`, `pipeline-worker`, and affected renderer/provider services
-- the prompt list now shows only the prompt files that are actively wired into the live workflows, so the visible caption prompt is the one used by `wf_caption_and_hashtags`
-
 ## Practical sequence
 
-For prompt-tuning plus live pipeline use:
+For normal live pipeline use:
 
 1. Open the Studio UI.
-2. Edit the relevant prompt file.
-3. If needed, edit runtime defaults, model, provider, voice, or host settings.
-4. Recreate `studio-ui`, `pipeline-worker`, and affected renderer/provider services if you changed `.env`.
-5. Inject a new topic.
-6. Queue the code-first pipeline from the fast path, or use legacy n8n workflows only as fallback.
-7. Check the `Recent Pipeline Items` table in the UI or validate in Postgres.
+2. Enter an idea.
+3. Enable review mode only when you want human approval/editing between phases.
+4. Click `Image Reel`, `Video Reel`, or `Avatar Reel`.
+5. If review mode is on, approve or edit each pending review.
+6. Track the idea in the `Pipeline` section.
+7. Approve the selected render before any explicit publish action.

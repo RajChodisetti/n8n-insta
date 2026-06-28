@@ -4,10 +4,12 @@
  * generate_and_rehost_scene_assets_v3.mjs
  *
  * Combined v3 asset generator:
- *   - Scene 1 (is_face_image=true): still image via the existing image pipeline
- *   - All other scenes: Wan text-to-video by default
+ *   - Scenes with asset_plan.mode=image/image_with_motion: still image via the existing image pipeline
+ *   - Scenes with asset_plan.mode=video: Wan text-to-video/reference-to-video
  *   - Scenes marked with includes_primary_character=true can switch to
  *     Wan reference-to-video when a character reference image is available
+ *   - Billing/quota/provider-availability video failures fall back to images for
+ *     the failed scene and remaining video scenes so Remotion can animate them.
  *
  * Returns a unified scene_assets array with both image and video entries.
  */
@@ -17,7 +19,7 @@ import { loadRenderedPromptAsset } from './prompt_utils.mjs';
 import { generateImageAsset } from './image_generation_adapters.mjs';
 import { uploadBinaryAsset } from './asset_host_adapters.mjs';
 import { selectVideoApiKey } from './adapter_config.mjs';
-import { getSceneImageRelevanceGuard, getSceneImageTextGuard } from './prompt_hard_rules.mjs';
+import { getNoVisibleTextNegativePrompt, getSceneImageRelevanceGuard, getSceneImageTextGuard } from './prompt_hard_rules.mjs';
 import { resolveStagePromptTemplateData } from './prompt_stage_defaults.mjs';
 import { computeImageCost, computeVideoCost } from './cost_calculator.mjs';
 
@@ -67,6 +69,43 @@ function slugId(value, fallback) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '') || fallback || 'adapter';
+}
+
+function plainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function normalizeAssetPlan(scene = {}) {
+  const raw = plainObject(scene.asset_plan);
+  const rawMode = String(raw.mode || scene.asset_type || '').trim().toLowerCase();
+  const mode = rawMode === 'video'
+    ? 'video'
+    : (rawMode === 'image' ? 'image' : 'image_with_motion');
+  return {
+    ...raw,
+    mode,
+    provider_intent: mode === 'video' ? 'provider_video' : (mode === 'image' ? 'static_image' : 'remotion_motion'),
+    motion_requirement: ['low', 'medium', 'high'].includes(String(raw.motion_requirement || '').trim().toLowerCase())
+      ? String(raw.motion_requirement).trim().toLowerCase()
+      : 'medium',
+    video_generation_required: mode === 'video',
+    fallback_mode: 'image_with_motion',
+  };
+}
+
+function shouldFallbackVideoToImage(error) {
+  if (String(process.env.DISABLE_VIDEO_TO_IMAGE_FALLBACK || '').trim().toLowerCase() === 'true') {
+    return false;
+  }
+  const message = String(error?.message || error || '').toLowerCase();
+  return /\b(exhausted|balance|top up|billing|quota|credit|payment|required|api key|not configured|locked|unauthorized|forbidden|403|401)\b/.test(message);
+}
+
+function compactErrorMessage(error) {
+  return String(error?.message || error || 'unknown provider failure')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500);
 }
 
 function normalizeWanModel(value) {
@@ -127,7 +166,7 @@ function sleep(ms) {
 }
 
 function buildWanNegativePrompt() {
-  return 'text, words, letters, captions, subtitles, watermark, logo, speech bubble, dialogue bubble, comic text, writing, typography, readable characters, signage, label, blurry, low quality, distorted faces, deformed';
+  return `${getNoVisibleTextNegativePrompt()}, blurry, low quality, distorted faces, deformed`;
 }
 
 function buildCharacterContinuityHint(characterReference) {
@@ -184,7 +223,7 @@ function describeHostProvider(provider) {
   return provider;
 }
 
-function buildSceneImageMetadata(storage, scene, generation, title, workflowName) {
+function buildSceneImageMetadata(storage, scene, generation, title, workflowName, options = {}) {
   const request = generation.request ?? {};
   const metadata = {
     provider: generation.provider,
@@ -199,6 +238,11 @@ function buildSceneImageMetadata(storage, scene, generation, title, workflowName
     mood: String(scene.mood || ''),
     transition: String(scene.transition || ''),
     visual_prompt: String(scene.visual_prompt || ''),
+    requested_asset_type: String(scene.asset_type || ''),
+    asset_plan: normalizeAssetPlan(scene),
+    remotion: plainObject(scene.remotion ?? scene.remotion_guidance),
+    fallback_from_video: options.fallbackFromVideo === true,
+    fallback_reason: options.fallbackReason ? String(options.fallbackReason) : '',
     image_prompt: String(request.prompt || ''),
     revised_prompt: generation.revisedPrompt ?? null,
     output_format: 'jpeg',
@@ -520,120 +564,152 @@ async function main() {
     videoUsageByKey.set(key, current);
   }
 
+  async function generateAndStoreSceneImage(scene, { fallbackFromVideo = false, fallbackReason = '' } = {}) {
+    const sceneNumber = Number(scene.scene_number);
+    const generation = await generateSceneImage(
+      scene, payload, imageRequest, title, category, selectedHook,
+      narrationScriptExcerpt, styleNotes, directorGlobalVisualStyle,
+      directorAvoidRules, workflowName,
+    );
+    const objectKey = objectKeyForScene(contentId, title, sceneNumber);
+    const storage = await uploadBinaryAsset('scene_image', generation.binary, {
+      objectKey,
+      contentType: 'image/jpeg',
+      fileName: fileNameFromObjectKey(objectKey),
+    });
+    const metadata = buildSceneImageMetadata(storage, scene, generation, title, workflowName, {
+      fallbackFromVideo,
+      fallbackReason,
+    });
+    generatedScenes.push({
+      scene_number: sceneNumber,
+      asset_role: 'scene_image',
+      provider: buildProviderId(generation.provider, generation.request?.model, storage.mode),
+      source_url: storage.url,
+      storage_url: storage.url,
+      mime_type: 'image/jpeg',
+      width: dimensions.width,
+      height: dimensions.height,
+      duration_seconds: Number(scene.duration_seconds),
+      metadata_json: metadata,
+    });
+    trackImageUsage(generation.provider, generation.request?.model);
+  }
+
+  async function generateAndStoreSceneVideo(scene, assetPlan) {
+    const sceneNumber = Number(scene.scene_number);
+    const visualPrompt = String(scene.visual_prompt || '').trim();
+    const narrationText = String(scene.narration_text || '').trim();
+    const mood = String(scene.mood || '').trim();
+    const includesPrimaryCharacter = scene?.includes_primary_character === true;
+    const useCharacterReference = includesPrimaryCharacter && Boolean(characterReference?.storage_url);
+
+    if (!visualPrompt) fail(`Scene ${sceneNumber} has no visual_prompt for video generation.`);
+
+    const remotion = plainObject(scene.remotion ?? scene.remotion_guidance);
+    const videoPrompt = [
+      visualPrompt,
+      mood ? `Mood: ${mood}.` : '',
+      narrationText ? `The scene shows: ${narrationText.slice(0, 200)}` : '',
+      assetPlan.motion_requirement ? `Motion requirement: ${assetPlan.motion_requirement}.` : '',
+      assetPlan.video_generation_reason ? `Generate only the needed motion: ${String(assetPlan.video_generation_reason).slice(0, 280)}` : '',
+      remotion.instructions ? `Camera/motion intent for this generated clip: ${String(remotion.instructions).slice(0, 280)}` : '',
+      useCharacterReference ? buildCharacterContinuityHint(characterReference) : '',
+      'Cinematic vertical video, 9:16 aspect ratio. Absolutely no readable text, no subtitles, no captions, no title cards, no logos, no signs, no labels, no UI, no watermarks. The renderer adds the opening title card and final pacing later.',
+    ].filter(Boolean).join(' ');
+
+    const generation = useCharacterReference
+      ? await generateWanReferenceVideo(videoPrompt, scene, characterReference)
+      : await generateWanVideo(videoPrompt);
+    const objectKey = objectKeyForSceneVideo(contentId, title, sceneNumber);
+    const storage = await uploadBinaryAsset('scene_video', generation.binary, {
+      objectKey,
+      contentType: 'video/mp4',
+      fileName: objectKey.split('/').pop() || `scene-${sceneNumber}.mp4`,
+    });
+
+    generatedScenes.push({
+      scene_number: sceneNumber,
+      asset_role: 'scene_video',
+      provider: `fal_ai_wan_${slugId(generation.model, 'wan')}_rehosted_mp4_${slugId(storage.mode, 'host')}`,
+      source_url: storage.url,
+      storage_url: storage.url,
+      mime_type: 'video/mp4',
+      width: 0,
+      height: 0,
+      duration_seconds: generation.estimatedDuration,
+      metadata_json: {
+        scene_number: sceneNumber,
+        provider: generation.provider,
+        generation_model: generation.model,
+        generation_mode: useCharacterReference ? 'reference_to_video' : 'text_to_video',
+        asset_host_provider: storage.mode,
+        workflow_name: workflowName,
+        visual_prompt: visualPrompt,
+        requested_asset_type: 'video',
+        asset_plan: assetPlan,
+        remotion,
+        mood,
+        narration_text: narrationText,
+        scene_includes_primary_character: includesPrimaryCharacter,
+        character_reference_used: useCharacterReference,
+        character_reference_url: useCharacterReference ? characterReference.storage_url : '',
+        character_name: useCharacterReference ? characterReference.character_name : '',
+        character_description: useCharacterReference ? characterReference.character_description : '',
+        actual_prompt: generation.actualPrompt ?? null,
+        generation_seed: generation.seed ?? null,
+        estimated_duration_seconds: generation.estimatedDuration,
+        video_sha256: generation.sha256,
+        generated_at: new Date().toISOString(),
+        ...(storage.mode === 'google_cloud_storage' ? {
+          google_cloud_storage: {
+            bucket: storage.bucket,
+            endpoint: storage.endpoint,
+            public_base_url: storage.publicBaseUrl,
+            region: storage.region,
+            object_key: storage.objectKey || objectKey,
+            size: storage.size,
+          },
+        } : {
+          storage_bucket: storage.bucket,
+          storage_endpoint: storage.endpoint,
+          storage_public_base_url: storage.publicBaseUrl,
+          storage_object_key: storage.objectKey || objectKey,
+        }),
+      },
+    });
+    trackVideoUsage(generation.provider, generation.model, generation.estimatedDuration);
+  }
+
+  let forceImageFallbackForRemaining = false;
+  let videoFallbackReason = '';
   for (const scene of scenes) {
     const sceneNumber = Number(scene.scene_number);
     if (!Number.isInteger(sceneNumber) || sceneNumber < 1) {
       fail(`Invalid scene_number: ${scene.scene_number}`);
     }
 
-    const requestedAssetType = String(scene.asset_type || '').trim().toLowerCase();
-    const isFaceImage = scene.is_face_image === true || sceneNumber === 1;
-    const shouldGenerateImage = isFaceImage;
-
-    if (shouldGenerateImage) {
-      // --- Scene 1: generate still image (Flux Schnell or configured provider) ---
-      const generation = await generateSceneImage(
-        scene, payload, imageRequest, title, category, selectedHook,
-        narrationScriptExcerpt, styleNotes, directorGlobalVisualStyle,
-        directorAvoidRules, workflowName,
-      );
-      const objectKey = objectKeyForScene(contentId, title, sceneNumber);
-      const storage = await uploadBinaryAsset('scene_image', generation.binary, {
-        objectKey,
-        contentType: 'image/jpeg',
-        fileName: fileNameFromObjectKey(objectKey),
+    const assetPlan = normalizeAssetPlan(scene);
+    if (assetPlan.mode !== 'video' || forceImageFallbackForRemaining) {
+      await generateAndStoreSceneImage(scene, {
+        fallbackFromVideo: assetPlan.mode === 'video',
+        fallbackReason: assetPlan.mode === 'video' ? videoFallbackReason : '',
       });
-      const metadata = buildSceneImageMetadata(storage, scene, generation, title, workflowName);
-      generatedScenes.push({
-        scene_number: sceneNumber,
-        asset_role: 'scene_image',
-        provider: buildProviderId(generation.provider, generation.request?.model, storage.mode),
-        source_url: storage.url,
-        storage_url: storage.url,
-        mime_type: 'image/jpeg',
-        width: dimensions.width,
-        height: dimensions.height,
-        duration_seconds: Number(scene.duration_seconds),
-        metadata_json: metadata,
+      continue;
+    }
+
+    try {
+      await generateAndStoreSceneVideo(scene, assetPlan);
+    } catch (error) {
+      if (!shouldFallbackVideoToImage(error)) {
+        throw error;
+      }
+      forceImageFallbackForRemaining = true;
+      videoFallbackReason = compactErrorMessage(error);
+      await generateAndStoreSceneImage(scene, {
+        fallbackFromVideo: true,
+        fallbackReason: videoFallbackReason,
       });
-      trackImageUsage(generation.provider, generation.request?.model);
-    } else {
-      // --- Scenes 2+: generate Wan 2.5 video ---
-      const visualPrompt = String(scene.visual_prompt || '').trim();
-      const narrationText = String(scene.narration_text || '').trim();
-      const mood = String(scene.mood || '').trim();
-      const includesPrimaryCharacter = scene?.includes_primary_character === true;
-      const useCharacterReference = includesPrimaryCharacter && Boolean(characterReference?.storage_url);
-
-      if (!visualPrompt) fail(`Scene ${sceneNumber} has no visual_prompt for video generation.`);
-
-      const videoPrompt = [
-        visualPrompt,
-        mood ? `Mood: ${mood}.` : '',
-        narrationText ? `The scene shows: ${narrationText.slice(0, 200)}` : '',
-        useCharacterReference ? buildCharacterContinuityHint(characterReference) : '',
-        'Cinematic vertical video, 9:16 aspect ratio, no text or subtitles, no logos.',
-      ].filter(Boolean).join(' ');
-
-      const generation = useCharacterReference
-        ? await generateWanReferenceVideo(videoPrompt, scene, characterReference)
-        : await generateWanVideo(videoPrompt);
-      const objectKey = objectKeyForSceneVideo(contentId, title, sceneNumber);
-      const storage = await uploadBinaryAsset('scene_video', generation.binary, {
-        objectKey,
-        contentType: 'video/mp4',
-        fileName: objectKey.split('/').pop() || `scene-${sceneNumber}.mp4`,
-      });
-
-      generatedScenes.push({
-        scene_number: sceneNumber,
-        asset_role: 'scene_video',
-        provider: `fal_ai_wan_${slugId(generation.model, 'wan')}_rehosted_mp4_${slugId(storage.mode, 'host')}`,
-        source_url: storage.url,
-        storage_url: storage.url,
-        mime_type: 'video/mp4',
-        width: 0,
-        height: 0,
-        duration_seconds: generation.estimatedDuration,
-        metadata_json: {
-          scene_number: sceneNumber,
-          provider: generation.provider,
-          generation_model: generation.model,
-          generation_mode: useCharacterReference ? 'reference_to_video' : 'text_to_video',
-          asset_host_provider: storage.mode,
-          workflow_name: workflowName,
-          visual_prompt: visualPrompt,
-          requested_asset_type: requestedAssetType || 'video',
-          mood,
-          narration_text: narrationText,
-          scene_includes_primary_character: includesPrimaryCharacter,
-          character_reference_used: useCharacterReference,
-          character_reference_url: useCharacterReference ? characterReference.storage_url : '',
-          character_name: useCharacterReference ? characterReference.character_name : '',
-          character_description: useCharacterReference ? characterReference.character_description : '',
-          actual_prompt: generation.actualPrompt ?? null,
-          generation_seed: generation.seed ?? null,
-          estimated_duration_seconds: generation.estimatedDuration,
-          video_sha256: generation.sha256,
-          generated_at: new Date().toISOString(),
-          ...(storage.mode === 'google_cloud_storage' ? {
-            google_cloud_storage: {
-              bucket: storage.bucket,
-              endpoint: storage.endpoint,
-              public_base_url: storage.publicBaseUrl,
-              region: storage.region,
-              object_key: storage.objectKey || objectKey,
-              size: storage.size,
-            },
-          } : {
-            storage_bucket: storage.bucket,
-            storage_endpoint: storage.endpoint,
-            storage_public_base_url: storage.publicBaseUrl,
-            storage_object_key: storage.objectKey || objectKey,
-          }),
-        },
-      });
-      trackVideoUsage(generation.provider, generation.model, generation.estimatedDuration);
     }
   }
 

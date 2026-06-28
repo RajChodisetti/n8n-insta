@@ -14,6 +14,7 @@ const secretPattern = /(sk-[A-Za-z0-9]|ghp_|AIz[a-zA-Z0-9_-]|BEGIN .*PRIVATE KEY
 const avatarRouteTypes = new Set(['synthetic_avatar_asset', 'real_person_avatar_asset']);
 const enabledDecisionStatuses = new Set(['use_synthetic_avatar', 'use_consent_approved_avatar']);
 const blockingConsentStatuses = new Set(['missing', 'unclear', 'expired', 'revoked']);
+const characterReferenceConsentPattern = /(character[_ -]?reference|face[_ -]?image|uploaded[_ -]?reference|reference[_ -]?image|creative[_ -]?reference)/i;
 
 function fail(message) {
   throw new Error(message);
@@ -135,9 +136,18 @@ function validateAvatarDecision(decision) {
   const selectedRouteIsAvatar = avatarRouteTypes.has(selectedRoute.route_type);
   const summaryEnablesAvatar = summary.avatar_route_enabled === true || enabledDecisionStatuses.has(summary.decision_status);
   const routeEnabled = selectedRouteIsAvatar || summaryEnablesAvatar;
+  const providerCallsAllowed = summary.provider_calls_allowed === true
+    || decision.provider_calls_allowed === true
+    || selectedRoute.provider_calls_allowed === true;
 
-  if (summary.provider_calls_allowed !== false) {
-    errors.push('decision_summary.provider_calls_allowed must be false');
+  if (providerCallsAllowed && decision.avatar_decision_version !== '1.1') {
+    errors.push('provider calls require avatar_decision_version 1.1');
+  }
+  if (providerCallsAllowed && !routeEnabled) {
+    errors.push('provider calls cannot be allowed when avatar route is disabled');
+  }
+  if (decision.provider_calls_allowed === true && summary.provider_calls_allowed !== true) {
+    errors.push('top-level provider_calls_allowed true must be mirrored by decision_summary.provider_calls_allowed true');
   }
   if (summary.publish_route_allowed !== false) {
     errors.push('decision_summary.publish_route_allowed must be false');
@@ -145,14 +155,17 @@ function validateAvatarDecision(decision) {
   if (summary.requires_final_qa !== true) {
     errors.push('decision_summary.requires_final_qa must be true');
   }
-  if (decision.implementation_notes?.provider_calls_added !== false) {
-    errors.push('implementation_notes.provider_calls_added must be false');
+  if (decision.implementation_notes?.provider_calls_added === true && !providerCallsAllowed) {
+    errors.push('implementation_notes.provider_calls_added true requires provider_calls_allowed true');
+  }
+  if (providerCallsAllowed && decision.implementation_notes?.provider_calls_added !== true) {
+    errors.push('active provider call decisions must set implementation_notes.provider_calls_added true');
   }
   if (decision.implementation_notes?.dependencies_added !== false) {
     errors.push('implementation_notes.dependencies_added must be false');
   }
-  if (decision.implementation_notes?.runtime_behavior_changed !== false) {
-    errors.push('implementation_notes.runtime_behavior_changed must be false');
+  if (decision.implementation_notes?.runtime_behavior_changed === true && decision.avatar_decision_version !== '1.1') {
+    errors.push('implementation_notes.runtime_behavior_changed true requires avatar_decision_version 1.1');
   }
   if (decision.implementation_notes?.publish_behavior_changed !== false) {
     errors.push('implementation_notes.publish_behavior_changed must be false');
@@ -173,8 +186,11 @@ function validateAvatarDecision(decision) {
   if (assetRoutePolicy.final_qa_required !== true) {
     errors.push('presenter_profile.asset_route_policy.final_qa_required must be true');
   }
-  if (providerIdentity.provider_account_required_now !== false) {
-    errors.push('presenter_profile.provider_identity.provider_account_required_now must be false for Session 18');
+  if (providerIdentity.provider_account_required_now === true && !providerCallsAllowed) {
+    errors.push('presenter_profile.provider_identity.provider_account_required_now true requires provider_calls_allowed true');
+  }
+  if (providerCallsAllowed && providerIdentity.provider_account_required_now !== true) {
+    errors.push('active provider call decisions must set presenter_profile.provider_identity.provider_account_required_now true');
   }
 
   if (routeEnabled && summary.avatar_route_enabled !== true) {
@@ -242,6 +258,9 @@ function validateAvatarDecision(decision) {
     if (providerIdentity.provider_config_status === 'missing' || providerIdentity.provider_config_status === 'blocked') {
       errors.push('enabled avatar route cannot use missing or blocked provider config status');
     }
+    if (providerCallsAllowed && providerIdentity.provider_config_status === 'planning_placeholder') {
+      errors.push('provider calls cannot use planning_placeholder provider config status');
+    }
     if (consentEvaluation.consent_gate !== 'pass' && consentEvaluation.consent_gate !== 'not_required_synthetic') {
       errors.push('enabled avatar route requires consent_evaluation.consent_gate pass or not_required_synthetic');
     }
@@ -257,6 +276,35 @@ function validateAvatarDecision(decision) {
     if (!hasText(disclosurePolicy.disclosure_text) || !hasText(selectedRoute.disclosure_text)) {
       errors.push('enabled avatar route requires disclosure text');
     }
+    const consentEvidenceText = [
+      consentRecordUri,
+      evaluationRecordUri,
+      avatarPolicyRecordUri,
+      consent.verification_notes,
+      consentEvaluation.evidence,
+    ].map((value) => String(value ?? '')).join(' ');
+    if (characterReferenceConsentPattern.test(consentEvidenceText)) {
+      errors.push('uploaded character/reference assets cannot be used as avatar consent evidence');
+    }
+  }
+
+  if (providerCallsAllowed) {
+    if (decision.effective_reel_type !== 'avatar') {
+      errors.push('provider call avatar decisions must set effective_reel_type to avatar');
+    }
+    if (decision.disclosure_required !== true) {
+      errors.push('provider call avatar decisions must set top-level disclosure_required true');
+    }
+    if (!decision.provider_request_options || typeof decision.provider_request_options !== 'object') {
+      errors.push('provider call avatar decisions require provider_request_options');
+    }
+    for (const key of ['presenter_direction', 'delivery_tone', 'framing', 'gesture_policy', 'motion_prompt', 'background_policy', 'caption_policy']) {
+      if (!(key in decision)) {
+        errors.push(`provider call avatar decisions require ${key}`);
+      }
+    }
+  } else if (!routeEnabled && decision.effective_reel_type && decision.effective_reel_type !== 'video') {
+    errors.push('disabled avatar route with effective_reel_type must use video');
   }
 
   if (profile.profile_type === 'real_person_with_consent' || selectedRoute.route_type === 'real_person_avatar_asset') {

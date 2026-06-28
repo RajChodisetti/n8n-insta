@@ -1,24 +1,25 @@
 # Voice Rules
 
-Use for narration, dialogue lines, TTS instructions, and voice performance metadata.
+Use for narration, dialogue lines, TTS instructions, avatar speech, and voice performance metadata.
 
 ## Blocking
 
-- `dialogue_lines` must match or cleanly slice from the spoken `narration_text` for the same scene.
-- Do not drop, reorder, or add narration beats between the clean script and scene-level dialogue.
+- Do not change the clean spoken script when a stage is only adding performance metadata.
+- Do not drop, reorder, or add narration beats between script, scene lines, and TTS input.
+- Do not use a real person's voice or implied endorsement without explicit consent metadata.
 
 ## Must
 
-- Preserve a clean human-readable narration script.
-- Keep generic voice performance metadata provider-neutral; use provider-specific emotion syntax only in adapter-specific mapping or runtime instructions.
-- Each scene should carry narration-aligned delivery or TTS instructions that describe emotion, pacing, and energy without changing the facts.
-- Do not make business, product, or explainer narration theatrical unless the selected style requires it.
+- Preserve clean human-readable narration separate from provider-specific controls.
+- Keep spoken language natural and breathable.
+- Make delivery cues describe emotion, pace, energy, and pauses without changing facts.
+- Keep avatar and TTS voice choices consistent with consent/account policy.
 
 ## Should
 
-- Keep narration breathable for a spoken Reel with varied sentence length and natural pauses.
-- Use performance cues only when they improve delivery clarity, and keep clean spoken text free of tags.
+- Use short sentences and purposeful pauses for mobile retention.
+- Keep performance cues minimal and useful.
 
 ## Preference
 
-- Default to human, grounded, concise delivery rather than announcer-style narration.
+- Default to grounded human delivery instead of announcer or salesy delivery.

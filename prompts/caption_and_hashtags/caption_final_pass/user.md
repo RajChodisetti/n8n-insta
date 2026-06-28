@@ -1,5 +1,3 @@
-Refine the strongest caption direction into the final caption.
-
 Title:
 {{title}}
 
@@ -12,6 +10,9 @@ Selected hook:
 Narration script:
 {{narration_script}}
 
+First-pass recommendation:
+{{first_pass_caption_recommendation}}
+
 Caption option 1:
 {{caption_option_1}}
 
@@ -21,16 +22,7 @@ Caption option 2:
 Caption option 3:
 {{caption_option_3}}
 
-Selection rationale from first pass:
+Selection rationale:
 {{caption_selection_rationale}}
 
-First-pass recommended caption:
-{{first_pass_caption_recommendation}}
-
-Requirements:
-
-- return one final caption
-- return a short revision summary describing what improved
-- keep the final caption concise and Instagram-native
-
-Return only JSON.
+Return revision_summary and caption_final.

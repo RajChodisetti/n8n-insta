@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { uploadBinaryAsset } from './asset_host_adapters.mjs';
 import { selectVideoApiKey } from './adapter_config.mjs';
 import { computeVideoCost } from './cost_calculator.mjs';
+import { getNoVisibleTextNegativePrompt } from './prompt_hard_rules.mjs';
 
 function fail(message) {
   throw new Error(message);
@@ -76,7 +77,7 @@ async function generateWanVideo(prompt, scene) {
   const frameRate = Number.parseInt(String(process.env.WAN_VIDEO_FRAME_RATE || '16'), 10);
   const resolution = String(process.env.WAN_VIDEO_RESOLUTION || '720p').trim();
 
-  const negativePrompt = 'text, words, letters, captions, subtitles, watermark, logo, speech bubble, dialogue bubble, comic text, writing, typography, readable characters, signage, label, blurry, low quality, distorted faces, deformed';
+  const negativePrompt = `${getNoVisibleTextNegativePrompt()}, blurry, low quality, distorted faces, deformed`;
 
   const body = {
     prompt: prompt.length > 2000 ? prompt.slice(0, 2000) : prompt,
@@ -159,7 +160,7 @@ async function main() {
       visualPrompt,
       mood ? `Mood: ${mood}.` : '',
       narrationText ? `The scene shows: ${narrationText.slice(0, 200)}` : '',
-      'Cinematic vertical video, 9:16 aspect ratio, no text or subtitles, no logos.',
+      'Cinematic vertical video, 9:16 aspect ratio. Absolutely no readable text, no subtitles, no captions, no title cards, no logos, no signs, no labels, no UI, no watermarks. The renderer adds the 2-second opening title card later.',
     ].filter(Boolean).join(' ');
 
     const generation = await generateWanVideo(videoPrompt, scene);
