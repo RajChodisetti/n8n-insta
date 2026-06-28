@@ -131,6 +131,42 @@ assert.equal(merged.storyboardJson[0].narration_text, storyboardJson[0].narratio
 assert.match(merged.storyboardJson[0].visual_prompt, /Founder workspace scene 1|group anonymous cards/i);
 assert.equal(merged.totalDurationSeconds, 40);
 
+const repaired = hooks.mergeStoryboardAndShotPlan({
+  title: 'Storyboard Split Empty Scene Repair',
+  reelType: 'avatar',
+  targetDurationSeconds: 40,
+  rawResponseJson: { parsed_response: {} },
+  storyboardJson,
+  sceneGuidanceJson: storyboardJson.map((scene) => ({
+    scene_number: scene.scene_number,
+    beat_label: `beat_${scene.scene_number}`,
+    image_prompt: scene.visual_prompt,
+  })),
+  renderManifestSeedJson: {
+    output: { width: 1080, height: 1920, fps: 30, format: 'mp4' },
+    subtitles: { enabled: false },
+  },
+  shotPlan: {
+    ...shotPlan,
+    asset_plan: { ...shotPlan.asset_plan, asset_sequence: [] },
+    voice_line_map: [],
+    scenes: [],
+  },
+});
+
+assert.equal(repaired.storyboardJson.length, storyboardJson.length);
+assert.equal(repaired.sceneGuidanceJson.length, storyboardJson.length);
+assert.equal(repaired.renderManifestSeedJson.timeline.length, storyboardJson.length);
+assert.equal(repaired.shotPlan.scenes.length, storyboardJson.length);
+assert.equal(repaired.shotPlan.voice_line_map.length, storyboardJson.length);
+assert.equal(repaired.repairEvents[0].repair_reason, 'model_returned_empty_scene_array');
+assert.equal(repaired.repairEvents[0].repaired_count, storyboardJson.length);
+assert.match(repaired.repairs.join('\n'), /rebuilt 4 scene shot plan/);
+assert.equal(repaired.storyboardJson[0].narration_text, storyboardJson[0].narration_text);
+assert.equal(repaired.storyboardJson[0].asset_type, 'video');
+assert.equal(repaired.rawResponseJson.storyboard_and_shot_plan_json.scenes.length, storyboardJson.length);
+assert.equal(repaired.rawResponseJson.parsed_response.storyboard_and_shot_plan_repair_json[0].repair_source, 'storyboard_json');
+
 assert.throws(() => hooks.mergeStoryboardAndShotPlan({
   title: 'Broken structure',
   reelType: 'image',

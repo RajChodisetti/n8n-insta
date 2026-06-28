@@ -983,10 +983,173 @@ function assetModeFromShotPlan(planScene = {}, index = 0, reelType = 'video') {
   return index === 0 ? 'image' : 'image_with_motion';
 }
 
+function assetNeedFromExistingStoryboardScene(scene = {}, index = 0, reelType = 'video') {
+  const normalizedReelType = trimString(reelType).toLowerCase();
+  const rawAssetPlan = asObject(scene.asset_plan);
+  const mode = trimString(rawAssetPlan.mode || scene.asset_type).toLowerCase();
+  if (normalizedReelType === 'video' || normalizedReelType === 'avatar' || mode === 'video' || trimString(scene.asset_type).toLowerCase() === 'video') {
+    return 'video';
+  }
+  if (mode === 'image_with_motion' || normalizedReelType === 'hybrid') {
+    return 'mixed';
+  }
+  return index === 0 ? 'image' : 'mixed';
+}
+
+function buildFallbackShotIntent(scene = {}, guidanceScene = {}, { title = '', sceneNumber = 1 } = {}) {
+  const narrationText = trimString(scene.narration_text || guidanceScene.narration_text);
+  const visualSource = sanitizeGeneratedAssetPrompt(
+    scene.visual_prompt || scene.image_prompt || guidanceScene.image_prompt || narrationText,
+    { title, narrationText, sceneNumber },
+  );
+  return {
+    framing: trimString(scene.remotion?.camera_move)
+      ? `Vertical composition with ${trimString(scene.remotion.camera_move).replace(/_/g, ' ')} camera intent.`
+      : 'Vertical composition with a clear subject and mobile-safe framing.',
+    subject: visualSource || `Concrete visual subject for scene ${sceneNumber}.`,
+    action: trimString(scene.mood)
+      ? `Show the ${trimString(scene.mood)} beat through concrete action.`
+      : 'Show the scene beat through concrete action rather than abstract symbolism.',
+    environment: 'Use the same realistic environment family and visual language as the surrounding scenes.',
+    camera_motion: trimString(scene.remotion?.instructions || scene.remotion?.camera_move)
+      || 'Use restrained motion that supports the narration beat.',
+    emotional_distance: trimString(scene.mood)
+      ? `Keep the emotional distance ${trimString(scene.mood)} and practical.`
+      : 'Keep the emotional distance practical and grounded.',
+    visual_evidence: visualSource || 'Use concrete objects, setting, and human action as evidence for the narration.',
+  };
+}
+
+function repairEmptyStoryboardShotPlan({
+  title = '',
+  reelType = 'video',
+  targetDurationSeconds = 45,
+  selectedStylePack = '',
+  storyboardJson = [],
+  sceneGuidanceJson = [],
+  shotPlan = {},
+} = {}) {
+  const plan = asObject(shotPlan);
+  const currentScenes = asArray(storyboardJson);
+  const planScenes = asArray(plan.scenes);
+  if (planScenes.length > 0 || currentScenes.length === 0) {
+    return {
+      shotPlan: plan,
+      repairs: [],
+      repairEvents: [],
+    };
+  }
+
+  let currentStartSeconds = 0;
+  const fallbackScenes = currentScenes.map((sceneValue, index) => {
+    const scene = asObject(sceneValue);
+    const sceneNumber = index + 1;
+    const guidanceScene = findGuidanceForScene(sceneGuidanceJson, sceneNumber, index);
+    const fallbackDuration = targetDurationSeconds > 0
+      ? targetDurationSeconds / Math.max(currentScenes.length, 1)
+      : 5;
+    const duration = roundToHundredths(
+      Number(scene.duration_seconds || guidanceScene.duration_seconds || 0) > 0
+        ? Number(scene.duration_seconds || guidanceScene.duration_seconds)
+        : fallbackDuration,
+    );
+    const start = roundToHundredths(currentStartSeconds);
+    const end = roundToHundredths(start + Math.max(duration, 0.5));
+    currentStartSeconds = end;
+    const narrationText = trimString(scene.narration_text || guidanceScene.narration_text);
+    const dialogueLines = asArray(scene.dialogue_lines).map((line) => trimString(line)).filter(Boolean);
+    const assetNeed = assetNeedFromExistingStoryboardScene(scene, index, reelType);
+    return {
+      scene_number: sceneNumber,
+      beat_id: `beat_${sceneNumber}`,
+      beat_label: trimString(guidanceScene.beat_label || scene.mood || `scene_${sceneNumber}`),
+      start_time_seconds: start,
+      end_time_seconds: end,
+      duration_seconds: roundToHundredths(end - start),
+      narration_text: narrationText,
+      dialogue_lines: dialogueLines.length ? dialogueLines : [narrationText].filter(Boolean),
+      voice_line_ids: [`v${String(sceneNumber).padStart(2, '0')}`],
+      asset_need: assetNeed,
+      shot_intent: buildFallbackShotIntent(scene, guidanceScene, { title, sceneNumber }),
+      transition_intent: trimString(scene.transition || scene.remotion?.transition_type) || (index === 0 ? 'cut' : 'soft cut'),
+      caption_intent: trimString(scene.caption_intent) || 'Support this narration beat with short, readable captions.',
+      music_sfx_intent: trimString(scene.music_cue) || 'Use subtle music that supports the scene beat without overpowering narration.',
+      tts_delivery_intent: trimString(scene.tts_instructions) || 'Deliver the line clearly and conversationally.',
+      qa_focus: asArray(scene.qa_focus).map((entry) => trimString(entry)).filter(Boolean).slice(0, 4).concat(['Preserve scene count and narration wording.']).slice(0, 5),
+      constraints: {
+        text_policy: 'No readable text, logos, labels, UI, captions, subtitles, signage, or watermarks inside generated visual assets.',
+        factual_boundary: 'Use only supplied script, director, and storyboard facts; do not invent claims.',
+        avoid: ['fake readable UI', 'generic stock footage', 'unrelated visual metaphors'],
+      },
+    };
+  });
+
+  const fallbackVoiceLineMap = fallbackScenes.map((scene) => ({
+    voice_line_id: scene.voice_line_ids[0],
+    scene_number: scene.scene_number,
+    line_text: scene.narration_text,
+    delivery_intent: scene.tts_delivery_intent,
+  }));
+  const fallbackShotPlan = {
+    storyboard_version: '1.0',
+    source_stage: 'storyboard_and_shot_plan',
+    target_duration_seconds: Number(plan.target_duration_seconds || targetDurationSeconds || currentStartSeconds),
+    selected_style_pack: trimString(plan.selected_style_pack || selectedStylePack || 'default_style_pack'),
+    plan_summary: trimString(plan.plan_summary)
+      || 'Model returned no scene rows; rebuilt a neutral shot plan from the existing approved storyboard.',
+    visual_prompt_boundary: trimString(plan.visual_prompt_boundary)
+      || 'This contract defines shot intent only. The visual_prompt_builder creates final image/video prompts later.',
+    continuity_plan: {
+      visual_continuity_rules: asArray(plan.continuity_plan?.visual_continuity_rules).map((entry) => trimString(entry)).filter(Boolean).slice(0, 4).concat(['Preserve the existing downstream scene sequence.']).slice(0, 5),
+      character_continuity: trimString(plan.continuity_plan?.character_continuity) || 'Preserve character and presenter intent already present in the storyboard.',
+      text_policy: trimString(plan.continuity_plan?.text_policy) || 'Do not ask generated assets to render readable text.',
+      factual_boundary: trimString(plan.continuity_plan?.factual_boundary) || 'Use only supplied script, director, and storyboard facts.',
+    },
+    caption_plan: {
+      overall_caption_intent: trimString(plan.caption_plan?.overall_caption_intent) || 'Keep captions short and aligned to the narration beats.',
+      cta_intent: trimString(plan.caption_plan?.cta_intent) || 'Preserve the existing CTA intent from the approved story package.',
+      hashtag_intent: trimString(plan.caption_plan?.hashtag_intent) || 'Leave hashtag strategy to downstream caption and hashtag generation.',
+      do_not_include: asArray(plan.caption_plan?.do_not_include).map((entry) => trimString(entry)).filter(Boolean).slice(0, 4).concat(['unsupported claims']).slice(0, 5),
+    },
+    asset_plan: {
+      asset_sequence: fallbackScenes.map((scene) => ({
+        scene_number: scene.scene_number,
+        asset_need: scene.asset_need,
+      })),
+      image_video_policy: trimString(plan.asset_plan?.image_video_policy) || 'Preserve existing scene-level media intent and let downstream adapters generate final assets.',
+      provider_selection_policy: trimString(plan.asset_plan?.provider_selection_policy) || 'Do not select providers in the storyboard split stage.',
+      handoff_notes: asArray(plan.asset_plan?.handoff_notes).map((entry) => trimString(entry)).filter(Boolean).slice(0, 4).concat(['Fallback shot plan rebuilt from existing storyboard because the model returned no scenes.']).slice(0, 5),
+    },
+    voice_line_map: fallbackVoiceLineMap,
+    scenes: fallbackScenes,
+    risk_flags: asArray(plan.risk_flags).map((risk) => asObject(risk)).filter((risk) => trimString(risk.risk_id)).slice(0, 4).concat([{
+      risk_id: 'empty_storyboard_split_repaired',
+      severity: 'watch',
+      description: 'The storyboard split model returned no scenes, so the pipeline rebuilt a neutral shot plan from the existing approved storyboard.',
+      mitigation: 'Downstream visual prompt and QA stages must verify scene specificity and continuity.',
+      blocks_publish: false,
+    }]).slice(0, 5),
+    qa_focus: asArray(plan.qa_focus).map((entry) => trimString(entry)).filter(Boolean).slice(0, 4).concat(['Verify repaired shot plan still supports the approved script and director contract.']).slice(0, 5),
+  };
+
+  return {
+    shotPlan: fallbackShotPlan,
+    repairs: [`storyboard_and_shot_plan returned empty scenes; rebuilt ${fallbackScenes.length} scene shot plan from existing storyboard_json`],
+    repairEvents: [{
+      field: 'scenes',
+      original_count: planScenes.length,
+      repaired_count: fallbackScenes.length,
+      repair_reason: 'model_returned_empty_scene_array',
+      repair_source: 'storyboard_json',
+    }],
+  };
+}
+
 function mergeStoryboardAndShotPlan({
   title = '',
   reelType = 'video',
   targetDurationSeconds = 45,
+  selectedStylePack = '',
   rawResponseJson = {},
   storyboardJson = [],
   sceneGuidanceJson = [],
@@ -994,7 +1157,17 @@ function mergeStoryboardAndShotPlan({
   shotPlan = {},
 } = {}) {
   const currentScenes = asArray(storyboardJson);
-  const planScenes = asArray(shotPlan.scenes);
+  const structureRepair = repairEmptyStoryboardShotPlan({
+    title,
+    reelType,
+    targetDurationSeconds,
+    selectedStylePack,
+    storyboardJson,
+    sceneGuidanceJson,
+    shotPlan,
+  });
+  const nextShotPlan = structureRepair.shotPlan;
+  const planScenes = asArray(nextShotPlan.scenes);
   if (currentScenes.length === 0) {
     fail('storyboard_and_shot_plan requires an existing downstream storyboard_json.');
   }
@@ -1002,7 +1175,7 @@ function mergeStoryboardAndShotPlan({
     fail(`storyboard_and_shot_plan must preserve scene count: expected ${currentScenes.length}, got ${planScenes.length}.`);
   }
 
-  const repairs = [];
+  const repairs = [...structureRepair.repairs];
   const nextGuidanceScenes = [];
   let currentStartSeconds = 0;
   const nextStoryboard = planScenes.map((planSceneValue, index) => {
@@ -1137,11 +1310,13 @@ function mergeStoryboardAndShotPlan({
   const parsedResponse = asObject(rawResponseJson.parsed_response);
   const nextRawResponseJson = {
     ...rawResponseJson,
-    storyboard_and_shot_plan_json: shotPlan,
+    storyboard_and_shot_plan_json: nextShotPlan,
+    storyboard_and_shot_plan_repair_json: structureRepair.repairEvents,
     scene_guidance_json: nextGuidanceScenes,
     parsed_response: {
       ...parsedResponse,
-      storyboard_and_shot_plan_json: shotPlan,
+      storyboard_and_shot_plan_json: nextShotPlan,
+      storyboard_and_shot_plan_repair_json: structureRepair.repairEvents,
       scene_guidance_json: nextGuidanceScenes,
       storyboard_json: nextStoryboard,
       render_manifest_seed_json: nextRenderManifestSeed,
@@ -1153,6 +1328,8 @@ function mergeStoryboardAndShotPlan({
     sceneGuidanceJson: nextGuidanceScenes,
     renderManifestSeedJson: nextRenderManifestSeed,
     rawResponseJson: nextRawResponseJson,
+    shotPlan: nextShotPlan,
+    repairEvents: structureRepair.repairEvents,
     repairs,
     totalDurationSeconds: roundToHundredths(nextStoryboard.reduce((sum, scene) => sum + Number(scene.duration_seconds || 0), 0)),
   };
@@ -1220,13 +1397,11 @@ async function runStoryboardAndShotPlan({ pool, step }) {
     },
   });
   const shotPlan = asObject(storyboardResult.storyboard_and_shot_plan_response);
-  if (Object.keys(shotPlan).length === 0) {
-    fail('storyboard_and_shot_plan returned an empty plan.');
-  }
   const merged = mergeStoryboardAndShotPlan({
     title: trimString(row.title),
     reelType: trimString(row.reel_type || 'video') || 'video',
     targetDurationSeconds: Number(row.target_duration_seconds || 45),
+    selectedStylePack,
     rawResponseJson: {
       ...rawResponseJson,
       storyboard_and_shot_plan_metadata: {
@@ -1274,6 +1449,8 @@ async function runStoryboardAndShotPlan({ pool, step }) {
         total_duration_seconds: merged.totalDurationSeconds,
         selected_style_pack: selectedStylePack,
         repair_count: merged.repairs.length,
+        repairs: merged.repairs,
+        structure_repairs: merged.repairEvents,
         cost: storyboardResult.cost ?? {},
       },
     });

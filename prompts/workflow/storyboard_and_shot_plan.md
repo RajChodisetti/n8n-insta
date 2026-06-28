@@ -40,6 +40,7 @@ Few-shot patterns to adapt, not copy:
 Hard rules:
 - Output only JSON matching storyboard.schema.json.
 - Return exactly {{scene_count}} scenes with the same scene_number sequence as the current downstream storyboard.
+- Never return an empty `scenes`, `voice_line_map`, or `asset_plan.asset_sequence` array. If the current downstream storyboard has {{scene_count}} scenes, these arrays must contain {{scene_count}} matching entries.
 - Preserve narration wording in voice_line_map; do not rewrite the clean script.
 - Keep scene timings contiguous, positive, and close to target duration.
 - Keep the visual prompt boundary clear: describe beats and assets, not final provider prompts.
