@@ -388,6 +388,20 @@ function repairTimedSceneCount(scenes, fieldName, {
   return { scenes: repairedScenes, repaired: true, original_count: sourceScenes.length };
 }
 
+function repairSubtitleLines(value, scenes = [], fallbackText = '') {
+  if (Array.isArray(value) && value.length > 0) {
+    return { lines: value, repaired: false, original_count: value.length };
+  }
+  const sourceScenes = Array.isArray(scenes) ? scenes : [];
+  const fallbackChunks = chunkTextForScenes(fallbackText, Math.max(1, sourceScenes.length || 1));
+  const lines = (sourceScenes.length > 0 ? sourceScenes : fallbackChunks.map((text, index) => ({ scene_number: index + 1, narration_text: text })))
+    .map((scene, index) => ({
+      scene_number: Number(scene?.scene_number ?? index + 1),
+      text: firstNonEmpty(scene?.narration_text, fallbackChunks[index], fallbackText, `Scene ${index + 1}`),
+    }));
+  return { lines, repaired: true, original_count: Array.isArray(value) ? value.length : 0 };
+}
+
 const ASSET_PLAN_MODES = new Set(['image', 'video', 'image_with_motion']);
 const MOTION_REQUIREMENTS = new Set(['low', 'medium', 'high']);
 const CAMERA_MOVES = new Set(['push_in', 'pull_out', 'pan_left', 'pan_right', 'tilt_up', 'tilt_down', 'drift', 'hold']);
@@ -795,6 +809,7 @@ async function main() {
       });
       response.storyboard_json = repairedStoryboard.scenes;
     }
+    const metadataRepairs = [];
     const onscreenTextJson = normalizeSubtitleLines(response.onscreen_text_json);
     const sceneGuidanceJson = normalizeTimedScenes(response.scene_guidance_json, 'scene_guidance_json', { title, reelType });
     const storyboardJson = normalizeTimedScenes(response.storyboard_json, 'storyboard_json', { title, reelType });
@@ -814,6 +829,15 @@ async function main() {
       scene.asset_type = scene.asset_plan.mode === 'video' ? 'video' : 'image';
     }
     validateScenes(sceneGuidanceJson, storyboardJson, targetDurationSeconds);
+    const repairedSubtitleLines = repairSubtitleLines(response.subtitle_lines_json, sceneGuidanceJson, response.narration_script);
+    if (repairedSubtitleLines.repaired) {
+      metadataRepairs.push({
+        field: 'subtitle_lines_json',
+        original_count: repairedSubtitleLines.original_count,
+        repaired_count: repairedSubtitleLines.lines.length,
+      });
+      response.subtitle_lines_json = repairedSubtitleLines.lines;
+    }
     const subtitleLinesJson = normalizeSubtitleLines(response.subtitle_lines_json);
     const renderManifestSeedJson = response.render_manifest_seed_json ?? {};
     renderManifestSeedJson.subtitles = { ...(renderManifestSeedJson.subtitles ?? {}), enabled: false };
@@ -834,6 +858,7 @@ async function main() {
       generation_model: String(result.generation_model || '').trim(),
       provider_metadata: result.provider_metadata ?? {},
       scene_count_repairs: sceneCountRepairs,
+      metadata_repairs: metadataRepairs,
       creative_direction_json: response.creative_direction_json ?? {},
       scene_guidance_json: sceneGuidanceJson,
       parsed_response: { ...response, scene_guidance_json: sceneGuidanceJson },
@@ -847,6 +872,7 @@ async function main() {
       generation_model: scriptRawResponse.generation_model,
       provider_metadata: scriptRawResponse.provider_metadata,
       scene_count_repairs: sceneCountRepairs,
+      metadata_repairs: metadataRepairs,
       script_scene_guidance_json: sceneGuidanceJson,
       creative_direction_json: response.creative_direction_json ?? {},
       parsed_response: { ...response, storyboard_json: storyboardJson },
