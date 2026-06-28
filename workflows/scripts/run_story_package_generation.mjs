@@ -402,6 +402,15 @@ function repairSubtitleLines(value, scenes = [], fallbackText = '') {
   return { lines, repaired: true, original_count: Array.isArray(value) ? value.length : 0 };
 }
 
+function defaultRenderOutput() {
+  return {
+    width: Number.parseInt(String(process.env.RENDER_OUTPUT_WIDTH || '1080'), 10) || 1080,
+    height: Number.parseInt(String(process.env.RENDER_OUTPUT_HEIGHT || '1920'), 10) || 1920,
+    fps: Number.parseInt(String(process.env.RENDER_OUTPUT_FPS || '30'), 10) || 30,
+    format: String(process.env.RENDER_OUTPUT_FORMAT || 'mp4').trim() || 'mp4',
+  };
+}
+
 const ASSET_PLAN_MODES = new Set(['image', 'video', 'image_with_motion']);
 const MOTION_REQUIREMENTS = new Set(['low', 'medium', 'high']);
 const CAMERA_MOVES = new Set(['push_in', 'pull_out', 'pan_left', 'pan_right', 'tilt_up', 'tilt_down', 'drift', 'hold']);
@@ -839,8 +848,23 @@ async function main() {
       response.subtitle_lines_json = repairedSubtitleLines.lines;
     }
     const subtitleLinesJson = normalizeSubtitleLines(response.subtitle_lines_json);
-    const renderManifestSeedJson = response.render_manifest_seed_json ?? {};
-    renderManifestSeedJson.subtitles = { ...(renderManifestSeedJson.subtitles ?? {}), enabled: false };
+    const renderManifestSeedJson = plainObject(response.render_manifest_seed_json)
+      ? { ...response.render_manifest_seed_json }
+      : {};
+    const existingOutput = plainObject(renderManifestSeedJson.output);
+    if (!existingOutput.width || !existingOutput.height || !existingOutput.fps || !existingOutput.format) {
+      renderManifestSeedJson.output = { ...defaultRenderOutput(), ...existingOutput };
+      metadataRepairs.push({
+        field: 'render_manifest_seed_json.output',
+        repaired: true,
+      });
+    }
+    const existingSubtitles = plainObject(renderManifestSeedJson.subtitles);
+    renderManifestSeedJson.subtitles = {
+      style: String(process.env.RENDER_SUBTITLE_STYLE || existingSubtitles.style || 'none').trim() || 'none',
+      ...existingSubtitles,
+      enabled: false,
+    };
     renderManifestSeedJson.timeline = storyboardJson.map((scene) => ({
       scene_number: scene.scene_number,
       duration_seconds: scene.duration_seconds,
