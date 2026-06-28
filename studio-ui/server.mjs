@@ -2295,6 +2295,9 @@ async function listTopics(limit = 25) {
       coalesce(latest_pipeline.reel_type, '') as latest_pipeline_reel_type,
       coalesce(latest_pipeline.status, '') as latest_pipeline_status,
       coalesce(latest_pipeline.current_stage, '') as latest_pipeline_stage,
+      coalesce(latest_pipeline.last_error, '') as latest_pipeline_last_error,
+      coalesce(latest_pipeline.failed_stage_key, '') as latest_pipeline_failed_stage_key,
+      coalesce(latest_pipeline.failed_step_error, '') as latest_pipeline_failed_step_error,
       coalesce(latest_pipeline.stage_plan, '[]'::jsonb) as latest_pipeline_stage_plan,
       coalesce(latest_pipeline.steps, '[]'::jsonb) as latest_pipeline_steps,
       pending_review.review_id as pending_review_id,
@@ -2332,6 +2335,9 @@ async function listTopics(limit = 25) {
         pr.reel_type,
         pr.status,
         pr.current_stage,
+        pr.last_error,
+        failed_step.stage_key as failed_stage_key,
+        failed_step.error_message as failed_step_error,
         pr.stage_plan,
         coalesce((
           select jsonb_agg(jsonb_build_object(
@@ -2345,6 +2351,15 @@ async function listTopics(limit = 25) {
           where ps.pipeline_run_id = pr.pipeline_run_id
         ), '[]'::jsonb) as steps
       from pipeline_runs pr
+      left join lateral (
+        select ps.stage_key, ps.error_message
+        from pipeline_steps ps
+        where ps.pipeline_run_id = pr.pipeline_run_id
+          and ps.step_status = 'failed'
+          and coalesce(nullif(btrim(ps.error_message), ''), '') <> ''
+        order by ps.stage_order asc
+        limit 1
+      ) failed_step on true
       where pr.content_id = ci.content_id
       order by pr.created_at desc
       limit 1

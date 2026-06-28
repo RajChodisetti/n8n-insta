@@ -408,10 +408,26 @@ function renderPipelineSteps(topic) {
 }
 
 function renderFailure(topic) {
-  const error = String(topic.latest_failed_error_message || '').trim();
-  if (!error) return '';
-  const workflow = String(topic.latest_failed_workflow_name || 'pipeline').trim();
-  return `<div class="failure-note">${escapeHtml(workflow)}: ${escapeHtml(error)}</div>`;
+  const notes = [];
+  const pipelineStepError = String(topic.latest_pipeline_failed_step_error || '').trim();
+  const pipelineRunError = String(topic.latest_pipeline_last_error || '').trim();
+  const pipelineError = pipelineStepError || pipelineRunError;
+  if (pipelineError) {
+    const failedStage = String(topic.latest_pipeline_failed_stage_key || topic.latest_pipeline_stage || '').trim();
+    const stageText = failedStage ? ` at ${stageLabel(failedStage)}` : '';
+    notes.push(`Pipeline failed${stageText}: ${pipelineError}`);
+  }
+
+  const workflowError = String(topic.latest_failed_error_message || '').trim();
+  if (workflowError && workflowError !== pipelineError) {
+    const workflow = String(topic.latest_failed_workflow_name || 'workflow').trim();
+    notes.push(`${workflow}: ${workflowError}`);
+  }
+
+  if (!notes.length) return '';
+  return notes
+    .map((note) => `<div class="failure-note">${escapeHtml(note)}</div>`)
+    .join('');
 }
 
 function renderTopicActions(topic) {
