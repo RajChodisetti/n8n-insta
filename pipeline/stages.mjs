@@ -1,5 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -3474,6 +3476,62 @@ function parseNumber(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function parsePositiveInteger(value, fallback) {
+  const parsed = Number.parseInt(trimString(value), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function postJsonWithTimeout(urlString, body, { timeoutMs } = {}) {
+  return new Promise((resolve, reject) => {
+    let target;
+    try {
+      target = new URL(urlString);
+    } catch (error) {
+      reject(new Error(`Invalid render worker URL: ${error.message}`));
+      return;
+    }
+
+    const payload = JSON.stringify(body ?? {});
+    const client = target.protocol === 'https:' ? https : http;
+    const request = client.request(target, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload),
+      },
+      timeout: Math.max(1000, Number(timeoutMs || 0)),
+    }, (response) => {
+      const chunks = [];
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => chunks.push(chunk));
+      response.on('end', () => {
+        const text = chunks.join('');
+        let parsedBody = {};
+        if (text.trim()) {
+          try {
+            parsedBody = JSON.parse(text);
+          } catch {
+            parsedBody = {};
+          }
+        }
+        resolve({
+          ok: Number(response.statusCode || 0) >= 200 && Number(response.statusCode || 0) < 300,
+          status: Number(response.statusCode || 0),
+          body: parsedBody,
+          text,
+        });
+      });
+    });
+
+    request.on('timeout', () => {
+      request.destroy(new Error(`Timed out after ${Math.round(Number(timeoutMs || 0) / 1000)}s waiting for render worker response.`));
+    });
+    request.on('error', reject);
+    request.write(payload);
+    request.end();
+  });
+}
+
 function buildRenderRequest(row) {
   const contentId = ensureUuid(row.content_id);
   const manifest = asObject(row.render_manifest_json);
@@ -3654,6 +3712,10 @@ async function runRenderSyncCompletion({ pool, step }) {
   const fallbackCoverImageUrl = trimString(request.render_request?.cover?.cover_asset_url || row.cover_image_url);
   const fallbackDurationSeconds = Number(row.duration_seconds ?? request.render_request?.output?.duration_seconds ?? 0);
   const fallbackResolution = trimString(row.resolution || request.render_request?.output?.resolution);
+  const renderTimeoutMs = Math.max(
+    60,
+    parsePositiveInteger(process.env.RENDER_SYNC_REQUEST_TIMEOUT_SECONDS ?? process.env.REMOTION_RENDER_REQUEST_TIMEOUT_SECONDS, 1200),
+  ) * 1000;
   let renderResult;
   if (!request.worker_url) {
     renderResult = {
@@ -3667,12 +3729,8 @@ async function runRenderSyncCompletion({ pool, step }) {
     };
   } else {
     try {
-      const response = await fetch(request.worker_url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request.render_request),
-      });
-      const body = await response.json().catch(() => ({}));
+      const response = await postJsonWithTimeout(request.worker_url, request.render_request, { timeoutMs: renderTimeoutMs });
+      const body = asObject(response.body);
       if (response.ok && trimString(body.render_status).toLowerCase() === 'success') {
         renderResult = {
           render_status: 'success',
@@ -3684,7 +3742,7 @@ async function runRenderSyncCompletion({ pool, step }) {
           error_message: '',
         };
       } else {
-        const serializedBody = Object.keys(asObject(body)).length ? JSON.stringify(body) : '';
+        const serializedBody = Object.keys(body).length ? JSON.stringify(body) : trimString(response.text);
         renderResult = {
           render_status: 'failed',
           output_video_url: '',
