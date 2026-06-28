@@ -11,6 +11,7 @@ Inputs:
 - Content language: {{content_language}}
 - Package type: {{package_type}}
 - Selected style pack: {{selected_style_pack}}
+- Creative workflow: {{creative_workflow_label}} ({{creative_workflow_id}})
 - Director contract: {{director_contract_json}}
 - Storyboard plan: {{storyboard_plan_json}}
 - Visual prompt plan: {{visual_prompt_plan_json}}
@@ -23,6 +24,9 @@ Inputs:
 - Avatar consent context: {{avatar_consent_context_json}}
 - Platform publish context: {{platform_publish_context_json}}
 
+Workflow card and QA lens:
+{{creative_workflow_prompt_card}}
+
 Hard rules:
 - Output only JSON matching qa_result.schema.json.
 - Any safety, consent, license, public URL, missing asset, caption, account mismatch, or render failure must block publish.
@@ -30,3 +34,4 @@ Hard rules:
 - If no external music or SFX asset is rendered and the music/SFX plan says license_status is not_applicable_no_external_music_asset, mark license clearance as not applicable instead of requiring music license paperwork.
 - Missing platform account ID should be a publish-executor configuration warning unless the package claims it is already approved for live publish.
 - Do not approve by default; approve only when all required artifacts pass.
+- Evaluate whether the package follows the selected creative workflow. Flag weak hooks, generic story arcs, scenes without purpose, visual prompts that are not specific enough for downstream generation, long static sections, and spoken-script performance tags as issues with upstream fix references.

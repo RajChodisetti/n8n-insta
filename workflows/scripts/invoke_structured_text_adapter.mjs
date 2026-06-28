@@ -76,6 +76,14 @@ const RESPONSE_KEYS = {
     metadataKey: 'provider_metadata',
     passthroughKeys: ['content_id', 'status_after_success', 'target_duration_seconds', 'script_scene_guidance_json'],
   },
+  storyboard_and_shot_plan: {
+    requestKey: 'openai_request_storyboard_and_shot_plan',
+    responseKey: 'storyboard_and_shot_plan_response',
+    modelKey: 'generation_model',
+    providerKey: 'generation_provider',
+    metadataKey: 'provider_metadata',
+    passthroughKeys: ['content_id', 'title', 'status_after_success', 'target_duration_seconds'],
+  },
   caption_and_hashtags: {
     requestKey: 'openai_request_caption_and_hashtags',
     responseKey: 'caption_and_hashtags_response',
@@ -116,6 +124,14 @@ const RESPONSE_KEYS = {
     metadataKey: 'provider_metadata',
     passthroughKeys: ['content_id', 'title', 'status_after_success', 'target_duration_seconds', 'package_type'],
   },
+  hybrid_media_planner: {
+    requestKey: 'openai_request_hybrid_media_planner',
+    responseKey: 'hybrid_media_plan_response',
+    modelKey: 'generation_model',
+    providerKey: 'generation_provider',
+    metadataKey: 'provider_metadata',
+    passthroughKeys: ['content_id', 'title', 'status_after_success', 'target_duration_seconds', 'package_type'],
+  },
   final_qa_validator: {
     requestKey: 'openai_request_final_qa_validator',
     responseKey: 'final_qa_response',
@@ -137,7 +153,7 @@ const RESPONSE_KEYS = {
 async function invokeOpenAi(request, stageKey) {
   const apiKey = String(selectTextApiKey(stageKey, 'openai')).trim();
   if (!apiKey) {
-    fail(`Set ${stageKey.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_OPENAI_API_KEY, TEXT_OPENAI_API_KEY, or OPENAI_API_KEY before running text stage '${stageKey}'. For backward compatibility, LLL_API_KEY is also accepted.`);
+    fail(`Set TEXT_OPENAI_API_KEY or OPENAI_API_KEY before running text stage '${stageKey}'. For backward compatibility, LLL_API_KEY is also accepted.`);
   }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -235,7 +251,7 @@ function parseJsonText(text, providerName) {
 async function invokeAnthropic(request, stageKey) {
   const apiKey = String(selectTextApiKey(stageKey, 'anthropic')).trim();
   if (!apiKey) {
-    fail(`Set ${stageKey.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_ANTHROPIC_API_KEY, TEXT_ANTHROPIC_API_KEY, or ANTHROPIC_API_KEY before running text stage '${stageKey}'.`);
+    fail(`Set TEXT_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY before running text stage '${stageKey}'.`);
   }
 
   const { system, messages } = anthropicSystemAndMessages(request.messages);

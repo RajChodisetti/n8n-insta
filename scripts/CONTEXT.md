@@ -33,6 +33,9 @@ Read this before running or editing smoke tests, token scripts, live publish pre
 - `validate_remotion_edit_plan_fixture.mjs`: no-dependency validator for Session 17 Remotion-compatible edit-plan fixtures.
 - `validate_avatar_decision_fixture.mjs`: no-dependency validator for active avatar/presenter selector fixtures, including active HeyGen, fallback-video, and invalid consent cases.
 - `validate_ai_video_contract_regressions.mjs`: no-dependency offline regression runner for the high-risk AI video contract fixtures and publish blockers.
+- `test_creative_workflow_prompt_context.mjs`: no-dependency check that selectable creative workflow cards load and reach active prompt-rendering stages.
+- `test_story_package_v2_compat_contract.mjs`: no-dependency check that the v2-to-legacy story package mapper emits the required scene contract.
+- `test_storyboard_split_merge.mjs`: no-dependency check that the active storyboard split stage can merge back into the legacy downstream shape without changing scene count or narration.
 
 ## Inputs
 
@@ -88,6 +91,9 @@ Run the script you changed against a running local stack. For docs-only changes,
 - `validate_remotion_edit_plan_fixture.mjs` is local-only and enforces plan-only Remotion data, contiguous frame timing, no dependency/runtime changes, and local FFmpeg fallback.
 - `validate_avatar_decision_fixture.mjs` is local-only and enforces consent-gated avatar asset routing, provider calls only for active `1.1` decisions, fallback availability, no dependencies, and no publish route.
 - `validate_ai_video_contract_regressions.mjs` is local-only and runs fixture validators only; it does not call Docker, n8n, providers, renderers, or publish APIs.
+- `test_creative_workflow_prompt_context.mjs` is local-only and does not call Docker, n8n, providers, renderers, or publish APIs.
+- `test_story_package_v2_compat_contract.mjs` is local-only and does not call Docker, n8n, providers, renderers, or publish APIs.
+- `test_storyboard_split_merge.mjs` is local-only and does not call Docker, n8n, providers, renderers, or publish APIs.
 
 ## Uncertainties
 

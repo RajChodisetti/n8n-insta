@@ -88,57 +88,23 @@ function stageEnvPrefix(stageKey) {
   if (normalized === 'visual_prompt_builder') return 'VISUAL_PROMPT';
   if (normalized === 'voice_performance_script') return 'VOICE_PERFORMANCE';
   if (normalized === 'avatar_presenter_selector') return 'AVATAR';
+  if (normalized === 'hybrid_media_planner') return 'HYBRID_MEDIA_PLANNER';
   if (normalized === 'final_qa_validator') return 'FINAL_QA';
   if (normalized === 'performance_feedback_analysis') return 'PERFORMANCE_FEEDBACK';
   return normalized.toUpperCase();
 }
 
-export function selectTextProvider(stageKey) {
-  const mapping = {
-    idea_ingest: ['IDEA_INGEST_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    research_and_script: ['RESEARCH_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    story_package_generation: ['STORY_PACKAGE_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    story_package_generation_v2: ['STORY_PACKAGE_V2_LLM_PROVIDER', 'STORY_PACKAGE_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    director_contract: ['DIRECTOR_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    director: ['DIRECTOR_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    idea_prompt_profile: ['IDEA_PROMPT_PROFILE_LLM_PROVIDER', 'PROMPT_BUILDER_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    storyboard_and_prompts: ['STORYBOARD_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    caption_and_hashtags: ['CAPTION_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    prompt_builder: ['PROMPT_BUILDER_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    visual_prompt_builder: ['VISUAL_PROMPT_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    voice_performance_script: ['VOICE_PERFORMANCE_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    avatar_presenter_selector: ['AVATAR_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    final_qa_validator: ['FINAL_QA_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-    performance_feedback_analysis: ['PERFORMANCE_FEEDBACK_LLM_PROVIDER', 'PREMIUM_TEXT_LLM_PROVIDER', 'TEXT_LLM_PROVIDER'],
-  };
-  return normalize(firstEnv(mapping[stageKey] || ['TEXT_LLM_PROVIDER']), 'openai');
+export function selectTextProvider(_stageKey) {
+  return normalize(firstEnv(['TEXT_LLM_PROVIDER']), 'openai');
 }
 
-export function selectTextApiKey(stageKey, provider) {
+export function selectTextApiKey(_stageKey, provider) {
   const providerPrefix = providerEnvPrefix(provider);
-  const stagePrefix = stageEnvPrefix(stageKey);
-  const mapping = {
-    idea_ingest: [`IDEA_INGEST_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    idea_prompt_profile: [`IDEA_PROMPT_PROFILE_${providerPrefix}_API_KEY`, `PROMPT_BUILDER_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    prompt_builder: [`PROMPT_BUILDER_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    story_package_generation: [`STORY_PACKAGE_${providerPrefix}_API_KEY`, `PREMIUM_TEXT_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    story_package_generation_v2: [`STORY_PACKAGE_V2_${providerPrefix}_API_KEY`, `STORY_PACKAGE_${providerPrefix}_API_KEY`, `PREMIUM_TEXT_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    director_contract: [`DIRECTOR_CONTRACT_${providerPrefix}_API_KEY`, `DIRECTOR_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    director: [`DIRECTOR_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    research_and_script: [`RESEARCH_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    storyboard_and_prompts: [`STORYBOARD_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    caption_and_hashtags: [`CAPTION_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    visual_prompt_builder: [`VISUAL_PROMPT_${providerPrefix}_API_KEY`, `PREMIUM_TEXT_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    voice_performance_script: [`VOICE_PERFORMANCE_${providerPrefix}_API_KEY`, `PREMIUM_TEXT_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    avatar_presenter_selector: [`AVATAR_${providerPrefix}_API_KEY`, `PREMIUM_TEXT_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    final_qa_validator: [`FINAL_QA_${providerPrefix}_API_KEY`, `PREMIUM_TEXT_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-    performance_feedback_analysis: [`PERFORMANCE_FEEDBACK_${providerPrefix}_API_KEY`, `PREMIUM_TEXT_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`],
-  };
   const providerFallbacks = providerPrefix === 'OPENAI'
     ? ['OPENAI_API_KEY', 'LLL_API_KEY']
     : [`${providerPrefix}_API_KEY`];
   return firstEnv([
-    ...(mapping[stageKey] || [`${stagePrefix}_${providerPrefix}_API_KEY`, `TEXT_${providerPrefix}_API_KEY`]),
+    `TEXT_${providerPrefix}_API_KEY`,
     ...providerFallbacks,
   ]);
 }

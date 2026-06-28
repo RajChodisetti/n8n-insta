@@ -13,6 +13,7 @@ Current prompt groups:
 - `narration_generation/`
 - `post_image_generation/`
 - `prompt_builder/` for the Studio UI prompt generator
+- `creative_workflows/` for selectable role docs and few-shot guidance injected into creative stages
 - `rules/` for reusable global rule assets and stage routing metadata
 - `style_packs/` for reusable creative style contracts and `style_pack_registry.json`
 - `schemas/` for shared prompt contract schemas, including active `director_contract.schema.json`, `visual_prompt.schema.json`, `voice_performance.schema.json`, `qa_result.schema.json`, `performance_guidance.schema.json`, and contract assets such as `client_account_context.schema.json`, `model_route.schema.json`, `render_manifest_v2.schema.json`, `remotion_edit_plan.schema.json`, `avatar_decision.schema.json`, and `presenter_profile.schema.json`
@@ -24,6 +25,7 @@ How prompt loading works:
 - text-generation workflows load `system.md`, `user.md`, and `response-schema.json` through [build_prompt_request.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/build_prompt_request.mjs)
 - image and narration helpers load `prompt.md` or `instructions.md` through [prompt_utils.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/prompt_utils.mjs)
 - the Studio UI prompt generator uses `prompt_builder/*` through [build_prompt_request.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/build_prompt_request.mjs) and [invoke_structured_text_adapter.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/invoke_structured_text_adapter.mjs)
+- selectable creative workflows are loaded by [creative_workflows.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/creative_workflows.mjs) and injected into idea ingest, story package, director, storyboard split, visual prompt, voice performance, and final QA prompt rendering through [prompt_stage_defaults.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/prompt_stage_defaults.mjs)
 - v1 abstract idea ingest now stores `creative_defaults` directly on the topic row; those defaults feed research/script, director_contract, storyboard, narration, images, and music without a separate prompt-profile call
 - Docker mounts this folder into `n8n` at `/prompts`, and `PROMPTS_ROOT` can override that location if needed
 - the runtime prompt-builder configuration is file-backed at `prompts/.runtime-prompt-builder.json`, so it can change live workflow prompt wording without editing the saved prompt templates
@@ -31,7 +33,8 @@ How prompt loading works:
 - `rules/` is a reusable rule asset layer; active prompts use summaries where helper wiring supplies them
 - `style_packs/` is a reusable creative asset layer; the active `director_contract` stage now selects registry IDs
 - `workflow/director_contract*.md` is the active prompt path for the `director_contract` stage
-- `workflow/storyboard_and_shot_plan.md` is a contract-only storyboard planning asset; the active `storyboard_and_prompts/` path still creates legacy `visual_prompt`, cover, subtitle metadata, and render seed fields
+- `workflow/storyboard_and_shot_plan.md` is active in code-first generation after `director_contract`; it refines scene jobs, shot intent, voice line map, caption/music intent, and QA focus, then merges back into the legacy `storyboard_json`, `scene_guidance_json`, and render seed shape for downstream compatibility
+- the legacy `storyboard_and_prompts/` path still creates legacy `visual_prompt`, cover, subtitle metadata, and render seed fields for n8n fallback, but its prompt now uses the same internal split-job guidance
 - `workflow/visual_prompt_builder.md` is active in code-first generation and writes final scene-level `visual_prompt`, `image_prompt`, `negative_prompt`, and fallback prompt metadata before asset generation
 - `workflow/voice_performance_script.md` is active for image/video code-first narration and enriches `storyboard_json[].tts_instructions` without changing clean spoken narration text
 - `workflow/music_sfx_plan.md` is a contract-only music/SFX planning asset; the active render worker still selects from `workflows/assets/music/library.json`
@@ -46,7 +49,7 @@ How prompt loading works:
 Runtime overwrite model:
 
 - immutable at runtime: response schemas, placeholder names, stage wiring, safety/approval/consent/license/provider-secret rules, and prompt-builder guardrails
-- partially runtime-variable: rendered placeholders, `creative_defaults`, legacy allowlisted `prompt_profile` fields, and client/account context snapshots
+- partially runtime-variable: rendered placeholders, selected `creative_workflow` role/few-shot guidance, `creative_defaults`, legacy allowlisted `prompt_profile` fields, and client/account context snapshots
 - fully AI-built at runtime: stage outputs and optional runtime prompt-builder drafts for selected stages
 - runtime prompt-builder excludes `prompt_builder`, `idea_ingest`, and `idea_prompt_profile`; default targets also avoid provider-facing asset/narration prompts to reduce output drift
 - if visual prompts are explicitly targeted by runtime prompt-builder, a text-free renderer-owned-title safety appendix is appended to the in-memory draft
@@ -65,6 +68,7 @@ Editing rule:
 - the Studio UI also shows per-placeholder help text and examples grouped by stage, so you can see what each `{{placeholder}}` means before editing it
 - when editing `rules/rule_registry.json`, keep rule IDs unique and use only the severities `blocking`, `must`, `should`, and `preference`
 - when editing `style_packs/style_pack_registry.json`, keep registry IDs aligned with Markdown filenames
+- when editing `creative_workflows/*.md` or workflow IDs in [creative_workflows.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/creative_workflows.mjs), update the Studio selector and run `node scripts/test_creative_workflow_prompt_context.mjs`
 - when editing `prompts/schemas/director_contract.schema.json`, update `scripts/validate_director_contract_fixture.mjs` only if the schema features used by fixtures change
 - when editing `prompts/schemas/storyboard.schema.json`, update `scripts/validate_storyboard_fixture.mjs` only if the schema features used by fixtures change
 - when editing `prompts/schemas/visual_prompt.schema.json`, update `scripts/validate_visual_prompt_fixture.mjs` only if the schema features or prompt-specific guardrails used by fixtures change

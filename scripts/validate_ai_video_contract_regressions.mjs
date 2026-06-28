@@ -55,6 +55,9 @@ const tests = [
   ['avatar decision fallback fixture', ['scripts/validate_avatar_decision_fixture.mjs', 'fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision_fallback_video.json']],
   ['avatar decision missing consent blocks', ['scripts/validate_avatar_decision_fixture.mjs', '--expect-fail', 'fixtures/ai-video/avatar_sales_outreach/invalid_avatar_decision_missing_consent.json']],
   ['avatar decision character reference consent blocks', ['scripts/validate_avatar_decision_fixture.mjs', '--expect-fail', 'fixtures/ai-video/avatar_sales_outreach/invalid_avatar_decision_character_reference_consent.json']],
+  ['creative workflow prompt context', ['scripts/test_creative_workflow_prompt_context.mjs']],
+  ['story package v2 compatibility contract', ['scripts/test_story_package_v2_compat_contract.mjs']],
+  ['storyboard split merge', ['scripts/test_storyboard_split_merge.mjs']],
   ['story package v2 compatibility helper syntax', ['--check', 'workflows/scripts/story_package_v2_compat.mjs']],
 ];
 

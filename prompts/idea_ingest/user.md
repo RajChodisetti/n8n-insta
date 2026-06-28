@@ -1,6 +1,9 @@
 Abstract idea:
 {{abstract_idea}}
 
+Selected creative workflow guidance:
+{{creative_workflow_prompt_card}}
+
 Allowed confidence labels:
 {{allowed_confidence_labels_json}}
 

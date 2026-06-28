@@ -15,31 +15,19 @@ where pr.content_id = ci.content_id
   and pr.reel_type is null
   and pr.requested_action = 'generate_reel';
 
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'content_items_reel_type_check'
-  ) then
-    alter table content_items
-      add constraint content_items_reel_type_check
-      check (reel_type in ('image', 'video', 'avatar'));
-  end if;
-end $$;
+alter table content_items
+  drop constraint if exists content_items_reel_type_check;
 
-do $$
-begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conname = 'pipeline_runs_reel_type_check'
-  ) then
-    alter table pipeline_runs
-      add constraint pipeline_runs_reel_type_check
-      check (reel_type is null or reel_type in ('image', 'video', 'avatar'));
-  end if;
-end $$;
+alter table content_items
+  add constraint content_items_reel_type_check
+  check (reel_type in ('image', 'video', 'avatar', 'hybrid'));
+
+alter table pipeline_runs
+  drop constraint if exists pipeline_runs_reel_type_check;
+
+alter table pipeline_runs
+  add constraint pipeline_runs_reel_type_check
+  check (reel_type is null or reel_type in ('image', 'video', 'avatar', 'hybrid'));
 
 create index if not exists idx_content_items_reel_type
   on content_items (reel_type, updated_at desc);

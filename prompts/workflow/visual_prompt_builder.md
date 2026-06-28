@@ -11,10 +11,14 @@ Inputs:
 - Content language: {{content_language}}
 - Target duration: {{target_duration_seconds}} seconds
 - Selected style pack: {{selected_style_pack}}
+- Creative workflow: {{creative_workflow_label}} ({{creative_workflow_id}})
 - Director plan: {{director_plan_json}}
 - Storyboard plan: {{storyboard_plan_json}}
 - Visual continuity notes: {{visual_continuity_notes}}
 - Visual text policy: {{visual_text_policy}}
+
+Workflow card and few-shot guidance:
+{{creative_workflow_prompt_card}}
 
 Hard rules:
 - Output only JSON matching visual_prompt.schema.json.
@@ -23,3 +27,4 @@ Hard rules:
 - Do not include the reel title, headline words, quoted title fragments, typography, letters, or wording that might be drawn inside generated image/video assets. Translate title context into non-text visual evidence instead.
 - Each prompt must be concrete, scene-specific, and tied to the storyboard beat.
 - Return one prompt object for every storyboard scene, preserving each scene_number exactly.
+- Preserve the selected creative workflow's visual rhythm: high-retention scenes need contrast and reveal, documentary scenes need cinematic factual restraint, and sales scenes need problem/solution clarity without fake readable UI.

@@ -14,6 +14,7 @@
     "cta_line",
     "music_direction",
     "onscreen_text_json",
+    "scene_contract_json",
     "scene_guidance_json",
     "storyboard_json",
     "cover_prompt",
@@ -61,6 +62,16 @@
           "scene_number": { "type": "integer", "minimum": 1 },
           "text": { "type": "string" }
         }
+      }
+    },
+    "scene_contract_json": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected_scene_count", "expected_total_duration_seconds", "scene_count_rationale"],
+      "properties": {
+        "expected_scene_count": { "type": "integer", "minimum": 4, "maximum": 8 },
+        "expected_total_duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
+        "scene_count_rationale": { "type": "string" }
       }
     },
     "scene_guidance_json": {
@@ -220,6 +231,8 @@
         },
         "timeline": {
           "type": "array",
+          "minItems": 4,
+          "maxItems": 8,
           "items": {
             "type": "object",
             "additionalProperties": false,

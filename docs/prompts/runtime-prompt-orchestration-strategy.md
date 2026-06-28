@@ -26,6 +26,7 @@ These fields are allowed to change per idea, client, or run while the underlying
 | Source | Runtime behavior | Allowed purpose |
 | --- | --- | --- |
 | Template placeholders | `prompt_template_data`, DB fields, env defaults | Inject the current idea, script, storyboard, model settings, style notes, and account context. |
+| Selected `creative_workflow` | Stored on the topic source payload and resolved by `prompt_stage_defaults.mjs` into a role doc, strategy summary, and few-shot card from `prompts/creative_workflows/` | Choose a run-level creative strategy such as high-retention story, premium documentary, or sales/conversion without changing schemas or provider routes. |
 | `creative_defaults` | Built by `idea_ingest` and stored on the topic/source payload | Set first-pass perspective, tone, visual strategy, pacing, narrator hint, music mood, and avoid rules. |
 | Legacy `prompt_profile` | Normalized by `prompt_profile_contract.mjs` | Override only allowlisted stage fields such as tone, timing, style notes, language guidance, narration style, and music direction. |
 | Client/account context | Snapshot fields resolved in `prompt_stage_defaults.mjs` | Apply account-level brand, style, voice, music, avatar, and publishing defaults without overriding global safety rules. |
@@ -66,11 +67,12 @@ Use these as the default quality bar for all Reel prompts.
 1. `idea_ingest`: convert raw idea to a structured topic and `creative_defaults`.
 2. `story_package_generation` or legacy split stages: produce hook, narration, scene guidance, storyboard, render seed, cover, and subtitle metadata.
 3. `director_contract`: lock style, continuity, pacing, visual approach, and voice direction.
-4. `scene_asset_generation`: turn each scene into a concrete, text-free visual generation prompt.
-5. `narration_generation`: produce provider-safe voice instructions for the clean script.
-6. Render/Remotion stages: consume artifacts and timeline metadata. Do not ask image/video models to render text overlays.
-7. `caption_and_hashtags`: write truthful publish copy after the story package exists.
-8. QA, approval, and publish gates: validate artifacts, account, consent, license, selected render, and public URL.
+4. `storyboard_and_shot_plan`: split the storyboard into scene jobs, shot intent, asset handoff, voice/caption/music intent, and QA focus while preserving the downstream scene structure.
+5. `visual_prompt_builder`: turn each scene job into concrete, text-free visual generation prompts.
+6. `narration_generation`: produce provider-safe voice instructions for the clean script.
+7. Render/Remotion stages: consume artifacts and timeline metadata. Do not ask image/video models to render text overlays.
+8. `caption_and_hashtags`: write truthful publish copy after the story package exists.
+9. QA, approval, and publish gates: validate artifacts, account, consent, license, selected render, and public URL.
 
 ## Runtime Prompt-Builder Policy
 

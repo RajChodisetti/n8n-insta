@@ -85,15 +85,6 @@ Abstract-idea prompt profile builder:
 Provider selectors:
 
 - `TEXT_LLM_PROVIDER`
-- `IDEA_INGEST_LLM_PROVIDER`
-- `IDEA_PROMPT_PROFILE_LLM_PROVIDER`
-- `PROMPT_BUILDER_LLM_PROVIDER`
-- `RESEARCH_LLM_PROVIDER`
-- `DIRECTOR_LLM_PROVIDER`
-- `STORY_PACKAGE_LLM_PROVIDER`
-- `STORY_PACKAGE_V2_LLM_PROVIDER`
-- `STORYBOARD_LLM_PROVIDER`
-- `CAPTION_LLM_PROVIDER`
 - `IMAGE_GENERATION_PROVIDER`
 - `SCENE_IMAGE_PROVIDER`
 - `POST_IMAGE_PROVIDER`
@@ -109,31 +100,30 @@ Provider selectors:
 Generic text model selectors:
 
 - `TEXT_MODEL`
-- `IDEA_INGEST_MODEL`
-- `IDEA_PROMPT_PROFILE_MODEL`
-- `PROMPT_BUILDER_MODEL`
-- `RESEARCH_MODEL`
-- `DIRECTOR_CONTRACT_MODEL`
-- `DIRECTOR_MODEL`
-- `STORY_PACKAGE_MODEL`
-- `STORY_PACKAGE_V2_MODEL`
-- `STORYBOARD_MODEL`
+- `TEXT_ANTHROPIC_MODEL`
 - `CAPTION_MODEL`
+- `CAPTION_ANTHROPIC_MODEL`
+- `FINAL_QA_MODEL`
+- `FINAL_QA_ANTHROPIC_MODEL`
 
 Provider API keys:
 
 - `OPENAI_API_KEY` is the global OpenAI fallback.
 - `TEXT_OPENAI_API_KEY` is the fallback for text stages before `OPENAI_API_KEY`.
-- Stage-specific text keys win first: `IDEA_INGEST_OPENAI_API_KEY`, `IDEA_PROMPT_PROFILE_OPENAI_API_KEY`, `PROMPT_BUILDER_OPENAI_API_KEY`, `RESEARCH_OPENAI_API_KEY`, `DIRECTOR_OPENAI_API_KEY`, `DIRECTOR_CONTRACT_OPENAI_API_KEY`, `STORY_PACKAGE_OPENAI_API_KEY`, `STORY_PACKAGE_V2_OPENAI_API_KEY`, `STORYBOARD_OPENAI_API_KEY`, `CAPTION_OPENAI_API_KEY`.
+- `ANTHROPIC_API_KEY` is the global Anthropic fallback.
+- `TEXT_ANTHROPIC_API_KEY` is the fallback for all Anthropic text stages before `ANTHROPIC_API_KEY`.
+- Stage-specific text provider/key env vars are no longer active selectors. Prompt-generation stages share one model; captions/hashtags and final QA may use separate model overrides.
 - Image keys resolve from stage/component key to component/global key: `SCENE_IMAGE_OPENAI_API_KEY`, `POST_IMAGE_OPENAI_API_KEY`, `IMAGE_OPENAI_API_KEY`, then `OPENAI_API_KEY`; Fal image/video keys resolve through `SCENE_IMAGE_FAL_AI_API_KEY`, `POST_IMAGE_FAL_AI_API_KEY`, `IMAGE_FAL_AI_API_KEY`, `SCENE_VIDEO_FAL_AI_API_KEY`, `WAN_REFERENCE_VIDEO_FAL_AI_API_KEY`, then `FAL_AI_API_KEY`.
 - Narration keys resolve through `NARRATION_OPENAI_API_KEY`, `TTS_OPENAI_API_KEY`, `OPENAI_API_KEY`; `NARRATION_FISH_AUDIO_API_KEY`, `TTS_FISH_AUDIO_API_KEY`, `FISH_AUDIO_API_KEY`; or `NARRATION_SMALLEST_AI_API_KEY`, `TTS_SMALLEST_AI_API_KEY`, `SMALLEST_AI_API_KEY`.
 
 Legacy OpenAI text fallbacks:
 
 - `OPENAI_TEXT_MODEL`
-- `OPENAI_RESEARCH_MODEL`
-- `OPENAI_STORYBOARD_MODEL`
-- `OPENAI_CAPTION_MODEL`
+
+Legacy Anthropic text fallbacks:
+
+- `ANTHROPIC_TEXT_MODEL`
+- `ANTHROPIC_MODEL`
 
 Generic image model settings:
 
@@ -216,13 +206,9 @@ Use when changing:
 
 - `prompts/research_and_script/*`
 - `prompts/storyboard_and_prompts/*`
-- `RESEARCH_LLM_PROVIDER`
-- `STORYBOARD_LLM_PROVIDER`
-- `RESEARCH_MODEL`
-- `STORYBOARD_MODEL`
+- `TEXT_LLM_PROVIDER`
 - `TEXT_MODEL`
-- legacy `OPENAI_RESEARCH_MODEL`
-- legacy `OPENAI_STORYBOARD_MODEL`
+- `TEXT_ANTHROPIC_MODEL`
 - legacy `OPENAI_TEXT_MODEL`
 
 Run:
@@ -248,10 +234,10 @@ Pass signal:
 Use when changing:
 
 - `prompts/caption_and_hashtags/*`
-- `CAPTION_LLM_PROVIDER`
+- `TEXT_LLM_PROVIDER`
 - `CAPTION_MODEL`
-- `TEXT_MODEL`
-- legacy `OPENAI_CAPTION_MODEL`
+- `CAPTION_ANTHROPIC_MODEL`
+- shared fallbacks `TEXT_MODEL` and `TEXT_ANTHROPIC_MODEL`
 - legacy `OPENAI_TEXT_MODEL`
 
 Run:

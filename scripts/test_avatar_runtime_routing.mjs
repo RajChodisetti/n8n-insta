@@ -241,6 +241,144 @@ try {
   assert.equal(manifest.render_manifest_json.timeline[0].duration_seconds, 10);
   assert.equal(manifest.render_manifest_json.timeline[0].planned_duration_seconds, 10);
 
+  const hybridPlan = {
+    hybrid_media_plan_version: '1.0',
+    source_stage: 'hybrid_media_planner',
+    created_at: '2026-06-28T00:00:00.000Z',
+    run_strategy: 'mixed_avatar_scene',
+    summary: {
+      plan_rationale: 'Use one presenter beat, one provider video beat, and image-motion support beats.',
+      avatar_segments: 1,
+      scene_video_segments: 1,
+      image_motion_segments: 2,
+      provider_video_required: true,
+    },
+    fallback_policy: {
+      avatar_failure: 'fail',
+      scene_video_failure: 'fail',
+      allow_video_to_image_fallback: false,
+    },
+    segments: [
+      {
+        scene_number: 1,
+        media_type: 'avatar_video',
+        provider: 'heygen',
+        script_text: storyboardScenes[0].narration_text,
+        audio_mode: 'embedded_avatar',
+        asset_plan_mode: 'video',
+        fallback_media_type: 'fail',
+        rationale: 'Presenter introduces the business pain directly.',
+      },
+      {
+        scene_number: 2,
+        media_type: 'scene_video',
+        provider: 'fal_ai_wan',
+        script_text: storyboardScenes[1].narration_text,
+        audio_mode: 'scene_narration',
+        asset_plan_mode: 'video',
+        fallback_media_type: 'fail',
+        rationale: 'Motion-heavy missed-call moment.',
+      },
+      {
+        scene_number: 3,
+        media_type: 'scene_image_motion',
+        provider: 'scene_image',
+        script_text: storyboardScenes[2].narration_text,
+        audio_mode: 'scene_narration',
+        asset_plan_mode: 'image_with_motion',
+        fallback_media_type: 'fail',
+        rationale: 'Still asset with Remotion motion is enough.',
+      },
+      {
+        scene_number: 4,
+        media_type: 'scene_image_motion',
+        provider: 'scene_image',
+        script_text: storyboardScenes[3].narration_text,
+        audio_mode: 'scene_narration',
+        asset_plan_mode: 'image_with_motion',
+        fallback_media_type: 'fail',
+        rationale: 'Still asset with Remotion motion is enough.',
+      },
+    ],
+    quality_gates: {
+      avatar_consent_checked: true,
+      provider_availability_checked: true,
+      no_silent_downgrade: true,
+    },
+    implementation_notes: ['fixture'],
+  };
+  const hybridManifest = avatarHooks.buildRenderManifest({
+    content_id: '00000000-0000-4000-8000-000000000002',
+    title: 'Hybrid timing regression',
+    reel_type: 'hybrid',
+    storyboard_json: storyboardScenes,
+    subtitle_lines_json: [],
+    raw_response_json: {
+      hybrid_media_plan_json: hybridPlan,
+    },
+    avatar_assets_json: [{
+      scene_number: 1,
+      asset_role: 'avatar_video',
+      provider: 'heygen',
+      storage_url: 'https://cdn.example.test/avatar-scene-1.mp4',
+      mime_type: 'video/mp4',
+      duration_seconds: 3.5,
+      width: 1080,
+      height: 1920,
+      metadata_json: { thumbnail_url: 'https://cdn.example.test/avatar-thumb.jpg' },
+    }],
+    scene_assets_json: [
+      {
+        scene_number: 2,
+        asset_role: 'scene_video',
+        provider: 'fal_ai_wan',
+        storage_url: 'https://cdn.example.test/scene-2.mp4',
+        mime_type: 'video/mp4',
+        duration_seconds: 5,
+        width: 1080,
+        height: 1920,
+        metadata_json: { asset_plan: { mode: 'video' } },
+      },
+      ...storyboardScenes.slice(2).map((scene) => ({
+        scene_number: scene.scene_number,
+        asset_role: 'scene_image',
+        provider: 'fixture',
+        storage_url: `https://cdn.example.test/scene-${scene.scene_number}.jpg`,
+        mime_type: 'image/jpeg',
+        duration_seconds: scene.duration_seconds,
+        width: 1080,
+        height: 1920,
+        metadata_json: {},
+      })),
+    ],
+    scene_narration_assets_json: storyboardScenes.slice(1).map((scene) => ({
+      scene_number: scene.scene_number,
+      provider: 'fixture_tts',
+      storage_url: `https://cdn.example.test/scene-${scene.scene_number}.mp3`,
+      mime_type: 'audio/mpeg',
+      duration_seconds: 1.25,
+      metadata_json: { speed: 1, voice: 'fixture' },
+    })),
+    render_manifest_seed_json: {
+      output: { width: 1080, height: 1920, fps: 30, format: 'mp4' },
+      timeline: storyboardScenes.map((scene) => ({
+        scene_number: scene.scene_number,
+        duration_seconds: scene.duration_seconds,
+      })),
+      subtitles: { enabled: false },
+    },
+  });
+  assert.equal(hybridManifest.render_manifest_json.render_mode, 'hybrid');
+  assert.equal(hybridManifest.render_manifest_json.audio.narration.mode, 'mixed');
+  assert.equal(hybridManifest.render_manifest_json.timeline.length, 4);
+  assert.equal(hybridManifest.render_manifest_json.timeline[0].asset_role, 'avatar_video');
+  assert.equal(hybridManifest.render_manifest_json.timeline[0].audio_mode, 'embedded_avatar');
+  assert.equal(hybridManifest.render_manifest_json.timeline[0].narration_url, '');
+  assert.equal(hybridManifest.render_manifest_json.timeline[1].asset_role, 'scene_video');
+  assert.equal(hybridManifest.render_manifest_json.timeline[1].audio_mode, 'scene_narration');
+  assert.equal(hybridManifest.render_manifest_json.audio.narration.scenes.length, 3);
+  assert.equal(hybridManifest.render_manifest_json.audio.narration.embedded_avatar_scenes.length, 1);
+
   process.stdout.write('avatar runtime routing ok\n');
 } finally {
   for (const [key, value] of Object.entries(original)) {

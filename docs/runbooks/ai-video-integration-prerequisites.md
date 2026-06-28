@@ -23,7 +23,7 @@ Decide and provide credentials only when a live test session explicitly asks for
 
 | Area | Decision or account needed | Typical env keys | Needed now? |
 | --- | --- | --- | --- |
-| Text generation | OpenAI project and chosen text model per stage. | `OPENAI_API_KEY`, `TEXT_OPENAI_API_KEY`, `IDEA_INGEST_MODEL`, `STORY_PACKAGE_MODEL`, `DIRECTOR_MODEL`, other stage-specific model/key envs | No |
+| Text generation | OpenAI or Anthropic project, one shared prompt-generation model, and optional caption/QA model overrides. | `OPENAI_API_KEY`, `TEXT_OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TEXT_ANTHROPIC_API_KEY`, `TEXT_LLM_PROVIDER`, `TEXT_MODEL`, `TEXT_ANTHROPIC_MODEL`, `CAPTION_MODEL`, `FINAL_QA_MODEL` | No |
 | Image generation | OpenAI image or Fal image provider choice. | `IMAGE_GENERATION_PROVIDER`, `SCENE_IMAGE_PROVIDER`, `IMAGE_OPENAI_API_KEY`, `SCENE_IMAGE_OPENAI_API_KEY`, `FAL_AI_API_KEY` | No |
 | Video generation | Fal/Wan model choice for scene video generation. | `FAL_AI_API_KEY`, `SCENE_VIDEO_FAL_AI_API_KEY`, `WAN_VIDEO_MODEL`, `WAN_REFERENCE_VIDEO_MODEL` | No |
 | Narration/TTS | Fish Audio, Smallest AI, or OpenAI TTS choice and voice. | `NARRATION_PROVIDER`, `TTS_PROVIDER`, `NARRATION_FISH_AUDIO_API_KEY`, `NARRATION_SMALLEST_AI_API_KEY`, `NARRATION_OPENAI_API_KEY` | No |

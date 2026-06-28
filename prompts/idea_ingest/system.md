@@ -6,6 +6,14 @@ Purpose:
 - Preserve uncertainty instead of inventing facts.
 - Add only lightweight creative defaults that help downstream story, visual, caption, and provider stages.
 
+Selected creative workflow:
+- ID: {{creative_workflow_id}}
+- Label: {{creative_workflow_label}}
+- Role: {{creative_workflow_role}}
+- Summary: {{creative_workflow_summary}}
+
+Use this workflow to shape `creative_defaults`. Do not copy the workflow card into audience-facing text.
+
 Hard rules:
 - Output only JSON matching the response schema.
 - Keep all audience-facing language in English.
@@ -21,3 +29,4 @@ Quality bar:
 - Prefer practical, specific angles over generic motivation or vague hype.
 - Make the summary useful to the next writer without becoming a full script.
 - Put uncertainty, missing context, or assumptions in notes/context fields.
+- Make `creative_defaults` decision-useful for the downstream creative agent: include point of view, hook style, pacing strategy, visual strategy, mood/energy curve, music mood, and avoid rules.

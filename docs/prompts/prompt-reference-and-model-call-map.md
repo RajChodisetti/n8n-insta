@@ -41,7 +41,7 @@ Current rule of thumb:
 | Class | What changes at runtime | Examples | Editing policy |
 | --- | --- | --- | --- |
 | Stable contract | Nothing should rewrite it during a run. | Schemas, placeholders, stage wiring, prompt-builder hard rules, approval/consent/license/factuality rules. | Change only through repo edits plus validation. |
-| Partial runtime guidance | Values are injected or allowlisted per idea/account. | `creative_defaults`, `prompt_profile` allowlisted fields, client/account context, env defaults. | Use for tone, pacing, style, narration, and music direction only. |
+| Partial runtime guidance | Values are injected or allowlisted per idea/account. | selected `creative_workflow` role/few-shot card, `creative_defaults`, `prompt_profile` allowlisted fields, client/account context, env defaults. | Use for creative strategy, tone, pacing, style, narration, and music direction only. |
 | Fully AI-built output | The model creates new stage content. | Story package, storyboard, captions, visual prompts, narration instructions, optional runtime prompt-builder draft. | Must preserve schemas, placeholders, hard rules, and downstream contracts. |
 
 Runtime prompt-builder defaults now avoid provider-facing asset/narration prompt stages (`scene_asset_generation`, `post_image_generation`, `narration_generation`) to reduce output drift. If a visual prompt file is explicitly targeted, runtime code appends a text-free renderer-owned-title appendix to the in-memory draft.
@@ -82,9 +82,8 @@ Runtime template data:
 Model requests:
 
 - `1` text request
-- selector precedence:
-  `RESEARCH_LLM_PROVIDER -> TEXT_LLM_PROVIDER`
-  `RESEARCH_MODEL -> TEXT_MODEL`
+- shared text selector:
+  `TEXT_LLM_PROVIDER`; model from `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL`
 
 ### `wf_director_contract`
 
@@ -118,9 +117,51 @@ Runtime template data:
 Model requests:
 
 - `1` text request
-- selector precedence:
-  `DIRECTOR_LLM_PROVIDER -> TEXT_LLM_PROVIDER`
-  `DIRECTOR_CONTRACT_MODEL -> DIRECTOR_MODEL -> TEXT_MODEL`
+- shared text selector:
+  `TEXT_LLM_PROVIDER`; model from `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL`
+
+### `storyboard_and_shot_plan`
+
+Used when:
+
+- a code-first `generate_reel` run has completed `director_contract` and is preparing the storyboard handoff before final visual prompt generation
+
+Prompt files:
+
+- [prompts/workflow/storyboard_and_shot_plan.md](/Users/rajchodisetti/n8n-insta/prompts/workflow/storyboard_and_shot_plan.md)
+- [prompts/schemas/storyboard.schema.json](/Users/rajchodisetti/n8n-insta/prompts/schemas/storyboard.schema.json)
+
+Loader:
+
+- [workflows/scripts/build_prompt_request.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/build_prompt_request.mjs) with stage `storyboard_and_shot_plan`
+- [workflows/scripts/invoke_structured_text_adapter.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/invoke_structured_text_adapter.mjs)
+
+Runtime template data:
+
+- `title`
+- `category`
+- `target_duration_seconds`
+- `scene_count`
+- `selected_style_pack`
+- `creative_workflow_*`
+- `narration_script`
+- `director_plan_json`
+- `script_scene_guidance_json`
+- `current_storyboard_json`
+- `storyboard_timing_guidance`
+- `narration_alignment_guidance`
+
+Runtime behavior:
+
+- returns a renderer-neutral storyboard/shot-plan contract
+- must preserve downstream scene count, scene order, and clean narration structure
+- code-first `pipeline/stages.mjs` stores the plan as `storyboard_and_shot_plan_json` and merges it back into legacy `storyboard_json`, `scene_guidance_json`, and render seed fields before `visual_prompt_builder`
+
+Model requests:
+
+- `1` text request
+- shared text selector:
+  `TEXT_LLM_PROVIDER`; model from `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL`
 
 ### `wf_storyboard_and_prompts`
 
@@ -157,16 +198,15 @@ Runtime template data:
 Model requests:
 
 - `1` text request
-- selector precedence:
-  `STORYBOARD_LLM_PROVIDER -> TEXT_LLM_PROVIDER`
-  `STORYBOARD_MODEL -> TEXT_MODEL`
+- shared text selector:
+  `TEXT_LLM_PROVIDER`; model from `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL`
 
 Session 8/9 contract note:
 
-- [prompts/workflow/storyboard_and_shot_plan.md](/Users/rajchodisetti/n8n-insta/prompts/workflow/storyboard_and_shot_plan.md) and [prompts/schemas/storyboard.schema.json](/Users/rajchodisetti/n8n-insta/prompts/schemas/storyboard.schema.json) define a prompt-free storyboard/shot-plan contract for future splitting.
+- [prompts/workflow/storyboard_and_shot_plan.md](/Users/rajchodisetti/n8n-insta/prompts/workflow/storyboard_and_shot_plan.md) is now active in code-first generation, not in legacy n8n fallback.
 - [prompts/workflow/visual_prompt_builder.md](/Users/rajchodisetti/n8n-insta/prompts/workflow/visual_prompt_builder.md) and [prompts/schemas/visual_prompt.schema.json](/Users/rajchodisetti/n8n-insta/prompts/schemas/visual_prompt.schema.json) define the separate scene-level visual prompt contract.
-- The active `wf_storyboard_and_prompts` path still uses the legacy files above and still outputs `visual_prompt`, cover prompt, subtitle metadata, and render seed fields.
-- The active scene asset flow still consumes legacy `storyboard_json.visual_prompt`; the Session 9 contract is not wired into runtime asset generation yet.
+- The legacy `wf_storyboard_and_prompts` path still uses the legacy files above and still outputs `visual_prompt`, cover prompt, subtitle metadata, and render seed fields, but its prompt now applies the same internal split-job guidance.
+- The active code-first scene asset flow consumes `storyboard_json.visual_prompt` after `visual_prompt_builder` has merged final provider-neutral visual prompts.
 
 ### `wf_caption_and_hashtags`
 
@@ -206,9 +246,8 @@ Runtime template data:
 Model requests:
 
 - `1` text request
-- selector precedence:
-  `CAPTION_LLM_PROVIDER -> TEXT_LLM_PROVIDER`
-  `CAPTION_MODEL -> TEXT_MODEL`
+- shared text selector:
+  `TEXT_LLM_PROVIDER`; model from `CAPTION_MODEL` or `CAPTION_ANTHROPIC_MODEL`, falling back to `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL`
 
 ### `wf_asset_generation`
 
@@ -319,9 +358,8 @@ Runtime template data:
 Model requests:
 
 - `1` text request for avatar runs
-- selector precedence:
-  `AVATAR_LLM_PROVIDER -> PREMIUM_TEXT_LLM_PROVIDER -> TEXT_LLM_PROVIDER`
-  `AVATAR_MODEL -> PREMIUM_TEXT_MODEL -> TEXT_MODEL`
+- shared text selector:
+  `TEXT_LLM_PROVIDER`; model from `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL`
 
 Runtime behavior:
 
@@ -338,6 +376,7 @@ Session 11 contract note:
 Session 12 contract note:
 
 - [prompts/workflow/final_qa_validator.md](/Users/rajchodisetti/n8n-insta/prompts/workflow/final_qa_validator.md) and [prompts/schemas/qa_result.schema.json](/Users/rajchodisetti/n8n-insta/prompts/schemas/qa_result.schema.json) define a final package QA result contract.
+- It uses the shared `TEXT_LLM_PROVIDER`; the model can be overridden with `FINAL_QA_MODEL` or `FINAL_QA_ANTHROPIC_MODEL`, otherwise it inherits the shared prompt model.
 - The contract can express blocking and non-blocking issues, exact upstream fix stages, and publish requirements.
 - The active publish workflows do not consume this contract yet; Session 13 is reserved for approval and publish-gate wiring.
 

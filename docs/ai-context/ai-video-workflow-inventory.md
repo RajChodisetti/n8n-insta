@@ -4,7 +4,7 @@ Last reviewed: 2026-06-21 at git commit `d1e1bd0`.
 
 This inventory tracks the AI video workflow session plan as sessions change prompts, validators, provider routing, render manifests, or publish gates. It is based on `workflows/scripts/*.mjs`, `workflows/n8n/*.json`, and existing context docs.
 
-Runtime update: code-first `generate_reel` now supports `reel_type` values `image`, `video`, and `avatar`; Remotion is the default renderer through `infra/remotion-renderer/`; video reels require provider-video assets by default unless `ALLOW_VIDEO_TO_IMAGE_FALLBACK=true`; avatar runs use `avatar_presenter_selector` and `avatar_media_generation` to either call HeyGen or auto-downgrade to the normal video path when consent/config/safety is incomplete. Older Session 17 sections remain useful contract history, not the full current runtime picture.
+Runtime update: code-first `generate_reel` now supports `reel_type` values `image`, `video`, `avatar`, and `hybrid`; Remotion is the default renderer through `infra/remotion-renderer/`; video reels require provider-video assets by default unless `ALLOW_VIDEO_TO_IMAGE_FALLBACK=true`; avatar runs use `avatar_presenter_selector` and `avatar_media_generation` to either call HeyGen or auto-downgrade to the normal video path when consent/config/safety is incomplete; hybrid runs use `hybrid_media_planner` and `hybrid_media_generation` to mix scene-level HeyGen avatar clips, Fal/Wan scene video, and image-motion scenes in one render. Older Session 17 sections remain useful contract history, not the full current runtime picture.
 
 ## Read this when
 
@@ -16,27 +16,29 @@ Runtime update: code-first `generate_reel` now supports `reel_type` values `imag
 
 `workflows/scripts/build_prompt_request.mjs` currently supports these stages:
 
-| Stage | Prompt files | Output key | Model env priority | Fallback |
+| Stage | Prompt files | Output key | Text model selection | Default |
 |---|---|---|---|---|
-| `director_contract` | `prompts/workflow/director_contract*.md`, `prompts/schemas/director_contract.schema.json` | `openai_request_director_contract` | `DIRECTOR_CONTRACT_MODEL`, `DIRECTOR_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1-mini` |
-| `director` | `prompts/director/{system,user,response-schema}.md/json` | `openai_request_director` | `DIRECTOR_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1-mini` |
-| `research_and_script` | `prompts/research_and_script/{system,user,response-schema}.md/json` | `openai_request` | `RESEARCH_MODEL`, `OPENAI_RESEARCH_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4o-mini` |
-| `idea_ingest` | `prompts/idea_ingest/{system,user,response-schema}.md/json` | `openai_request_idea_ingest` | `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4o-mini` |
-| `idea_prompt_profile` | `prompts/idea_prompt_profile/{system,user,response-schema}.md/json` | `openai_request_idea_prompt_profile` | `PROMPT_BUILDER_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4o-mini` |
-| `story_package_generation` | `prompts/story_package_generation/{system,user,response-schema}.md/json` | `openai_request_story_package_generation` | `STORY_PACKAGE_MODEL`, `PREMIUM_TEXT_MODEL`, `OPENAI_STORY_PACKAGE_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1` |
-| `story_package_generation_v2` | `prompts/workflow/story_package_generation_v2*.md`, `prompts/schemas/story_package.schema.json` | `openai_request_story_package_generation_v2` | `STORY_PACKAGE_V2_MODEL`, `STORY_PACKAGE_MODEL`, `PREMIUM_TEXT_MODEL`, `OPENAI_STORY_PACKAGE_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1` |
-| `storyboard_and_prompts` | `prompts/storyboard_and_prompts/{system,user,response-schema}.md/json` | `openai_request` | `STORYBOARD_MODEL`, `OPENAI_STORYBOARD_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4o-mini` |
-| `caption_and_hashtags` | `prompts/caption_and_hashtags/{system,user,response-schema}.md/json` | `openai_request_caption_and_hashtags` | `CAPTION_MODEL`, `OPENAI_CAPTION_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4o-mini` |
-| `prompt_builder` | `prompts/prompt_builder/{system,user,response-schema}.md/json` | `openai_request_prompt_builder` | `PROMPT_BUILDER_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4o-mini` |
-| `visual_prompt_builder` | `prompts/workflow/visual_prompt_builder.md`, `prompts/schemas/visual_prompt.schema.json` | `openai_request_visual_prompt_builder` | `VISUAL_PROMPT_MODEL`, `PROMPT_BUILDER_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1-mini` |
-| `voice_performance_script` | `prompts/workflow/voice_performance_script.md`, `prompts/schemas/voice_performance.schema.json` | `openai_request_voice_performance_script` | `VOICE_PERFORMANCE_MODEL`, `PREMIUM_TEXT_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1-mini` |
-| `avatar_presenter_selector` | `prompts/workflow/avatar_video_selector.md`, `prompts/schemas/avatar_decision.schema.json` | `openai_request_avatar_presenter_selector` | `AVATAR_MODEL`, `PREMIUM_TEXT_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1-mini` |
-| `final_qa_validator` | `prompts/workflow/final_qa_validator.md`, `prompts/schemas/qa_result.schema.json` | `openai_request_final_qa_validator` | `FINAL_QA_MODEL`, `PREMIUM_TEXT_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1` |
-| `performance_feedback_analysis` | `prompts/workflow/performance_feedback_analysis.md`, `prompts/schemas/performance_guidance.schema.json` | `openai_request_performance_feedback_analysis` | `PERFORMANCE_FEEDBACK_MODEL`, `PREMIUM_TEXT_MODEL`, `TEXT_MODEL`, `OPENAI_TEXT_MODEL` | `gpt-4.1-mini` |
+| `director_contract` | `prompts/workflow/director_contract*.md`, `prompts/schemas/director_contract.schema.json` | `openai_request_director_contract` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `director` | `prompts/director/{system,user,response-schema}.md/json` | `openai_request_director` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `research_and_script` | `prompts/research_and_script/{system,user,response-schema}.md/json` | `openai_request` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `idea_ingest` | `prompts/idea_ingest/{system,user,response-schema}.md/json` | `openai_request_idea_ingest` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `idea_prompt_profile` | `prompts/idea_prompt_profile/{system,user,response-schema}.md/json` | `openai_request_idea_prompt_profile` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `story_package_generation` | `prompts/story_package_generation/{system,user,response-schema}.md/json` | `openai_request_story_package_generation` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `story_package_generation_v2` | `prompts/workflow/story_package_generation_v2*.md`, `prompts/schemas/story_package.schema.json` | `openai_request_story_package_generation_v2` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `storyboard_and_prompts` | `prompts/storyboard_and_prompts/{system,user,response-schema}.md/json` | `openai_request` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `storyboard_and_shot_plan` | `prompts/workflow/storyboard_and_shot_plan.md`, `prompts/schemas/storyboard.schema.json` | `openai_request_storyboard_and_shot_plan` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `caption_and_hashtags` | `prompts/caption_and_hashtags/{system,user,response-schema}.md/json` | `openai_request_caption_and_hashtags` | `TEXT_LLM_PROVIDER` plus optional `CAPTION_MODEL` or `CAPTION_ANTHROPIC_MODEL`; blank inherits shared prompt model | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `prompt_builder` | `prompts/prompt_builder/{system,user,response-schema}.md/json` | `openai_request_prompt_builder` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `visual_prompt_builder` | `prompts/workflow/visual_prompt_builder.md`, `prompts/schemas/visual_prompt.schema.json` | `openai_request_visual_prompt_builder` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `voice_performance_script` | `prompts/workflow/voice_performance_script.md`, `prompts/schemas/voice_performance.schema.json` | `openai_request_voice_performance_script` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `avatar_presenter_selector` | `prompts/workflow/avatar_video_selector.md`, `prompts/schemas/avatar_decision.schema.json` | `openai_request_avatar_presenter_selector` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `hybrid_media_planner` | `prompts/workflow/hybrid_media_planner.md`, `prompts/schemas/hybrid_media_plan.schema.json` | `openai_request_hybrid_media_planner` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `final_qa_validator` | `prompts/workflow/final_qa_validator.md`, `prompts/schemas/qa_result.schema.json` | `openai_request_final_qa_validator` | `TEXT_LLM_PROVIDER` plus optional `FINAL_QA_MODEL` or `FINAL_QA_ANTHROPIC_MODEL`; blank inherits shared prompt model | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
+| `performance_feedback_analysis` | `prompts/workflow/performance_feedback_analysis.md`, `prompts/schemas/performance_guidance.schema.json` | `openai_request_performance_feedback_analysis` | `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` | OpenAI `gpt-4.1-mini`; Anthropic `claude-sonnet-4-6` |
 
-`build_prompt_request.mjs` chooses the text provider through `selectTextProvider(stageKey)`. `invoke_structured_text_adapter.mjs` supports OpenAI and Anthropic/Claude structured text calls; other text providers still throw `providerNotImplemented`.
+`build_prompt_request.mjs` uses one shared text provider for all structured text stages. Prompt-generation stages share `TEXT_MODEL` / `OPENAI_TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL` / `ANTHROPIC_TEXT_MODEL` / `ANTHROPIC_MODEL`; only `caption_and_hashtags` and `final_qa_validator` can use separate model overrides via `CAPTION_MODEL` / `CAPTION_ANTHROPIC_MODEL` and `FINAL_QA_MODEL` / `FINAL_QA_ANTHROPIC_MODEL`. Stage-specific text provider env vars are no longer active runtime selectors. `invoke_structured_text_adapter.mjs` supports OpenAI and Anthropic/Claude structured text calls; other text providers still throw `providerNotImplemented`.
 
-Session 8 adds contract-only storyboard/shot-plan assets at `prompts/workflow/storyboard_and_shot_plan.md` and `prompts/schemas/storyboard.schema.json`. Visual prompt builder, voice performance, avatar presenter selection, and final QA contracts are now active code-first stages; music/SFX planning, provider routing, render manifest v2, and Remotion edit-plan remain contract/reference layers. `performance_feedback_analysis` is active only through the explicit `analyze_performance` action.
+Session 8 storyboard/shot-plan assets at `prompts/workflow/storyboard_and_shot_plan.md` and `prompts/schemas/storyboard.schema.json` are now active in code-first generation after `director_contract`; the stage merges back into legacy `storyboard_json`, `scene_guidance_json`, and render seed shapes. Visual prompt builder, voice performance, avatar presenter selection, hybrid media planning, and final QA contracts are also active code-first stages; music/SFX planning, provider routing, render manifest v2, and Remotion edit-plan remain contract/reference layers. `performance_feedback_analysis` is active only through the explicit `analyze_performance` action.
 
 ## n8n workflow exports
 
@@ -78,7 +80,7 @@ After `storyboard_complete`, the legacy n8n Reel flow is inferred from v3 workfl
 
 `storyboard_complete` or validated storyboard -> asset generation -> `assets_ready` -> narration generation -> `narration_ready` -> render manifest construction -> `render_manifest_ready` -> render dispatch/sync -> `render_queued` or `render_complete`/`render_failed` -> caption and Reel publish.
 
-The active code-first `generate_reel` plans insert `story_package_quality_gate`, `director_contract`, and `visual_prompt_builder` before media generation for `image`, `video`, and `avatar` runs. Image/video runs also insert `voice_performance_script` after scene assets and before narration. Avatar runs insert `avatar_presenter_selector` and `avatar_media_generation`; approved avatar routes produce `avatar_ready`, while fallback routes set the effective content route to `video`, promote storyboard scenes to provider-video plans, reuse only ready `scene_video` assets, and internally run v3 scene assets, voice performance, and narration to `narration_ready`. The gate uses the existing `validating` -> `validation_complete` status pair, blocks weak packages before media provider spend, and can promote stronger `scene_guidance_json.image_prompt` values into storyboard scenes before asset generation.
+The active code-first `generate_reel` plans insert `story_package_quality_gate`, `director_contract`, and `visual_prompt_builder` before media generation for `image`, `video`, `avatar`, and `hybrid` runs. Image/video runs also insert `voice_performance_script` after scene assets and before narration. Avatar runs insert `avatar_presenter_selector` and `avatar_media_generation`; approved avatar routes produce `avatar_ready`, while fallback routes set the effective content route to `video`, promote storyboard scenes to provider-video plans, reuse only ready `scene_video` assets, and internally run v3 scene assets, voice performance, and narration to `narration_ready`. Hybrid runs insert `hybrid_media_planner` and `hybrid_media_generation`; the planner chooses one media type per scene (`avatar_video`, `scene_video`, or `scene_image_motion`), and generation writes mixed avatar/scene visual assets plus TTS only for non-avatar scenes before a mixed Remotion manifest. The gate uses the existing `validating` -> `validation_complete` status pair, blocks weak packages before media provider spend, and can promote stronger `scene_guidance_json.image_prompt` values into storyboard scenes before asset generation.
 
 `workflows/scripts/run_resume_aware_reel_pipeline_v3.mjs` lists these active statuses: `idea_approved`, `scripting`, `script_complete`, `directing`, `directed`, `storyboarding`, `storyboard_complete`, `generating_assets`, `assets_ready`, `generating_narration`, `narration_ready`, `building_render_manifest`, `render_manifest_ready`, `dispatching_render`, `render_queued`, `render_complete`, and `render_failed`.
 
@@ -207,7 +209,7 @@ Known consumers:
 
 ## `story_package_generation` outputs and consumers
 
-`run_story_package_generation.mjs` calls the `story_package_generation` prompt stage by default, requires script fields, normalizes `scene_guidance_json`, `storyboard_json`, `onscreen_text_json`, and `subtitle_lines_json`, then writes both `scripts` and `storyboards`.
+`run_story_package_generation.mjs` calls the `story_package_generation` prompt stage by default, requires script fields, requires `scene_contract_json.expected_scene_count` to match both `scene_guidance_json` and `storyboard_json`, normalizes `scene_guidance_json`, `storyboard_json`, `onscreen_text_json`, and `subtitle_lines_json`, then writes both `scripts` and `storyboards`.
 
 Session 6 added an opt-in `story_package_generation_v2` stage. Enable it only with `STORY_PACKAGE_GENERATION_STAGE=story_package_generation_v2` or `STORY_PACKAGE_STAGE=v2`. When v2 is selected, `workflows/scripts/story_package_v2_compat.mjs` maps the v2 contract back to the legacy script/storyboard response shape before the existing database writes and downstream workflows run.
 
@@ -305,7 +307,7 @@ Session 18 introduced the avatar/presenter selector; it is now an active code-fi
 
 Important current behavior:
 
-- `prompts/workflow/avatar_video_selector.md` is active through `build_prompt_request.mjs`, with provider routing priority `AVATAR_LLM_PROVIDER`, then premium/text fallbacks.
+- `prompts/workflow/avatar_video_selector.md` is active through `build_prompt_request.mjs`; it uses the shared text provider/model selected by `TEXT_LLM_PROVIDER` plus `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL`.
 - `prompts/schemas/avatar_decision.schema.json` defines a consent-gated active runtime decision, inputs, presenter profile, consent evaluation, selected route, effective reel type, non-avatar fallback, disclosure, provider-safe request options, presenter direction, quality gates, and implementation notes.
 - `prompts/schemas/presenter_profile.schema.json` defines consent status, consent record URI, allowed/disallowed use cases, usage restrictions, provider avatar ID, provider voice ID, disclosure policy, and asset-route policy.
 - `fixtures/ai-video/avatar_sales_outreach/expected_avatar_decision.json` is the representative valid avatar decision fixture.
@@ -417,18 +419,7 @@ Validation:
 
 | Boundary | Selector | Env priority | Fallback |
 |---|---|---|---|
-| Text, idea ingest | `selectTextProvider('idea_ingest')` | `IDEA_INGEST_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
-| Text, research | `selectTextProvider('research_and_script')` | `RESEARCH_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
-| Text, story package | `selectTextProvider('story_package_generation')` | `STORY_PACKAGE_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
-| Text, story package v2 | `selectTextProvider('story_package_generation_v2')` | `STORY_PACKAGE_V2_LLM_PROVIDER`, `STORY_PACKAGE_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
-| Text, director | `selectTextProvider('director'/'director_contract')` | `DIRECTOR_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
-| Text, visual prompt | `selectTextProvider('visual_prompt_builder')` | `VISUAL_PROMPT_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
-| Text, voice performance | `selectTextProvider('voice_performance_script')` | `VOICE_PERFORMANCE_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
-| Text, final QA | `selectTextProvider('final_qa_validator')` | `FINAL_QA_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
-| Text, performance feedback | `selectTextProvider('performance_feedback_analysis')` | `PERFORMANCE_FEEDBACK_LLM_PROVIDER`, `PREMIUM_TEXT_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
-| Text, prompt profile/builder | `selectTextProvider('idea_prompt_profile'/'prompt_builder')` | `IDEA_PROMPT_PROFILE_LLM_PROVIDER`, `PROMPT_BUILDER_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
-| Text, storyboard | `selectTextProvider('storyboard_and_prompts')` | `STORYBOARD_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
-| Text, caption | `selectTextProvider('caption_and_hashtags')` | `CAPTION_LLM_PROVIDER`, `TEXT_LLM_PROVIDER` | `openai` |
+| Structured text stages | `selectTextProvider(stageKey)` | `TEXT_LLM_PROVIDER`; prompt-generation model from `TEXT_MODEL` / `OPENAI_TEXT_MODEL` for OpenAI or `TEXT_ANTHROPIC_MODEL` / `ANTHROPIC_TEXT_MODEL` / `ANTHROPIC_MODEL` for Anthropic; captions and final QA may override with their stage model keys | Provider `openai`; model `gpt-4.1-mini` or `claude-sonnet-4-6` |
 | Scene image | `selectImageProvider('scene_image')` | `SCENE_IMAGE_PROVIDER`, `IMAGE_GENERATION_PROVIDER` | `openai` |
 | Post image | `selectImageProvider('post_image')` | `POST_IMAGE_PROVIDER`, `IMAGE_GENERATION_PROVIDER` | `openai` |
 | Narration | `selectNarrationProvider()` | `NARRATION_PROVIDER`, `TTS_PROVIDER` | `fish_audio` |

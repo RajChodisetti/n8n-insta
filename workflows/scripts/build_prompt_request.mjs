@@ -17,169 +17,135 @@ const STAGES = {
     user: 'workflow/director_contract_user.md',
     schema: 'schemas/director_contract.schema.json',
     outputKey: 'openai_request_director_contract',
-    modelEnvKeys: ['DIRECTOR_CONTRACT_MODEL', 'DIRECTOR_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    anthropicModelEnvKeys: ['DIRECTOR_CONTRACT_ANTHROPIC_MODEL', 'DIRECTOR_ANTHROPIC_MODEL', 'PREMIUM_TEXT_ANTHROPIC_MODEL', 'TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'],
-    fallbackModel: 'gpt-4.1-mini',
   },
   director: {
     system: 'director/system.md',
     user: 'director/user.md',
     schema: 'director/response-schema.json',
     outputKey: 'openai_request_director',
-    modelEnvKeys: ['DIRECTOR_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    fallbackModel: 'gpt-4.1-mini',
   },
   research_and_script: {
     system: 'research_and_script/system.md',
     user: 'research_and_script/user.md',
     schema: 'research_and_script/response-schema.json',
     outputKey: 'openai_request',
-    modelEnvKeys: ['RESEARCH_MODEL', 'OPENAI_RESEARCH_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    fallbackModel: 'gpt-4o-mini',
   },
   idea_ingest: {
     system: 'idea_ingest/system.md',
     user: 'idea_ingest/user.md',
     schema: 'idea_ingest/response-schema.json',
     outputKey: 'openai_request_idea_ingest',
-    modelEnvKeys: ['IDEA_INGEST_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    fallbackModel: 'gpt-4o-mini',
   },
   idea_prompt_profile: {
     system: 'idea_prompt_profile/system.md',
     user: 'idea_prompt_profile/user.md',
     schema: 'idea_prompt_profile/response-schema.json',
     outputKey: 'openai_request_idea_prompt_profile',
-    modelEnvKeys: ['IDEA_PROMPT_PROFILE_MODEL', 'PROMPT_BUILDER_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    anthropicModelEnvKeys: ['IDEA_PROMPT_PROFILE_ANTHROPIC_MODEL', 'PROMPT_BUILDER_ANTHROPIC_MODEL', 'TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'],
-    fallbackModel: 'gpt-4o-mini',
   },
   story_package_generation: {
     system: 'story_package_generation/system.md',
     user: 'story_package_generation/user.md',
     schema: 'story_package_generation/response-schema.json',
     outputKey: 'openai_request_story_package_generation',
-    modelEnvKeys: ['STORY_PACKAGE_MODEL', 'PREMIUM_TEXT_MODEL', 'OPENAI_STORY_PACKAGE_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    anthropicModelEnvKeys: ['STORY_PACKAGE_ANTHROPIC_MODEL', 'PREMIUM_TEXT_ANTHROPIC_MODEL', 'TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'],
-    fallbackModel: 'gpt-4.1',
   },
   story_package_generation_v2: {
     system: 'workflow/story_package_generation_v2.md',
     user: 'workflow/story_package_generation_v2_user.md',
     schema: 'schemas/story_package.schema.json',
     outputKey: 'openai_request_story_package_generation_v2',
-    modelEnvKeys: ['STORY_PACKAGE_V2_MODEL', 'STORY_PACKAGE_MODEL', 'PREMIUM_TEXT_MODEL', 'OPENAI_STORY_PACKAGE_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    anthropicModelEnvKeys: ['STORY_PACKAGE_V2_ANTHROPIC_MODEL', 'STORY_PACKAGE_ANTHROPIC_MODEL', 'PREMIUM_TEXT_ANTHROPIC_MODEL', 'TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'],
-    fallbackModel: 'gpt-4.1',
   },
   storyboard_and_prompts: {
     system: 'storyboard_and_prompts/system.md',
     user: 'storyboard_and_prompts/user.md',
     schema: 'storyboard_and_prompts/response-schema.json',
     outputKey: 'openai_request',
-    modelEnvKeys: ['STORYBOARD_MODEL', 'OPENAI_STORYBOARD_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    fallbackModel: 'gpt-4o-mini',
+  },
+  storyboard_and_shot_plan: {
+    system: 'workflow/storyboard_and_shot_plan.md',
+    userText: 'Return the renderer-neutral storyboard and shot plan as JSON only.',
+    schema: 'schemas/storyboard.schema.json',
+    outputKey: 'openai_request_storyboard_and_shot_plan',
   },
   caption_and_hashtags: {
     system: 'caption_and_hashtags/system.md',
     user: 'caption_and_hashtags/user.md',
     schema: 'caption_and_hashtags/response-schema.json',
     outputKey: 'openai_request_caption_and_hashtags',
-    modelEnvKeys: ['CAPTION_MODEL', 'OPENAI_CAPTION_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    fallbackModel: 'gpt-4o-mini',
   },
   prompt_builder: {
     system: 'prompt_builder/system.md',
     user: 'prompt_builder/user.md',
     schema: 'prompt_builder/response-schema.json',
     outputKey: 'openai_request_prompt_builder',
-    modelEnvKeys: ['PROMPT_BUILDER_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    fallbackModel: 'gpt-4o-mini',
   },
   visual_prompt_builder: {
     system: 'workflow/visual_prompt_builder.md',
     userText: 'Return the final provider-neutral visual prompt plan as JSON only.',
     schema: 'schemas/visual_prompt.schema.json',
     outputKey: 'openai_request_visual_prompt_builder',
-    modelEnvKeys: ['VISUAL_PROMPT_MODEL', 'PROMPT_BUILDER_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    fallbackModel: 'gpt-4.1-mini',
-    anthropicFallbackModel: 'claude-sonnet-4-6',
   },
   voice_performance_script: {
     system: 'workflow/voice_performance_script.md',
     userText: 'Return the voice performance metadata as JSON only.',
     schema: 'schemas/voice_performance.schema.json',
     outputKey: 'openai_request_voice_performance_script',
-    modelEnvKeys: ['VOICE_PERFORMANCE_MODEL', 'PREMIUM_TEXT_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    fallbackModel: 'gpt-4.1-mini',
-    anthropicFallbackModel: 'claude-sonnet-4-6',
   },
   avatar_presenter_selector: {
     system: 'workflow/avatar_video_selector.md',
     userText: 'Return the avatar route decision as JSON only.',
     schema: 'schemas/avatar_decision.schema.json',
     outputKey: 'openai_request_avatar_presenter_selector',
-    modelEnvKeys: ['AVATAR_MODEL', 'PREMIUM_TEXT_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    fallbackModel: 'gpt-4.1-mini',
-    anthropicFallbackModel: 'claude-sonnet-4-6',
+  },
+  hybrid_media_planner: {
+    system: 'workflow/hybrid_media_planner.md',
+    userText: 'Return the hybrid media plan as JSON only.',
+    schema: 'schemas/hybrid_media_plan.schema.json',
+    outputKey: 'openai_request_hybrid_media_planner',
   },
   final_qa_validator: {
     system: 'workflow/final_qa_validator.md',
     userText: 'Return the final QA verdict as JSON only.',
     schema: 'schemas/qa_result.schema.json',
     outputKey: 'openai_request_final_qa_validator',
-    modelEnvKeys: ['FINAL_QA_MODEL', 'PREMIUM_TEXT_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    fallbackModel: 'gpt-4.1',
-    anthropicFallbackModel: 'claude-sonnet-4-6',
   },
   performance_feedback_analysis: {
     system: 'workflow/performance_feedback_analysis.md',
     userText: 'Return the reusable performance guidance as JSON only.',
     schema: 'schemas/performance_guidance.schema.json',
     outputKey: 'openai_request_performance_feedback_analysis',
-    modelEnvKeys: ['PERFORMANCE_FEEDBACK_MODEL', 'PREMIUM_TEXT_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
-    fallbackModel: 'gpt-4.1-mini',
-    anthropicFallbackModel: 'claude-sonnet-4-6',
   },
 };
 
-function stageEnvPrefix(stageKey) {
-  const normalized = String(stageKey || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  const mapping = {
-    storyboard_and_prompts: 'STORYBOARD',
-    caption_and_hashtags: 'CAPTION',
-    research_and_script: 'RESEARCH',
-    director_contract: 'DIRECTOR',
-    director: 'DIRECTOR',
-    idea_prompt_profile: 'PROMPT_BUILDER',
-    story_package_generation: 'STORY_PACKAGE',
-    story_package_generation_v2: 'STORY_PACKAGE_V2',
-    visual_prompt_builder: 'VISUAL_PROMPT',
-    voice_performance_script: 'VOICE_PERFORMANCE',
-    avatar_presenter_selector: 'AVATAR',
-    final_qa_validator: 'FINAL_QA',
-    performance_feedback_analysis: 'PERFORMANCE_FEEDBACK',
-  };
-  return mapping[normalized] || normalized.toUpperCase();
-}
+const DEFAULT_OPENAI_TEXT_MODEL = 'gpt-4.1-mini';
+const DEFAULT_ANTHROPIC_TEXT_MODEL = 'claude-sonnet-4-6';
 
-function selectStageModel(stageKey, stage, provider) {
+function textModelEnvKeysForStage(stageKey, provider) {
+  const normalizedStage = String(stageKey || '').trim().toLowerCase();
   const normalizedProvider = String(provider || 'openai').trim().toLowerCase();
   if (normalizedProvider === 'anthropic' || normalizedProvider === 'claude') {
-    const prefix = stageEnvPrefix(stageKey);
-    const model = selectModel(
-      stage.anthropicModelEnvKeys || [
-        `${prefix}_ANTHROPIC_MODEL`,
-        'PREMIUM_TEXT_ANTHROPIC_MODEL',
-        'TEXT_ANTHROPIC_MODEL',
-        'ANTHROPIC_TEXT_MODEL',
-        'ANTHROPIC_MODEL',
-      ],
-      stage.anthropicFallbackModel || 'claude-sonnet-4-6',
-    );
-    return model;
+    if (normalizedStage === 'caption_and_hashtags') {
+      return ['CAPTION_ANTHROPIC_MODEL', 'TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'];
+    }
+    if (normalizedStage === 'final_qa_validator') {
+      return ['FINAL_QA_ANTHROPIC_MODEL', 'TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'];
+    }
+    return ['TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'];
   }
-  return selectModel(stage.modelEnvKeys, stage.fallbackModel);
+  if (normalizedStage === 'caption_and_hashtags') {
+    return ['CAPTION_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'];
+  }
+  if (normalizedStage === 'final_qa_validator') {
+    return ['FINAL_QA_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'];
+  }
+  return ['TEXT_MODEL', 'OPENAI_TEXT_MODEL'];
+}
+
+function selectStageModel(stageKey, _stage, provider) {
+  const normalizedProvider = String(provider || 'openai').trim().toLowerCase();
+  const fallback = normalizedProvider === 'anthropic' || normalizedProvider === 'claude'
+    ? DEFAULT_ANTHROPIC_TEXT_MODEL
+    : DEFAULT_OPENAI_TEXT_MODEL;
+  return selectModel(textModelEnvKeysForStage(stageKey, provider), fallback);
 }
 
 export async function buildStageRequest(stageKey, payload) {

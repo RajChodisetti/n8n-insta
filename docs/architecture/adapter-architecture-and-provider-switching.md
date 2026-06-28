@@ -6,7 +6,7 @@ The practical rule is:
 
 - prompts stay in [prompts/](/Users/rajchodisetti/n8n-insta/prompts/README.md)
 - workflows prepare generic payloads
-- adapter scripts choose the provider, model, voice, render engine, and asset host from `.env`
+- adapter scripts choose the shared text provider/model, media models, voice, render engine, and asset host from `.env`
 - unsupported providers fail fast with a clear adapter error instead of silently falling back
 
 ## What Is Adapterized
@@ -33,7 +33,7 @@ Current adapter entry points:
 
 Implemented today:
 
-- text generation: `openai`
+- text generation: `openai`, `anthropic`
 - image generation: `openai`, `fal_ai`
 - scene video generation: `fal_ai` / Wan helpers
 - narration / TTS: `openai`, `fish_audio`, `smallest_ai`
@@ -43,7 +43,7 @@ Implemented today:
 
 Pluggable but not implemented yet:
 
-- text generation: any non-OpenAI provider you add later
+- text generation: any non-OpenAI/Anthropic provider you add later
 - image generation: any new provider you add later
 - narration / TTS: any new provider you add later
 - render provider: providers such as `seedance`
@@ -62,20 +62,20 @@ These are the main knobs you change in `.env`.
 ### Text
 
 - `TEXT_LLM_PROVIDER`
-- `RESEARCH_LLM_PROVIDER`
-- `STORYBOARD_LLM_PROVIDER`
-- `CAPTION_LLM_PROVIDER`
 - `TEXT_MODEL`
-- `RESEARCH_MODEL`
-- `STORYBOARD_MODEL`
+- `TEXT_ANTHROPIC_MODEL`
 - `CAPTION_MODEL`
+- `CAPTION_ANTHROPIC_MODEL`
+- `FINAL_QA_MODEL`
+- `FINAL_QA_ANTHROPIC_MODEL`
 
 Fallback compatibility:
 
 - `OPENAI_TEXT_MODEL`
-- `OPENAI_RESEARCH_MODEL`
-- `OPENAI_STORYBOARD_MODEL`
-- `OPENAI_CAPTION_MODEL`
+- `ANTHROPIC_TEXT_MODEL`
+- `ANTHROPIC_MODEL`
+
+The structured text stages intentionally share one provider. Prompt-generation stages share one model choice. Captions/hashtags and final QA are the only text stages with separate model overrides; leave those blank to inherit the shared prompt model.
 
 ### Image Generation
 
@@ -220,13 +220,13 @@ Runtime flow:
 
 ### Change only the model, keep the same provider
 
-Example: change storyboard text model.
+Example: change the shared structured-text model.
 
 Edit `.env`:
 
 ```env
-STORYBOARD_LLM_PROVIDER=openai
-STORYBOARD_MODEL=gpt-4.1-mini
+TEXT_LLM_PROVIDER=openai
+TEXT_MODEL=gpt-4.1-mini
 ```
 
 Then recreate `n8n` and rerun the relevant smoke test.

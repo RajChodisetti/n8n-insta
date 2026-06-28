@@ -14,6 +14,8 @@ Read this for n8n workflow changes, pipeline stage changes, provider adapters, a
 - `n8n/*.json`: source-controlled workflow exports.
 - `scripts/adapter_config.mjs`: provider/host selector logic.
 - `scripts/build_prompt_request.mjs`, `scripts/invoke_structured_text_adapter.mjs`: structured text path.
+- `scripts/prompt_stage_defaults.mjs`, `scripts/creative_workflows.mjs`: runtime prompt defaults plus selectable creative workflow role/few-shot injection.
+- `scripts/story_package_v2_compat.mjs` plus code-first `pipeline/stages.mjs`: story package compatibility and active split storyboard merge back into legacy downstream shapes.
 - `scripts/image_generation_adapters.mjs`, `scripts/tts_adapters.mjs`, `scripts/asset_host_adapters.mjs`: provider adapters.
 - `scripts/generate_and_rehost_scene_assets*.mjs`, `generate_and_rehost_narration_audio.mjs`, `generate_and_rehost_post_image.mjs`: media helpers.
 - `scripts/run_resume_aware_reel_pipeline*.mjs`, `execute_workflow_by_name.mjs`, `wait_for_render_completion.mjs`: orchestration helpers.

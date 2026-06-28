@@ -38,6 +38,32 @@
               <span>Idea</span>
               <textarea name="abstract_idea" rows="5" placeholder="Example: a forgotten town reappears when a reservoir dries up."></textarea>
             </label>
+            <fieldset class="creative-workflow-field">
+              <legend>Creative workflow</legend>
+              <div class="creative-workflow-options">
+                <label class="creative-workflow-option">
+                  <input type="radio" name="creative_workflow" value="high_retention_story" checked>
+                  <span>
+                    <strong>High-Retention Story</strong>
+                    <small>Hook-first shorts with stronger curiosity, pacing, and payoff.</small>
+                  </span>
+                </label>
+                <label class="creative-workflow-option">
+                  <input type="radio" name="creative_workflow" value="premium_documentary">
+                  <span>
+                    <strong>Premium Documentary</strong>
+                    <small>Atmospheric narrative with cinematic restraint and deeper context.</small>
+                  </span>
+                </label>
+                <label class="creative-workflow-option">
+                  <input type="radio" name="creative_workflow" value="sales_conversion">
+                  <span>
+                    <strong>Sales / Conversion</strong>
+                    <small>Pain, proof, offer, and CTA structure for business outcomes.</small>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
             <label class="review-toggle">
               <input type="checkbox" name="review_mode" value="true">
               <span>
@@ -48,14 +74,15 @@
             <label class="review-toggle avatar-consent-toggle">
               <input type="checkbox" name="avatar_consent_confirmed" value="true">
               <span>
-                <strong>Use my configured HeyGen avatar and voice for Avatar Reel runs</strong>
-                <small>I have rights and consent to use the configured HeyGen avatar and voice for this generated reel.</small>
+                <strong>Use my configured HeyGen avatar and voice when selected</strong>
+                <small>I have rights and consent to use the configured HeyGen avatar and voice for Avatar or Hybrid Reel runs.</small>
               </span>
             </label>
             <div class="form-actions">
               <button type="submit" class="primary" name="reel_type" value="image">Image Reel</button>
               <button type="submit" class="secondary" name="reel_type" value="video">Video Reel</button>
               <button type="submit" class="secondary" name="reel_type" value="avatar">Avatar Reel</button>
+              <button type="submit" class="secondary" name="reel_type" value="hybrid">Hybrid / Auto Reel</button>
               <span class="inline-status" id="idea-status" aria-live="polite"></span>
             </div>
           </form>

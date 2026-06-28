@@ -13,14 +13,24 @@ const state = {
 };
 
 const DEFAULT_WORKFLOW_KEY = 'wf_end_to_end_reel_generate_and_publish';
+const DEFAULT_CREATIVE_WORKFLOW = 'high_retention_story';
+
+const CREATIVE_WORKFLOW_LABELS = Object.freeze({
+  high_retention_story: 'High-Retention Story',
+  premium_documentary: 'Premium Documentary',
+  sales_conversion: 'Sales / Conversion',
+});
 
 const STAGE_LABELS = {
   idea_ingest: 'Idea',
   story_package_generation: 'Story',
   image_asset_generation: 'Images',
   asset_generation_v3: 'Assets',
+  storyboard_and_shot_plan: 'Storyboard',
   narration_generation: 'Voice',
   voice_performance_script: 'Voice Direction',
+  hybrid_media_planner: 'Media Plan',
+  hybrid_media_generation: 'Hybrid Media',
   avatar_consent_gate: 'Consent',
   avatar_presenter_selector: 'Avatar Route',
   avatar_media_generation: 'Avatar Media',
@@ -41,6 +51,14 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function creativeWorkflowLabel(value) {
+  const key = String(value || '').trim();
+  if (CREATIVE_WORKFLOW_LABELS[key]) return CREATIVE_WORKFLOW_LABELS[key];
+  return key
+    ? key.replace(/[_-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
+    : CREATIVE_WORKFLOW_LABELS[DEFAULT_CREATIVE_WORKFLOW];
 }
 
 function setText(id, value) {
@@ -273,7 +291,7 @@ function renderCredentialGroups(groups = []) {
       <summary>
         <span>
           <strong>Provider Credentials</strong>
-          <small>Set one provider-level key first. Task-specific keys are optional overrides.</small>
+          <small>Set provider-level keys here. Model choices are configured separately above.</small>
         </span>
       </summary>
       <div class="settings-panel-body credential-groups">
@@ -305,9 +323,10 @@ function renderCredentialGroups(groups = []) {
 }
 
 function updateModelRouteVisibility(root = document) {
+  const sharedTextProviderInput = root.querySelector('[data-config-key="TEXT_LLM_PROVIDER"]');
   root.querySelectorAll('[data-model-route]').forEach((route) => {
     const providerInput = route.querySelector('[data-route-provider]');
-    const activeProvider = String(providerInput?.value || route.dataset.activeProvider || '').trim();
+    const activeProvider = String(providerInput?.value || sharedTextProviderInput?.value || route.dataset.activeProvider || '').trim();
     route.querySelectorAll('[data-model-provider]').forEach((field) => {
       const provider = String(field.dataset.modelProvider || '').trim();
       field.hidden = Boolean(activeProvider && provider && provider !== activeProvider);
@@ -451,6 +470,7 @@ function renderTopics() {
         ${renderFailure(topic)}
         <div class="topic-meta">
           <span>Content: ${escapeHtml(topic.status || 'unknown')}</span>
+          ${topic.creative_workflow ? `<span>Creative: ${escapeHtml(creativeWorkflowLabel(topic.creative_workflow))}</span>` : ''}
           <span>Render: ${escapeHtml(topic.render_status || 'none')}</span>
           ${topic.output_video_url && topic.render_status === 'success' ? `<span>Video: <a href="${escapeHtml(topic.output_video_url)}" target="_blank" rel="noopener noreferrer">ready</a></span>` : ''}
           ${topic.render_duration_seconds ? `<span>Duration: ${escapeHtml(Number(topic.render_duration_seconds).toFixed(2))}s</span>` : ''}
@@ -560,16 +580,21 @@ async function submitIdea(event) {
   const formData = new FormData(form);
   const abstractIdea = String(formData.get('abstract_idea') || '').trim();
   const submitterReelType = String(event.submitter?.value || '').trim().toLowerCase();
-  const reelType = ['image', 'video', 'avatar'].includes(submitterReelType)
+  const reelType = ['image', 'video', 'avatar', 'hybrid'].includes(submitterReelType)
     ? submitterReelType
     : 'image';
   const reelLabel = {
     image: 'Image Reel',
     video: 'Video Reel',
     avatar: 'Avatar Reel',
+    hybrid: 'Hybrid / Auto Reel',
   }[reelType] || 'Image Reel';
   const reviewMode = formData.get('review_mode') === 'true';
   const avatarConsentConfirmed = formData.get('avatar_consent_confirmed') === 'true';
+  const selectedCreativeWorkflow = String(formData.get('creative_workflow') || DEFAULT_CREATIVE_WORKFLOW).trim();
+  const creativeWorkflow = Object.hasOwn(CREATIVE_WORKFLOW_LABELS, selectedCreativeWorkflow)
+    ? selectedCreativeWorkflow
+    : DEFAULT_CREATIVE_WORKFLOW;
   if (!abstractIdea) {
     setText('idea-status', 'Enter an idea first.');
     return;
@@ -578,15 +603,16 @@ async function submitIdea(event) {
     setText('idea-status', 'Confirm HeyGen avatar and voice consent before queueing an Avatar Reel.');
     return;
   }
-  setText('idea-status', `Injecting idea and queueing ${reelLabel} pipeline...`);
+  setText('idea-status', `Injecting idea and queueing ${reelLabel} with ${creativeWorkflowLabel(creativeWorkflow)}...`);
   const payload = await api('/api/ideas/auto-publish', {
     method: 'POST',
     body: JSON.stringify({
       abstract_idea: abstractIdea,
       reel_type: reelType,
+      creative_workflow: creativeWorkflow,
       workflow_key: DEFAULT_WORKFLOW_KEY,
       review_mode: reviewMode,
-      avatar_consent_confirmed: reelType === 'avatar' && avatarConsentConfirmed,
+      avatar_consent_confirmed: ['avatar', 'hybrid'].includes(reelType) && avatarConsentConfirmed,
     }),
   });
   form.reset();

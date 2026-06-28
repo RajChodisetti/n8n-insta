@@ -197,6 +197,11 @@ export function mapStoryPackageV2ToLegacyResponse(v2 = {}, options = {}) {
   const title = asString(options.title, researchBrief.topic);
   const reelType = normalizeReelType(options.reelType);
   const targetDurationSeconds = asPositiveNumber(options.targetDurationSeconds, researchBrief.target_duration_seconds || cleanScript.estimated_duration_seconds || 45);
+  const sceneContractJson = {
+    expected_scene_count: scenes.length,
+    expected_total_duration_seconds: targetDurationSeconds,
+    scene_count_rationale: `Mapped ${scenes.length} clean-script scene beats into matching legacy scene_guidance_json and storyboard_json arrays.`,
+  };
   const musicDirection = firstNonEmpty(
     captionSeed.music_direction,
     v2.downstream_constraints?.music_sfx_constraints?.music_brief,
@@ -266,6 +271,7 @@ export function mapStoryPackageV2ToLegacyResponse(v2 = {}, options = {}) {
       scene_number: scene.scene_number,
       text: slugWords(scene.beat_label.replaceAll('_', ' '), 5) || `Scene ${scene.scene_number}`,
     })),
+    scene_contract_json: sceneContractJson,
     scene_guidance_json: sceneGuidanceJson,
     storyboard_json: storyboardJson,
     cover_prompt: buildVisualText(v2, scenes[0], 0),

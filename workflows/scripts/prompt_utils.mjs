@@ -80,6 +80,11 @@ const PROMPT_STEP_METADATA = Object.freeze({
     stepTitle: 'Storyboard & Prompts',
     label: 'User Prompt',
   },
+  'workflow/storyboard_and_shot_plan.md': {
+    stepKey: 'storyboard_and_shot_plan',
+    stepTitle: 'Storyboard & Shot Plan',
+    label: 'Storyboard Split Contract',
+  },
   'caption_and_hashtags/system.md': {
     stepKey: 'caption_and_hashtags',
     stepTitle: 'Caption & Hashtags',
@@ -115,6 +120,11 @@ const PROMPT_STEP_METADATA = Object.freeze({
     stepTitle: 'Avatar Presenter Selector',
     label: 'Avatar Route Contract',
   },
+  'workflow/hybrid_media_planner.md': {
+    stepKey: 'hybrid_media_planner',
+    stepTitle: 'Hybrid Media Planner',
+    label: 'Hybrid Media Contract',
+  },
   'workflow/final_qa_validator.md': {
     stepKey: 'final_qa_validator',
     stepTitle: 'Final QA Validator',
@@ -135,10 +145,12 @@ const DEFAULT_RUNTIME_PROMPT_BUILDER_TARGETS = Object.freeze([
   'story_package_generation',
   'research_and_script',
   'director_contract',
+  'storyboard_and_shot_plan',
   'storyboard_and_prompts',
   'visual_prompt_builder',
   'voice_performance_script',
   'avatar_presenter_selector',
+  'hybrid_media_planner',
   'caption_and_hashtags',
   'final_qa_validator',
 ]);
@@ -331,7 +343,7 @@ async function loadRenderedPromptAssetInternal(relativePath, templateData = {}, 
 async function invokeOpenAiStructuredRequest(request) {
   const apiKey = String(selectTextApiKey('prompt_builder', 'openai')).trim();
   if (!apiKey) {
-    throw new Error('Set PROMPT_BUILDER_OPENAI_API_KEY, TEXT_OPENAI_API_KEY, or OPENAI_API_KEY before using the runtime prompt builder. For backward compatibility, LLL_API_KEY is also accepted.');
+    throw new Error('Set TEXT_OPENAI_API_KEY or OPENAI_API_KEY before using the runtime prompt builder. For backward compatibility, LLL_API_KEY is also accepted.');
   }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -422,7 +434,7 @@ function parseStructuredJsonText(text, providerName) {
 async function invokeAnthropicStructuredRequest(request) {
   const apiKey = String(selectTextApiKey('prompt_builder', 'anthropic')).trim();
   if (!apiKey) {
-    throw new Error('Set PROMPT_BUILDER_ANTHROPIC_API_KEY, TEXT_ANTHROPIC_API_KEY, or ANTHROPIC_API_KEY before using the runtime prompt builder with Anthropic.');
+    throw new Error('Set TEXT_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY before using the runtime prompt builder with Anthropic.');
   }
 
   const { system, messages } = anthropicSystemAndMessages(request.messages);
@@ -490,11 +502,11 @@ function selectRuntimePromptBuilderModel(provider) {
   const normalizedProvider = String(provider || 'openai').trim().toLowerCase();
   if (normalizedProvider === 'anthropic' || normalizedProvider === 'claude') {
     return selectModel(
-      ['PROMPT_BUILDER_ANTHROPIC_MODEL', 'TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'],
+      ['TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'],
       'claude-sonnet-4-6',
     );
   }
-  return selectModel(['PROMPT_BUILDER_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'], 'gpt-4o-mini');
+  return selectModel(['TEXT_MODEL', 'OPENAI_TEXT_MODEL'], 'gpt-4.1-mini');
 }
 
 export async function buildRuntimePromptDraft(relativePath, currentPrompt, runtimePromptBuilderConfig = null) {

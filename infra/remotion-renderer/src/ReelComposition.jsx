@@ -29,6 +29,8 @@ function timelineFromProps(props) {
       duration_seconds: Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : Math.max(endSeconds - startSeconds, 0.5),
       asset_url: trimString(scene.asset_url),
       asset_type: trimString(scene.asset_type).toLowerCase(),
+      asset_role: trimString(scene.asset_role).toLowerCase(),
+      audio_mode: trimString(scene.audio_mode).toLowerCase(),
       narration_url: trimString(scene.narration_url),
       narration_duration_seconds: Number(scene.narration_duration_seconds ?? scene.duration_seconds ?? 0),
       narration_tail_padding_seconds: Number(scene.narration_tail_padding_seconds ?? 0),
@@ -407,7 +409,7 @@ export function ReelComposition(props) {
   const { fps } = useVideoConfig();
   const timeline = timelineFromProps(props);
   const narration = props?.render_manifest?.audio?.narration || props?.audio?.narration || {};
-  const usesEmbeddedAvatarAudio = trimString(narration.mode) === 'embedded_avatar' || trimString(props.render_mode) === 'avatar';
+  const globalEmbeddedAvatarAudio = trimString(narration.mode) === 'embedded_avatar' || trimString(props.render_mode) === 'avatar';
   const narrationByScene = new Map(
     Array.isArray(narration.scenes)
       ? narration.scenes.map((scene) => [Number(scene.scene_number), trimString(scene.storage_url)])
@@ -420,6 +422,9 @@ export function ReelComposition(props) {
         const from = Math.max(0, Math.round(scene.start_time_seconds * fps));
         const durationInFrames = Math.max(1, Math.round(scene.duration_seconds * fps));
         const narrationUrl = scene.narration_url || narrationByScene.get(scene.scene_number) || '';
+        const sceneUsesEmbeddedAudio = trimString(scene.audio_mode) === 'embedded_avatar'
+          || trimString(scene.asset_role) === 'avatar_video'
+          || (globalEmbeddedAvatarAudio && assetTypeFor(scene) === 'video');
         return (
           <Sequence
             key={`${scene.scene_number}-${scene.asset_url}`}
@@ -427,8 +432,8 @@ export function ReelComposition(props) {
             durationInFrames={durationInFrames}
             premountFor={Math.round(0.5 * fps)}
           >
-            <SceneVisual scene={scene} muted={!usesEmbeddedAvatarAudio} />
-            {!usesEmbeddedAvatarAudio && narrationUrl ? <NarrationAudio src={narrationUrl} scene={scene} /> : null}
+            <SceneVisual scene={scene} muted={!sceneUsesEmbeddedAudio} />
+            {!sceneUsesEmbeddedAudio && narrationUrl ? <NarrationAudio src={narrationUrl} scene={scene} /> : null}
           </Sequence>
         );
       })}

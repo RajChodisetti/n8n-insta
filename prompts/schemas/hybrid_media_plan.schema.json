@@ -1,0 +1,166 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hybrid_media_plan_version",
+    "source_stage",
+    "created_at",
+    "run_strategy",
+    "summary",
+    "fallback_policy",
+    "segments",
+    "quality_gates",
+    "implementation_notes"
+  ],
+  "properties": {
+    "hybrid_media_plan_version": {
+      "type": "string",
+      "enum": ["1.0"]
+    },
+    "source_stage": {
+      "type": "string",
+      "enum": ["hybrid_media_planner"]
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_strategy": {
+      "type": "string",
+      "enum": ["mixed_avatar_scene", "avatar_only", "scene_video_only", "image_motion_only"]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_rationale",
+        "avatar_segments",
+        "scene_video_segments",
+        "image_motion_segments",
+        "provider_video_required"
+      ],
+      "properties": {
+        "plan_rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "avatar_segments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scene_video_segments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "image_motion_segments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "provider_video_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "fallback_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "avatar_failure",
+        "scene_video_failure",
+        "allow_video_to_image_fallback"
+      ],
+      "properties": {
+        "avatar_failure": {
+          "type": "string",
+          "enum": ["fail", "scene_video", "scene_image_motion"]
+        },
+        "scene_video_failure": {
+          "type": "string",
+          "enum": ["fail", "scene_image_motion"]
+        },
+        "allow_video_to_image_fallback": {
+          "type": "boolean"
+        }
+      }
+    },
+    "segments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scene_number",
+          "media_type",
+          "provider",
+          "script_text",
+          "audio_mode",
+          "asset_plan_mode",
+          "fallback_media_type",
+          "rationale"
+        ],
+        "properties": {
+          "scene_number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "media_type": {
+            "type": "string",
+            "enum": ["avatar_video", "scene_video", "scene_image_motion"]
+          },
+          "provider": {
+            "type": "string",
+            "enum": ["heygen", "fal_ai_wan", "scene_image"]
+          },
+          "script_text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "audio_mode": {
+            "type": "string",
+            "enum": ["embedded_avatar", "scene_narration"]
+          },
+          "asset_plan_mode": {
+            "type": "string",
+            "enum": ["video", "image_with_motion"]
+          },
+          "fallback_media_type": {
+            "type": "string",
+            "enum": ["fail", "scene_video", "scene_image_motion"]
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "quality_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "avatar_consent_checked",
+        "provider_availability_checked",
+        "no_silent_downgrade"
+      ],
+      "properties": {
+        "avatar_consent_checked": {
+          "type": "boolean"
+        },
+        "provider_availability_checked": {
+          "type": "boolean"
+        },
+        "no_silent_downgrade": {
+          "type": "boolean"
+        }
+      }
+    },
+    "implementation_notes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

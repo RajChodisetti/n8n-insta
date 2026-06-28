@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
 import { normalizePromptProfile } from './prompt_profile_contract.mjs';
+import {
+  DEFAULT_CREATIVE_WORKFLOW_ID,
+  creativeWorkflowPromptData,
+  normalizeCreativeWorkflowId,
+} from './creative_workflows.mjs';
 
 const FIXED_PIPELINE_CONTENT_LANGUAGE = 'English';
 const DEFAULT_RULE_REGISTRY_SUMMARY = 'Use the global rule registry concepts: brand_safety, visual_consistency, voice, music_sfx, avatar, editing, provider_routing, platform_publishing, and approval. Treat blocking rules as publish blockers.';
@@ -35,6 +40,27 @@ function jsonString(value, fallback = '{}') {
     return fallback;
   }
   return JSON.stringify(value, null, 2);
+}
+
+function resolveCreativeWorkflowId(templateData = {}) {
+  return normalizeCreativeWorkflowId(
+    firstNonEmpty(
+      templateData.creative_workflow,
+      templateData.creativeWorkflow,
+      templateData.creative_workflow_id,
+      templateData.source_payload_json?.creative_workflow,
+      templateData.source_payload?.creative_workflow,
+      templateData.creative_defaults?.creative_workflow,
+      process.env.DEFAULT_CREATIVE_WORKFLOW,
+    ),
+    { fallback: DEFAULT_CREATIVE_WORKFLOW_ID },
+  );
+}
+
+function applyCreativeWorkflowDefaults(merged) {
+  const workflowData = creativeWorkflowPromptData(resolveCreativeWorkflowId(merged));
+  Object.assign(merged, workflowData);
+  merged.creative_workflow = workflowData.creative_workflow_id;
 }
 
 function summarizeClientAccountContext(context = {}) {
@@ -208,6 +234,8 @@ function resolveLanguageGuidance(stageKey, language, existingValue = '') {
       return 'Keep spoken words in natural English and put emotion, intent, pacing, pauses, and emphasis into delivery instructions instead of audible stage directions.';
     case 'avatar_presenter_selector':
       return 'Keep avatar presenter direction separate from the spoken narration script. Treat direction as provider instructions and metadata, not words to be read aloud.';
+    case 'hybrid_media_planner':
+      return 'Keep media-routing decisions separate from spoken narration. Choose avatar, scene video, or image motion per scene without changing the spoken English beat.';
     case 'visual_prompt_builder':
       return 'Keep generated visual prompts text-free and tied to the spoken English story beat.';
     case 'final_qa_validator':
@@ -360,6 +388,7 @@ export function resolveStagePromptTemplateData(stageKey, templateData = {}) {
   delete merged.prompt_profile;
   delete merged.promptProfile;
   applyClientAccountContextDefaults(merged);
+  applyCreativeWorkflowDefaults(merged);
   const language = resolveStageLanguage(stageKey, merged.content_language);
 
   merged.content_language = language;
@@ -390,7 +419,7 @@ export function resolveStagePromptTemplateData(stageKey, templateData = {}) {
     );
   }
 
-  if (stageKey === 'storyboard_and_prompts') {
+  if (stageKey === 'storyboard_and_prompts' || stageKey === 'storyboard_and_shot_plan') {
     merged.storyboard_timing_guidance = resolveStoryboardTimingGuidance(merged);
     merged.narration_alignment_guidance = resolveStoryboardAlignmentGuidance(merged);
     merged.render_timing_guidance = resolveRenderTimingGuidance(merged);
@@ -505,6 +534,34 @@ export function resolveStagePromptTemplateData(stageKey, templateData = {}) {
     merged.heygen_capability_summary = firstNonEmpty(
       merged.heygen_capability_summary,
       'HeyGen create-video request options may include aspect_ratio, resolution, captions/caption, fit, background, voice_settings, motion_prompt, expressiveness, and engine when supported. Do not include secrets or unsupported provider-specific hacks.',
+    );
+  }
+
+  if (stageKey === 'hybrid_media_planner') {
+    const directorContract = plainObject(merged.director_contract ?? merged.director_json);
+    const storyboardPlan = Array.isArray(merged.storyboard_plan ?? merged.storyboard_json)
+      ? (merged.storyboard_plan ?? merged.storyboard_json)
+      : [];
+    const storyPackageContext = plainObject(merged.story_package_context ?? merged.story_package_json ?? merged.story_package);
+    const visualPromptPlan = plainObject(merged.visual_prompt_plan ?? merged.visual_prompt_plan_json);
+    const avatarProviderInventory = plainObject(merged.avatar_provider_inventory ?? merged.provider_inventory);
+    const mediaProviderInventory = plainObject(merged.media_provider_inventory);
+    merged.package_type = firstNonEmpty(merged.package_type, 'instagram_reel');
+    merged.selected_style_pack = firstNonEmpty(
+      merged.selected_style_pack,
+      directorContract.selected_style_pack,
+      merged.preferred_style_pack_id,
+      'cinematic_problem_solution',
+    );
+    merged.story_package_context_json = jsonString(merged.story_package_context_json || storyPackageContext);
+    merged.director_contract_json = jsonString(merged.director_contract_json || directorContract);
+    merged.storyboard_plan_json = jsonString(merged.storyboard_plan_json || storyboardPlan, '[]');
+    merged.visual_prompt_plan_json = jsonString(merged.visual_prompt_plan_json || visualPromptPlan);
+    merged.avatar_provider_inventory_json = jsonString(merged.avatar_provider_inventory_json || avatarProviderInventory);
+    merged.media_provider_inventory_json = jsonString(merged.media_provider_inventory_json || mediaProviderInventory);
+    merged.hybrid_rules_summary = firstNonEmpty(
+      merged.hybrid_rules_summary,
+      'Hybrid planning may combine HeyGen avatar clips, Fal/Wan scene video, and image-with-Remotion-motion scenes. Avatar requires explicit policy and consent metadata. Provider-video failures should fail unless fallback is explicitly allowed. Uploaded character references are creative context only, never consent evidence.',
     );
   }
 

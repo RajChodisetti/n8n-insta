@@ -239,6 +239,27 @@ function assertStoryPackageSceneArrays(response) {
   }
 }
 
+function assertStoryPackageSceneContract(response, targetDurationSeconds) {
+  const contract = plainObject(response.scene_contract_json);
+  const expectedSceneCount = Number.parseInt(contract.expected_scene_count, 10);
+  if (!Number.isInteger(expectedSceneCount) || expectedSceneCount < 4 || expectedSceneCount > 8) {
+    fail('story package scene_contract_json.expected_scene_count must be an integer from 4 to 8.');
+  }
+  const guidanceCount = sceneArrayCount(response.scene_guidance_json);
+  const storyboardCount = sceneArrayCount(response.storyboard_json);
+  if (expectedSceneCount !== guidanceCount || expectedSceneCount !== storyboardCount) {
+    fail(`story package scene contract mismatch: expected_scene_count=${expectedSceneCount}, scene_guidance_json=${guidanceCount}, storyboard_json=${storyboardCount}.`);
+  }
+  const expectedDuration = Number(contract.expected_total_duration_seconds);
+  const targetDuration = Number(targetDurationSeconds || 0);
+  if (!Number.isFinite(expectedDuration) || expectedDuration <= 0) {
+    fail('story package scene_contract_json.expected_total_duration_seconds must be a positive number.');
+  }
+  if (Number.isFinite(targetDuration) && targetDuration > 0 && Math.abs(expectedDuration - targetDuration) > 2) {
+    fail(`story package scene_contract_json.expected_total_duration_seconds (${expectedDuration}) must stay within 2 seconds of target_duration_seconds (${targetDuration}).`);
+  }
+}
+
 function splitFaceImageTitleWords(value) {
   return normalizeWhitespace(String(value || '').replace(/[^\p{L}\p{N}'’ -]+/gu, ' '))
     .split(/\s+/)
@@ -618,7 +639,7 @@ function normalizeTimedScenes(scenes, fieldName, { title = '', reelType = 'video
   return scenes.map((scene, index) => {
     const isFirstScene = index === 0;
     const rawDurationSeconds = roundToHundredths(Number(scene?.duration_seconds ?? 0));
-    const durationSeconds = isFirstScene
+    const durationSeconds = fieldName !== 'scene_guidance_json' && isFirstScene
       ? roundToHundredths(Math.min(rawDurationSeconds, 4))
       : rawDurationSeconds;
     const assetPlan = normalizeAssetPlan({ ...scene, duration_seconds: durationSeconds }, index, { reelType });
@@ -803,6 +824,7 @@ async function main() {
         confidence_context: `Current stored confidence label: ${confidenceLabel}. Preserve or lower certainty unless the source notes clearly support a stronger confidence label.`,
         source_notes: sourceNotes,
         reel_type: reelType,
+        creative_workflow: String(sourcePayload.creative_workflow || '').trim(),
         asset_generation_mode: reelType === 'video'
           ? 'Video Reel: generate provider video directly for every storyboard scene. Do not plan an image-first reel. Remotion should still handle final pacing, overlays, title, and scene transitions.'
           : 'Image Reel: generate still scene assets and use Remotion for camera moves, pan/zoom, overlays, pacing, and transitions. Default scenes to image_with_motion unless a scene should remain static.',
@@ -839,6 +861,7 @@ async function main() {
       fail('story package narration_script is a pipeline-meta no-narration instruction instead of usable spoken/story content.');
     }
     assertStoryPackageSceneArrays(response);
+    assertStoryPackageSceneContract(response, targetDurationSeconds);
     const repairedSceneTargetCount = targetSceneCountForRepair(
       response.scene_guidance_json,
       response.storyboard_json,
@@ -940,6 +963,7 @@ async function main() {
       provider_metadata: result.provider_metadata ?? {},
       scene_count_repairs: sceneCountRepairs,
       metadata_repairs: metadataRepairs,
+      scene_contract_json: response.scene_contract_json ?? {},
       creative_direction_json: response.creative_direction_json ?? {},
       scene_guidance_json: sceneGuidanceJson,
       parsed_response: { ...response, scene_guidance_json: sceneGuidanceJson },
@@ -954,6 +978,7 @@ async function main() {
       provider_metadata: scriptRawResponse.provider_metadata,
       scene_count_repairs: sceneCountRepairs,
       metadata_repairs: metadataRepairs,
+      scene_contract_json: response.scene_contract_json ?? {},
       script_scene_guidance_json: sceneGuidanceJson,
       creative_direction_json: response.creative_direction_json ?? {},
       parsed_response: { ...response, storyboard_json: storyboardJson },

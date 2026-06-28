@@ -235,6 +235,61 @@ a.secondary:hover {
   gap: 14px;
 }
 
+.creative-workflow-field {
+  margin: 0;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.creative-workflow-field legend {
+  padding: 0 5px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.creative-workflow-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.creative-workflow-option {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.creative-workflow-option input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.creative-workflow-option span {
+  min-width: 0;
+}
+
+.creative-workflow-option strong,
+.creative-workflow-option small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.creative-workflow-option small {
+  margin-top: 3px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
 label > span {
   display: block;
   font-weight: 700;
@@ -724,6 +779,10 @@ label > span {
   }
 
   .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .creative-workflow-options {
     grid-template-columns: 1fr;
   }
 

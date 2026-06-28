@@ -18,6 +18,11 @@ import {
   normalizePromptProfile,
 } from '../workflows/scripts/prompt_profile_contract.mjs';
 import {
+  DEFAULT_CREATIVE_WORKFLOW_ID,
+  creativeWorkflowOptions,
+  normalizeCreativeWorkflowId,
+} from '../workflows/scripts/creative_workflows.mjs';
+import {
   PIPELINE_ACTION_LABELS,
   REEL_TYPE_LABELS,
   REEL_TYPES,
@@ -163,6 +168,14 @@ const PROMPT_STEP_GROUPS = Object.freeze([
     ],
   },
   {
+    stepKey: 'storyboard_and_shot_plan',
+    stepTitle: 'Storyboard & Shot Plan',
+    files: [
+      { path: 'workflow/storyboard_and_shot_plan.md', label: 'Storyboard Split Contract' },
+      { path: 'schemas/storyboard.schema.json', label: 'Response Schema' },
+    ],
+  },
+  {
     stepKey: 'caption_and_hashtags',
     stepTitle: 'Caption & Hashtags',
     files: [
@@ -255,6 +268,20 @@ const PLACEHOLDER_HELP = Object.freeze({
     storyboard_timing_guidance: { label: 'Storyboard Timing Guidance', description: 'How scene durations should be planned against the target runtime.', examples: ['Keep most scenes between 4 and 10 seconds.', 'Stay within about 5% of the target duration.'] },
     narration_alignment_guidance: { label: 'Narration Alignment Guidance', description: 'How tightly scenes should map to spoken beats.', examples: ['One clear spoken beat per scene.', 'Do not let a single image cover multiple unrelated narration turns.'] },
     render_timing_guidance: { label: 'Render Timing Guidance', description: 'How scene timing should behave for the downstream render timeline.', examples: ['Use clean timing for a 30fps vertical cut.', 'Avoid chaotic micro-beats under 2 seconds.'] },
+  },
+  storyboard_and_shot_plan: {
+    title: { label: 'Title', description: 'Story title used to anchor the split storyboard plan.', examples: ['Support Became Roadmap', 'Missed Calls Cost Sales'] },
+    category: { label: 'Category', description: 'Category context for scene jobs and risk flags.', examples: ['founder_explainer', 'local_business_promo'] },
+    target_duration_seconds: { label: 'Target Duration', description: 'Desired overall Reel runtime.', examples: ['45', '60'] },
+    narration_script: { label: 'Narration Script', description: 'Clean spoken script that the storyboard split stage must preserve.', examples: ['The roadmap was hiding in the same complaint...'] },
+    director_plan_json: { label: 'Director Plan JSON', description: 'Director contract that the shot plan must complement.', examples: ['{"selected_style_pack":"founder_explainer"}'] },
+    script_scene_guidance_json: { label: 'Script Scene Guidance JSON', description: 'Current scene guidance from the story package or script stage.', examples: ['[{"scene_number":1,"beat_label":"hook"}]'] },
+    current_storyboard_json: { label: 'Current Storyboard JSON', description: 'Existing downstream storyboard shape that the split plan must preserve scene-for-scene.', examples: ['[{"scene_number":1,"duration_seconds":4}]'] },
+    scene_count: { label: 'Scene Count', description: 'Exact number of scenes the split plan must return.', examples: ['4', '7'] },
+    selected_style_pack: { label: 'Selected Style Pack', description: 'Style pack chosen by the director contract.', examples: ['founder_explainer', 'avatar_sales_outreach'] },
+    creative_workflow_label: { label: 'Creative Workflow', description: 'Selected creative strategy for this run.', examples: ['High-Retention Story', 'Sales / Conversion'] },
+    storyboard_timing_guidance: { label: 'Storyboard Timing Guidance', description: 'How scene durations should be refined without changing scene count.', examples: ['Keep scene changes tight and contiguous.'] },
+    narration_alignment_guidance: { label: 'Narration Alignment Guidance', description: 'How tightly scene jobs should map to spoken beats.', examples: ['One scene job per spoken beat.'] },
   },
   caption_and_hashtags: {
     title: { label: 'Title', description: 'Story title that anchors the caption strategy.', examples: ['The Lost Colony of Roanoke', 'The Mary Celeste Mystery'] },
@@ -428,55 +455,68 @@ const WORKFLOWS = [
 const DEFAULT_ABSTRACT_IDEA_WORKFLOW_KEY = 'wf_end_to_end_reel_generate_and_publish';
 const SECRET_VALUE_MASK = '********';
 const TEXT_PROVIDER_OPTIONS = Object.freeze([
-  { value: 'anthropic', label: 'Anthropic Claude', key_env: ['ANTHROPIC_API_KEY', 'TEXT_ANTHROPIC_API_KEY', 'PREMIUM_TEXT_ANTHROPIC_API_KEY'] },
-  { value: 'openai', label: 'OpenAI', key_env: ['OPENAI_API_KEY', 'TEXT_OPENAI_API_KEY', 'PREMIUM_TEXT_OPENAI_API_KEY', 'LLL_API_KEY'] },
+  { value: 'anthropic', label: 'Anthropic Claude', key_env: ['ANTHROPIC_API_KEY', 'TEXT_ANTHROPIC_API_KEY'] },
+  { value: 'openai', label: 'OpenAI', key_env: ['OPENAI_API_KEY', 'TEXT_OPENAI_API_KEY', 'LLL_API_KEY'] },
 ]);
 const MODEL_SUGGESTIONS = Object.freeze({
-  openai_text: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4o-mini'],
-  anthropic_text: ['claude-opus-4-5-20251101', 'claude-sonnet-4-5', 'claude-sonnet-4-5-20250929', 'claude-opus-4-1', 'claude-sonnet-4-20250514', 'claude-sonnet-4-6'],
-  openai_image: ['gpt-image-1', 'gpt-image-1-mini'],
-  fal_image: ['fal-ai/flux/schnell', 'fal-ai/flux/dev', 'fal-ai/imagen4/preview'],
-  fal_video: ['fal-ai/wan-t2v', 'fal-ai/wan/v2.7/reference-to-video'],
-  tts_fish_audio: ['s2-pro', 's1', 'speech-1.6'],
-  tts_openai: ['gpt-4o-mini-tts', 'tts-1', 'tts-1-hd'],
-  tts_smallest_ai: ['lightning-v3.1', 'lightning-v3'],
-  render: ['remotion', 'local_ffmpeg'],
+  openai_text: [
+    { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini (lower cost)' },
+    { value: 'gpt-4.1', label: 'GPT-4.1 (higher quality)' },
+    { value: 'gpt-5-mini', label: 'GPT-5 Mini (premium lower cost)' },
+    { value: 'gpt-5', label: 'GPT-5 (premium)' },
+    { value: 'gpt-5.1', label: 'GPT-5.1 (premium)' },
+    { value: 'gpt-5.2', label: 'GPT-5.2 (premium)' },
+  ],
+  anthropic_text: [
+    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6 (default)' },
+    { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4 (stable)' },
+    { value: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5 (premium)' },
+    { value: 'claude-opus-4-1', label: 'Claude Opus 4.1 (premium)' },
+    { value: 'claude-opus-4-5-20251101', label: 'Claude Opus 4.5 (premium)' },
+  ],
+  openai_image: [
+    { value: 'gpt-image-1-mini', label: 'GPT Image 1 Mini (lower cost)' },
+    { value: 'gpt-image-1', label: 'GPT Image 1 (higher quality)' },
+  ],
+  fal_image: [
+    { value: 'fal-ai/flux/schnell', label: 'Flux Schnell (lower cost)' },
+    { value: 'fal-ai/flux/dev', label: 'Flux Dev (higher quality)' },
+    { value: 'fal-ai/imagen4/preview', label: 'Imagen 4 Preview (premium)' },
+  ],
+  fal_video: [
+    { value: 'fal-ai/wan-t2v', label: 'Wan T2V (default / lower cost)' },
+    { value: 'fal-ai/wan/v2.5/t2v/1.3b', label: 'Wan 2.5 T2V 1.3B (lower cost)' },
+    { value: 'fal-ai/wan/v2.1/t2v/14b', label: 'Wan 2.1 T2V 14B (premium)' },
+    { value: 'fal-ai/wan/v2.7/reference-to-video', label: 'Wan 2.7 Reference-to-Video' },
+  ],
+  tts_fish_audio: [
+    { value: 's2-pro', label: 'Fish Audio S2 Pro' },
+    { value: 's1', label: 'Fish Audio S1' },
+    { value: 'speech-1.6', label: 'Fish Audio Speech 1.6' },
+  ],
+  tts_openai: [
+    { value: 'gpt-4o-mini-tts', label: 'GPT-4o Mini TTS' },
+    { value: 'tts-1', label: 'TTS 1' },
+    { value: 'tts-1-hd', label: 'TTS 1 HD' },
+  ],
+  tts_smallest_ai: [
+    { value: 'lightning-v3.1', label: 'Lightning v3.1' },
+    { value: 'lightning-v3', label: 'Lightning v3' },
+  ],
+  render: [
+    { value: 'remotion', label: 'Remotion' },
+    { value: 'local_ffmpeg', label: 'Local FFmpeg fallback' },
+  ],
 });
 const MODEL_ROUTE_GROUPS = Object.freeze([
   {
-    id: 'defaults',
-    title: 'Fallback Defaults',
-    description: 'Used when a task-specific route is blank.',
+    id: 'downstream-text',
+    title: 'Downstream Prompt Generation',
+    description: 'One text provider is used for structured text. Prompt-generation stages share one model; QA and captions may override only the model.',
     routes: [
-      { label: 'Text fallback', providerKey: 'TEXT_LLM_PROVIDER', openaiModelKey: 'TEXT_MODEL', anthropicModelKey: 'TEXT_ANTHROPIC_MODEL', description: 'General fallback for structured text calls.' },
-      { label: 'Premium text fallback', providerKey: 'PREMIUM_TEXT_LLM_PROVIDER', openaiModelKey: 'PREMIUM_TEXT_MODEL', anthropicModelKey: 'PREMIUM_TEXT_ANTHROPIC_MODEL', description: 'Higher-quality fallback for creative and QA-heavy stages.' },
-      { label: 'Prompt builder fallback', providerKey: 'PROMPT_BUILDER_LLM_PROVIDER', openaiModelKey: 'PROMPT_BUILDER_MODEL', anthropicModelKey: 'PROMPT_BUILDER_ANTHROPIC_MODEL', description: 'Used by the Studio prompt/profile generator.' },
-    ],
-  },
-  {
-    id: 'story',
-    title: 'Story, Script, and Direction',
-    description: 'Creative text stages that shape the Reel.',
-    routes: [
-      { label: 'Idea ingest', providerKey: 'IDEA_INGEST_LLM_PROVIDER', openaiModelKey: 'IDEA_INGEST_MODEL', anthropicModelKey: 'IDEA_INGEST_ANTHROPIC_MODEL', description: 'Turns an abstract idea into a pipeline topic.' },
-      { label: 'Research script', providerKey: 'RESEARCH_LLM_PROVIDER', openaiModelKey: 'RESEARCH_MODEL', anthropicModelKey: 'RESEARCH_ANTHROPIC_MODEL', description: 'Research/script generation path.' },
-      { label: 'Story package', providerKey: 'STORY_PACKAGE_LLM_PROVIDER', openaiModelKey: 'STORY_PACKAGE_MODEL', anthropicModelKey: 'STORY_PACKAGE_ANTHROPIC_MODEL', description: 'Main one-pass story package generation.' },
-      { label: 'Story package V2', providerKey: 'STORY_PACKAGE_V2_LLM_PROVIDER', openaiModelKey: 'STORY_PACKAGE_V2_MODEL', anthropicModelKey: 'STORY_PACKAGE_V2_ANTHROPIC_MODEL', description: 'Optional V2 story package route.' },
-      { label: 'Director contract', providerKey: 'DIRECTOR_LLM_PROVIDER', openaiModelKey: 'DIRECTOR_CONTRACT_MODEL', anthropicModelKey: 'DIRECTOR_CONTRACT_ANTHROPIC_MODEL', description: 'Direction, style, voice, risk, and edit contract.' },
-      { label: 'Storyboard', providerKey: 'STORYBOARD_LLM_PROVIDER', openaiModelKey: 'STORYBOARD_MODEL', anthropicModelKey: 'STORYBOARD_ANTHROPIC_MODEL', description: 'Storyboard and prompt generation when that legacy stage is active.' },
-    ],
-  },
-  {
-    id: 'media',
-    title: 'Visual, Voice, Avatar, QA',
-    description: 'Stages where quality and consistency matter most.',
-    routes: [
-      { label: 'Visual prompt builder', providerKey: 'VISUAL_PROMPT_LLM_PROVIDER', openaiModelKey: 'VISUAL_PROMPT_MODEL', anthropicModelKey: 'VISUAL_PROMPT_ANTHROPIC_MODEL', description: 'Refines image/video prompts before provider calls.' },
-      { label: 'Voice performance', providerKey: 'VOICE_PERFORMANCE_LLM_PROVIDER', openaiModelKey: 'VOICE_PERFORMANCE_MODEL', anthropicModelKey: 'VOICE_PERFORMANCE_ANTHROPIC_MODEL', description: 'Adds human delivery direction without rewriting clean narration.' },
-      { label: 'Avatar selector', providerKey: 'AVATAR_LLM_PROVIDER', openaiModelKey: 'AVATAR_MODEL', anthropicModelKey: 'AVATAR_ANTHROPIC_MODEL', description: 'Avatar route, consent, fallback, disclosure, and presenter direction.' },
-      { label: 'Caption', providerKey: 'CAPTION_LLM_PROVIDER', openaiModelKey: 'CAPTION_MODEL', anthropicModelKey: 'CAPTION_ANTHROPIC_MODEL', description: 'Caption and hashtag generation when LLM captioning is active.' },
-      { label: 'Final QA', providerKey: 'FINAL_QA_LLM_PROVIDER', openaiModelKey: 'FINAL_QA_MODEL', anthropicModelKey: 'FINAL_QA_ANTHROPIC_MODEL', description: 'Strict publish-readiness validation.' },
-      { label: 'Performance feedback', providerKey: 'PERFORMANCE_FEEDBACK_LLM_PROVIDER', openaiModelKey: 'PERFORMANCE_FEEDBACK_MODEL', anthropicModelKey: 'PERFORMANCE_FEEDBACK_ANTHROPIC_MODEL', description: 'Reusable learnings from previous performance.' },
+      { label: 'Prompt generation stages', providerKey: 'TEXT_LLM_PROVIDER', openaiModelKey: 'TEXT_MODEL', anthropicModelKey: 'TEXT_ANTHROPIC_MODEL', description: 'Used by idea ingest, story package, director, storyboard, visual prompts, voice performance, avatar selector, hybrid planner, and performance feedback.' },
+      { label: 'Captions and hashtags', providerKey: '', openaiModelKey: 'CAPTION_MODEL', anthropicModelKey: 'CAPTION_ANTHROPIC_MODEL', description: 'Uses the same text provider. Leave blank to inherit the prompt-generation model.' },
+      { label: 'Final QA', providerKey: '', openaiModelKey: 'FINAL_QA_MODEL', anthropicModelKey: 'FINAL_QA_ANTHROPIC_MODEL', description: 'Uses the same text provider. Leave blank to inherit the prompt-generation model.' },
     ],
   },
 ]);
@@ -502,16 +542,16 @@ const CREDENTIAL_GROUPS = Object.freeze([
   {
     id: 'openai',
     title: 'OpenAI',
-    description: 'Use the global key unless a component needs a separate billing/project boundary.',
+    description: 'Use the text, image, and TTS keys only when they need separate projects or billing.',
     primary: ['OPENAI_API_KEY', 'TEXT_OPENAI_API_KEY', 'IMAGE_OPENAI_API_KEY', 'TTS_OPENAI_API_KEY'],
-    advanced: ['LLL_API_KEY', 'PREMIUM_TEXT_OPENAI_API_KEY', 'IDEA_INGEST_OPENAI_API_KEY', 'IDEA_PROMPT_PROFILE_OPENAI_API_KEY', 'PROMPT_BUILDER_OPENAI_API_KEY', 'RESEARCH_OPENAI_API_KEY', 'DIRECTOR_OPENAI_API_KEY', 'DIRECTOR_CONTRACT_OPENAI_API_KEY', 'STORY_PACKAGE_OPENAI_API_KEY', 'STORY_PACKAGE_V2_OPENAI_API_KEY', 'STORYBOARD_OPENAI_API_KEY', 'CAPTION_OPENAI_API_KEY', 'VISUAL_PROMPT_OPENAI_API_KEY', 'VOICE_PERFORMANCE_OPENAI_API_KEY', 'AVATAR_OPENAI_API_KEY', 'FINAL_QA_OPENAI_API_KEY', 'PERFORMANCE_FEEDBACK_OPENAI_API_KEY', 'SCENE_IMAGE_OPENAI_API_KEY', 'POST_IMAGE_OPENAI_API_KEY', 'NARRATION_OPENAI_API_KEY'],
+    advanced: ['LLL_API_KEY', 'SCENE_IMAGE_OPENAI_API_KEY', 'POST_IMAGE_OPENAI_API_KEY', 'NARRATION_OPENAI_API_KEY'],
   },
   {
     id: 'anthropic',
     title: 'Anthropic Claude',
-    description: 'One Anthropic key is enough for all Claude text stages unless you intentionally override by task.',
-    primary: ['ANTHROPIC_API_KEY', 'TEXT_ANTHROPIC_API_KEY', 'PREMIUM_TEXT_ANTHROPIC_API_KEY'],
-    advanced: ['IDEA_INGEST_ANTHROPIC_API_KEY', 'IDEA_PROMPT_PROFILE_ANTHROPIC_API_KEY', 'PROMPT_BUILDER_ANTHROPIC_API_KEY', 'RESEARCH_ANTHROPIC_API_KEY', 'DIRECTOR_ANTHROPIC_API_KEY', 'DIRECTOR_CONTRACT_ANTHROPIC_API_KEY', 'STORY_PACKAGE_ANTHROPIC_API_KEY', 'STORY_PACKAGE_V2_ANTHROPIC_API_KEY', 'STORYBOARD_ANTHROPIC_API_KEY', 'CAPTION_ANTHROPIC_API_KEY', 'VISUAL_PROMPT_ANTHROPIC_API_KEY', 'VOICE_PERFORMANCE_ANTHROPIC_API_KEY', 'AVATAR_ANTHROPIC_API_KEY', 'FINAL_QA_ANTHROPIC_API_KEY', 'PERFORMANCE_FEEDBACK_ANTHROPIC_API_KEY'],
+    description: 'One Anthropic key is enough for all Claude text stages.',
+    primary: ['ANTHROPIC_API_KEY', 'TEXT_ANTHROPIC_API_KEY'],
+    advanced: [],
   },
   {
     id: 'fal',
@@ -638,61 +678,18 @@ const CONFIG_SECTIONS = [
   {
     id: 'adapters',
     title: 'Adapters & Models',
-    description: 'These settings choose which adapter path and model each stage uses. Studio-saved values are read by new model calls from the local env file.',
+    description: 'These settings choose the shared prompt-generation model, optional caption/QA model overrides, and separate media, voice, video, and render models. Studio-saved values are read by new model calls from the local env file.',
     studio_visible: true,
     fields: [
-      field('TEXT_LLM_PROVIDER', 'Text LLM Provider', 'Global text provider fallback. Structured text stages support openai and anthropic.', ['openai', 'anthropic']),
-      field('PREMIUM_TEXT_LLM_PROVIDER', 'Premium Text Provider', 'Higher-quality fallback for story, visual, voice, avatar, QA, and performance stages.', ['anthropic', 'openai']),
-      field('IDEA_INGEST_LLM_PROVIDER', 'Idea Ingest Provider', 'Optional idea-ingest provider override. Leave blank to use Text LLM Provider.', ['openai', 'anthropic']),
-      field('IDEA_PROMPT_PROFILE_LLM_PROVIDER', 'Idea Prompt Profile Provider', 'Optional idea prompt-profile provider override. Leave blank to use Prompt Builder or Text provider.', ['openai', 'anthropic']),
-      field('PROMPT_BUILDER_LLM_PROVIDER', 'Prompt Builder Provider', 'Optional prompt-builder provider override for the Studio UI generator.', ['openai', 'anthropic']),
-      field('RESEARCH_LLM_PROVIDER', 'Research Provider', 'Optional research-stage provider override.', ['openai', 'anthropic']),
-      field('DIRECTOR_LLM_PROVIDER', 'Director Provider', 'Optional director-contract provider override.', ['openai', 'anthropic']),
-      field('STORY_PACKAGE_LLM_PROVIDER', 'Story Package Provider', 'Optional story-package provider override.', ['anthropic', 'openai']),
-      field('STORY_PACKAGE_V2_LLM_PROVIDER', 'Story Package V2 Provider', 'Optional story-package-v2 provider override.', ['anthropic', 'openai']),
-      field('STORYBOARD_LLM_PROVIDER', 'Storyboard Provider', 'Optional storyboard-stage provider override.', ['openai', 'anthropic']),
-      field('CAPTION_LLM_PROVIDER', 'Caption Provider', 'Optional caption-stage provider override.', ['openai', 'anthropic']),
-      field('VISUAL_PROMPT_LLM_PROVIDER', 'Visual Prompt Provider', 'Provider for visual prompt refinement before image/video generation.', ['anthropic', 'openai']),
-      field('VOICE_PERFORMANCE_LLM_PROVIDER', 'Voice Performance Provider', 'Provider for narration script performance enrichment before TTS.', ['anthropic', 'openai']),
-      field('AVATAR_LLM_PROVIDER', 'Avatar Selector Provider', 'Provider for avatar route, consent, disclosure, and presenter-direction decisions.', ['anthropic', 'openai']),
-      field('FINAL_QA_LLM_PROVIDER', 'Final QA Provider', 'Provider for final safety and publish-readiness QA.', ['anthropic', 'openai']),
-      field('PERFORMANCE_FEEDBACK_LLM_PROVIDER', 'Performance Feedback Provider', 'Provider for reusable performance-guidance analysis.', ['anthropic', 'openai']),
-      field('TEXT_MODEL', 'Text Model', 'Global text model fallback.', ['gpt-4o-mini', 'gpt-4.1-mini']),
-      field('PREMIUM_TEXT_MODEL', 'Premium Text Model', 'Higher-quality OpenAI fallback for premium text stages.', ['gpt-4.1', 'gpt-4.1-mini']),
-      field('TEXT_ANTHROPIC_MODEL', 'Anthropic Text Model', 'Global Anthropic model fallback for text stages.', ['claude-sonnet-4-6']),
-      field('PREMIUM_TEXT_ANTHROPIC_MODEL', 'Premium Anthropic Model', 'Higher-quality Anthropic fallback for premium text stages.', ['claude-sonnet-4-6']),
+      field('TEXT_LLM_PROVIDER', 'Text LLM Provider', 'Single provider used for every structured text prompt stage. Supports openai and anthropic.', ['openai', 'anthropic']),
+      field('TEXT_MODEL', 'OpenAI Prompt Model', 'OpenAI model used by prompt-generation stages when Text LLM Provider is openai. Captions and QA can override separately.', ['gpt-4.1-mini', 'gpt-4.1']),
+      field('TEXT_ANTHROPIC_MODEL', 'Anthropic Prompt Model', 'Anthropic model used by prompt-generation stages when Text LLM Provider is anthropic. Captions and QA can override separately.', ['claude-sonnet-4-6']),
+      field('CAPTION_MODEL', 'Caption OpenAI Model', 'Optional OpenAI model for captions and hashtags. Blank inherits OpenAI Prompt Model.', ['gpt-4.1-mini', 'gpt-4.1']),
+      field('CAPTION_ANTHROPIC_MODEL', 'Caption Anthropic Model', 'Optional Anthropic model for captions and hashtags. Blank inherits Anthropic Prompt Model.', ['claude-sonnet-4-6']),
+      field('FINAL_QA_MODEL', 'Final QA OpenAI Model', 'Optional OpenAI model for final QA. Blank inherits OpenAI Prompt Model.', ['gpt-4.1', 'gpt-4.1-mini']),
+      field('FINAL_QA_ANTHROPIC_MODEL', 'Final QA Anthropic Model', 'Optional Anthropic model for final QA. Blank inherits Anthropic Prompt Model.', ['claude-sonnet-4-6']),
       field('ANTHROPIC_VERSION', 'Anthropic API Version', 'Anthropic API version header used for Claude structured text requests.', ['2023-06-01']),
       field('ANTHROPIC_MAX_TOKENS', 'Anthropic Max Tokens', 'Maximum tokens for Anthropic structured text responses.', ['4096', '8192']),
-      field('IDEA_INGEST_MODEL', 'Idea Ingest Model', 'Model used to turn an abstract idea into a topic payload.', ['gpt-4.1-mini', 'gpt-4o-mini']),
-      field('IDEA_INGEST_ANTHROPIC_MODEL', 'Idea Ingest Anthropic Model', 'Anthropic model used to turn an abstract idea into a topic payload.', ['claude-sonnet-4-6']),
-      field('IDEA_PROMPT_PROFILE_MODEL', 'Idea Prompt Profile Model', 'Model used for idea prompt profile generation when that stage is enabled.', ['gpt-4.1-mini', 'gpt-4o-mini']),
-      field('IDEA_PROMPT_PROFILE_ANTHROPIC_MODEL', 'Idea Prompt Profile Anthropic Model', 'Anthropic model used for idea prompt profile generation when that stage is enabled.', ['claude-sonnet-4-6']),
-      field('PROMPT_BUILDER_MODEL', 'Prompt Builder Model', 'Optional prompt-builder model override for the Studio UI generator.', ['gpt-4o-mini', 'gpt-4.1-mini']),
-      field('PROMPT_BUILDER_ANTHROPIC_MODEL', 'Prompt Builder Anthropic Model', 'Anthropic model used by the Studio UI prompt generator.', ['claude-sonnet-4-6']),
-      field('RESEARCH_MODEL', 'Research Model', 'Research-stage model override.', ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini']),
-      field('RESEARCH_ANTHROPIC_MODEL', 'Research Anthropic Model', 'Anthropic model for research/script generation.', ['claude-sonnet-4-6']),
-      field('DIRECTOR_CONTRACT_MODEL', 'Director Contract Model', 'Director-contract model override before Director Model.', ['gpt-4.1-mini', 'gpt-4.1']),
-      field('DIRECTOR_CONTRACT_ANTHROPIC_MODEL', 'Director Contract Anthropic Model', 'Anthropic model for director-contract generation before Director Anthropic Model.', ['claude-sonnet-4-6']),
-      field('DIRECTOR_MODEL', 'Director Model', 'Director-contract model override.', ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4.1']),
-      field('DIRECTOR_ANTHROPIC_MODEL', 'Director Anthropic Model', 'Anthropic model for director stages.', ['claude-sonnet-4-6']),
-      field('STORY_PACKAGE_MODEL', 'Story Package Model', 'One-pass story package model override.', ['gpt-4.1', 'gpt-4.1-mini']),
-      field('STORY_PACKAGE_ANTHROPIC_MODEL', 'Story Package Anthropic Model', 'Anthropic model for one-pass story package generation.', ['claude-sonnet-4-6']),
-      field('STORY_PACKAGE_V2_MODEL', 'Story Package V2 Model', 'V2 story package model override.', ['gpt-4.1', 'gpt-4.1-mini']),
-      field('STORY_PACKAGE_V2_ANTHROPIC_MODEL', 'Story Package V2 Anthropic Model', 'Anthropic model for story package V2 generation.', ['claude-sonnet-4-6']),
-      field('STORYBOARD_MODEL', 'Storyboard Model', 'Storyboard-stage model override.', ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini']),
-      field('STORYBOARD_ANTHROPIC_MODEL', 'Storyboard Anthropic Model', 'Anthropic model for storyboard/prompt generation.', ['claude-sonnet-4-6']),
-      field('CAPTION_MODEL', 'Caption Model', 'Caption-stage model override.', ['gpt-4o-mini', 'gpt-4.1-mini']),
-      field('CAPTION_ANTHROPIC_MODEL', 'Caption Anthropic Model', 'Anthropic model for caption and hashtag generation.', ['claude-sonnet-4-6']),
-      field('VISUAL_PROMPT_MODEL', 'Visual Prompt Model', 'OpenAI model for visual prompt refinement.', ['gpt-4.1-mini', 'gpt-4.1']),
-      field('VISUAL_PROMPT_ANTHROPIC_MODEL', 'Visual Prompt Anthropic Model', 'Anthropic model for visual prompt refinement.', ['claude-sonnet-4-6']),
-      field('VOICE_PERFORMANCE_MODEL', 'Voice Performance Model', 'OpenAI model for narration performance enrichment.', ['gpt-4.1-mini', 'gpt-4.1']),
-      field('VOICE_PERFORMANCE_ANTHROPIC_MODEL', 'Voice Performance Anthropic Model', 'Anthropic model for narration performance enrichment.', ['claude-sonnet-4-6']),
-      field('AVATAR_MODEL', 'Avatar Selector Model', 'OpenAI model for avatar route and presenter-direction decisions.', ['gpt-4.1-mini', 'gpt-4.1']),
-      field('AVATAR_ANTHROPIC_MODEL', 'Avatar Selector Anthropic Model', 'Anthropic model for avatar route and presenter-direction decisions.', ['claude-sonnet-4-6']),
-      field('FINAL_QA_MODEL', 'Final QA Model', 'OpenAI model for final QA.', ['gpt-4.1', 'gpt-4.1-mini']),
-      field('FINAL_QA_ANTHROPIC_MODEL', 'Final QA Anthropic Model', 'Anthropic model for final QA.', ['claude-sonnet-4-6']),
-      field('PERFORMANCE_FEEDBACK_MODEL', 'Performance Feedback Model', 'OpenAI model for performance feedback analysis.', ['gpt-4.1-mini', 'gpt-4.1']),
-      field('PERFORMANCE_FEEDBACK_ANTHROPIC_MODEL', 'Performance Feedback Anthropic Model', 'Anthropic model for performance feedback analysis.', ['claude-sonnet-4-6']),
       field('IMAGE_GENERATION_PROVIDER', 'Image Provider', 'Global image generation provider fallback.', ['openai', 'fal_ai']),
       field('SCENE_IMAGE_PROVIDER', 'Scene Image Provider', 'Scene-image provider override.', ['openai', 'fal_ai']),
       field('SCENE_REFERENCE_IMAGE_PROVIDER', 'Reference Image Provider', 'Provider used when scene images have uploaded reference images.', ['openai']),
@@ -708,14 +705,14 @@ const CONFIG_SECTIONS = [
       field('NARRATION_PROVIDER', 'Narration Provider', 'Narration provider override.', ['fish_audio', 'openai', 'smallest_ai']),
       field('TTS_MODEL', 'TTS Model', 'Global TTS model fallback.', ['s2-pro', 'gpt-4o-mini-tts', 'lightning-v3.1']),
       field('NARRATION_MODEL', 'Narration Model', 'Narration model override.', ['s2-pro', 'gpt-4o-mini-tts', 'lightning-v3.1']),
-      field('DEFAULT_REEL_TYPE', 'Default Reel Type', 'Default run type when Studio/API payloads omit reel_type.', ['video', 'image', 'avatar']),
+      field('DEFAULT_REEL_TYPE', 'Default Reel Type', 'Default run type when Studio/API payloads omit reel_type.', ['video', 'image', 'avatar', 'hybrid']),
       field('RENDER_PROVIDER', 'Render Provider', 'Renderer used by the code-first worker.', ['remotion', 'local_ffmpeg']),
     ],
   },
   {
     id: 'provider-keys',
     title: 'Provider API Keys',
-    description: 'Collapsed secret inputs for the LLM, image, video, and narration providers used by the pipeline. Leave a stage key blank to use the component/global fallback.',
+    description: 'Collapsed secret inputs for the LLM, image, video, and narration providers used by the pipeline. Store provider keys here; choose models above.',
     studio_visible: true,
     collapsed: true,
     variant: 'secrets',
@@ -723,40 +720,8 @@ const CONFIG_SECTIONS = [
       field('OPENAI_API_KEY', 'OpenAI API Key', 'Global fallback for OpenAI text, image, and TTS calls.', ['']),
       field('LLL_API_KEY', 'Legacy OpenAI Key', 'Backward-compatible OpenAI key fallback used by older workflow paths.', ['']),
       field('TEXT_OPENAI_API_KEY', 'Text OpenAI API Key', 'Fallback for all OpenAI text stages before OPENAI_API_KEY.', ['']),
-      field('PREMIUM_TEXT_OPENAI_API_KEY', 'Premium Text OpenAI Key', 'Fallback for premium OpenAI text stages before TEXT_OPENAI_API_KEY.', ['']),
-      field('IDEA_INGEST_OPENAI_API_KEY', 'Idea Ingest OpenAI Key', 'OpenAI key used only for abstract idea ingestion.', ['']),
-      field('IDEA_PROMPT_PROFILE_OPENAI_API_KEY', 'Idea Prompt Profile OpenAI Key', 'OpenAI key used only for idea prompt profile generation when that stage is enabled.', ['']),
-      field('PROMPT_BUILDER_OPENAI_API_KEY', 'Prompt Builder OpenAI Key', 'OpenAI key used by runtime prompt builder text rewrites.', ['']),
-      field('RESEARCH_OPENAI_API_KEY', 'Research OpenAI Key', 'OpenAI key used only for research/script generation when that stage is active.', ['']),
-      field('DIRECTOR_OPENAI_API_KEY', 'Director OpenAI Key', 'OpenAI key used for director contract generation.', ['']),
-      field('DIRECTOR_CONTRACT_OPENAI_API_KEY', 'Director Contract OpenAI Key', 'OpenAI key used before Director OpenAI Key for director contract generation.', ['']),
-      field('STORY_PACKAGE_OPENAI_API_KEY', 'Story Package OpenAI Key', 'OpenAI key used only for story package generation.', ['']),
-      field('STORY_PACKAGE_V2_OPENAI_API_KEY', 'Story Package V2 OpenAI Key', 'OpenAI key used only for story package V2 generation.', ['']),
-      field('STORYBOARD_OPENAI_API_KEY', 'Storyboard OpenAI Key', 'OpenAI key used only for storyboard/prompt generation when that stage is active.', ['']),
-      field('CAPTION_OPENAI_API_KEY', 'Caption OpenAI Key', 'OpenAI key used only for caption/hashtag generation when that stage is active.', ['']),
-      field('VISUAL_PROMPT_OPENAI_API_KEY', 'Visual Prompt OpenAI Key', 'OpenAI key used only for visual prompt refinement.', ['']),
-      field('VOICE_PERFORMANCE_OPENAI_API_KEY', 'Voice Performance OpenAI Key', 'OpenAI key used only for narration performance enrichment.', ['']),
-      field('AVATAR_OPENAI_API_KEY', 'Avatar OpenAI Key', 'OpenAI key used only for avatar route selection.', ['']),
-      field('FINAL_QA_OPENAI_API_KEY', 'Final QA OpenAI Key', 'OpenAI key used only for final QA.', ['']),
-      field('PERFORMANCE_FEEDBACK_OPENAI_API_KEY', 'Performance Feedback OpenAI Key', 'OpenAI key used only for performance feedback analysis.', ['']),
       field('ANTHROPIC_API_KEY', 'Anthropic API Key', 'Global fallback for Claude/Anthropic text calls.', ['']),
       field('TEXT_ANTHROPIC_API_KEY', 'Text Anthropic API Key', 'Fallback for all Anthropic text stages before ANTHROPIC_API_KEY.', ['']),
-      field('PREMIUM_TEXT_ANTHROPIC_API_KEY', 'Premium Text Anthropic Key', 'Fallback for premium Anthropic text stages before TEXT_ANTHROPIC_API_KEY.', ['']),
-      field('IDEA_INGEST_ANTHROPIC_API_KEY', 'Idea Ingest Anthropic Key', 'Anthropic key used only for abstract idea ingestion.', ['']),
-      field('IDEA_PROMPT_PROFILE_ANTHROPIC_API_KEY', 'Idea Prompt Profile Anthropic Key', 'Anthropic key used only for idea prompt profile generation.', ['']),
-      field('PROMPT_BUILDER_ANTHROPIC_API_KEY', 'Prompt Builder Anthropic Key', 'Anthropic key used by runtime prompt builder text rewrites.', ['']),
-      field('RESEARCH_ANTHROPIC_API_KEY', 'Research Anthropic Key', 'Anthropic key used only for research/script generation.', ['']),
-      field('DIRECTOR_ANTHROPIC_API_KEY', 'Director Anthropic Key', 'Anthropic key used for director contract generation.', ['']),
-      field('DIRECTOR_CONTRACT_ANTHROPIC_API_KEY', 'Director Contract Anthropic Key', 'Anthropic key used before Director Anthropic Key for director contract generation.', ['']),
-      field('STORY_PACKAGE_ANTHROPIC_API_KEY', 'Story Package Anthropic Key', 'Anthropic key used only for story package generation.', ['']),
-      field('STORY_PACKAGE_V2_ANTHROPIC_API_KEY', 'Story Package V2 Anthropic Key', 'Anthropic key used only for story package V2 generation.', ['']),
-      field('STORYBOARD_ANTHROPIC_API_KEY', 'Storyboard Anthropic Key', 'Anthropic key used only for storyboard/prompt generation.', ['']),
-      field('CAPTION_ANTHROPIC_API_KEY', 'Caption Anthropic Key', 'Anthropic key used only for caption/hashtag generation.', ['']),
-      field('VISUAL_PROMPT_ANTHROPIC_API_KEY', 'Visual Prompt Anthropic Key', 'Anthropic key used only for visual prompt refinement.', ['']),
-      field('VOICE_PERFORMANCE_ANTHROPIC_API_KEY', 'Voice Performance Anthropic Key', 'Anthropic key used only for narration performance enrichment.', ['']),
-      field('AVATAR_ANTHROPIC_API_KEY', 'Avatar Anthropic Key', 'Anthropic key used only for avatar route selection.', ['']),
-      field('FINAL_QA_ANTHROPIC_API_KEY', 'Final QA Anthropic Key', 'Anthropic key used only for final QA.', ['']),
-      field('PERFORMANCE_FEEDBACK_ANTHROPIC_API_KEY', 'Performance Feedback Anthropic Key', 'Anthropic key used only for performance feedback analysis.', ['']),
       field('IMAGE_OPENAI_API_KEY', 'Image OpenAI Key', 'Fallback for OpenAI image generation before OPENAI_API_KEY.', ['']),
       field('SCENE_IMAGE_OPENAI_API_KEY', 'Scene Image OpenAI Key', 'OpenAI key used only for scene image generation.', ['']),
       field('POST_IMAGE_OPENAI_API_KEY', 'Post Image OpenAI Key', 'OpenAI key used only for post/cover image generation.', ['']),
@@ -907,12 +872,34 @@ function extractReelTypeValue(payload = {}) {
   ).trim();
 }
 
+function extractCreativeWorkflowValue(payload = {}) {
+  return String(
+    payload.creative_workflow
+    || payload.creativeWorkflow
+    || payload.source_payload_json?.creative_workflow
+    || '',
+  ).trim();
+}
+
 function normalizeReelTypeForRequest(value, { fallback = getDefaultReelType() } = {}) {
   try {
     return normalizeReelType(value, { fallback });
   } catch (error) {
     fail(400, error.message);
   }
+}
+
+function normalizeCreativeWorkflowForRequest(value, { fallback = DEFAULT_CREATIVE_WORKFLOW_ID } = {}) {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return normalizeCreativeWorkflowId('', { fallback });
+  }
+  const normalizedRaw = raw.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const allowed = new Set(creativeWorkflowOptions().map((option) => option.id));
+  if (!allowed.has(normalizedRaw)) {
+    fail(400, `Unsupported creative_workflow '${value}'.`);
+  }
+  return normalizedRaw;
 }
 
 function avatarRuntimeRequirements() {
@@ -937,6 +924,11 @@ async function parseAbstractIdeaWebhookRequest(request, url) {
   ).trim();
   const queryWorkflowKey = String(url.searchParams.get('workflow_key') || '').trim();
   const queryReelType = String(url.searchParams.get('reel_type') || url.searchParams.get('reelType') || '').trim();
+  const queryCreativeWorkflow = String(
+    url.searchParams.get('creative_workflow')
+    || url.searchParams.get('creativeWorkflow')
+    || '',
+  ).trim();
   const contentType = String(request.headers['content-type'] || '').trim().toLowerCase();
 
   if (!rawBody) {
@@ -944,6 +936,7 @@ async function parseAbstractIdeaWebhookRequest(request, url) {
       abstractIdea: queryIdea,
       workflowKey: queryWorkflowKey,
       reelType: queryReelType,
+      creativeWorkflow: queryCreativeWorkflow,
     };
   }
 
@@ -958,6 +951,7 @@ async function parseAbstractIdeaWebhookRequest(request, url) {
       abstractIdea: extractAbstractIdeaValue(parsed) || queryIdea,
       workflowKey: String(parsed.workflow_key || queryWorkflowKey || '').trim(),
       reelType: extractReelTypeValue(parsed) || queryReelType,
+      creativeWorkflow: extractCreativeWorkflowValue(parsed) || queryCreativeWorkflow,
     };
   }
 
@@ -965,6 +959,7 @@ async function parseAbstractIdeaWebhookRequest(request, url) {
     abstractIdea: rawBody,
     workflowKey: queryWorkflowKey,
     reelType: queryReelType,
+    creativeWorkflow: queryCreativeWorkflow,
   };
 }
 
@@ -1338,11 +1333,14 @@ function normalizeGeneratedIdeaPayload(payload = {}) {
   };
 }
 
-async function generateTopicPayloadFromAbstractIdea(abstractIdea) {
+async function generateTopicPayloadFromAbstractIdea(abstractIdea, options = {}) {
   const idea = String(abstractIdea || '').trim();
   if (!idea) {
     fail(400, 'abstract idea text is required.');
   }
+  const creativeWorkflow = normalizeCreativeWorkflowForRequest(
+    options.creative_workflow ?? options.creativeWorkflow ?? options.source_payload_json?.creative_workflow,
+  );
 
   const envContent = await fs.readFile(ENV_FILE, 'utf8').catch(() => '');
   const parsedEnv = parseEnvFile(envContent);
@@ -1355,6 +1353,7 @@ async function generateTopicPayloadFromAbstractIdea(abstractIdea) {
       target_duration_min_seconds: String(topicDurationConfig.min),
       target_duration_max_seconds: String(topicDurationConfig.max),
       target_duration_default_seconds: String(topicDurationConfig.defaultValue),
+      creative_workflow: creativeWorkflow,
     },
   });
   const generatedPayload = normalizeGeneratedIdeaPayload(result.idea_ingest_response ?? {});
@@ -1384,13 +1383,18 @@ function extractCharacterReferenceFromPayload(payload = {}) {
 }
 
 async function createTopicFromAbstractIdea(abstractIdea, options = {}) {
-  const generated = await generateTopicPayloadFromAbstractIdea(abstractIdea);
+  const generated = await generateTopicPayloadFromAbstractIdea(abstractIdea, options);
+  const creativeWorkflow = normalizeCreativeWorkflowForRequest(
+    options.creative_workflow ?? options.creativeWorkflow ?? options.source_payload_json?.creative_workflow,
+  );
   const topic = await createTopic({
     ...generated.generated_payload,
     abstract_idea: generated.abstract_idea,
     reel_type: options.reel_type ?? options.reelType,
+    creative_workflow: creativeWorkflow,
     character_reference: extractCharacterReferenceFromPayload(options),
     client_account_context: options.client_account_context ?? options.source_payload_json?.client_account_context,
+    avatar_consent_confirmed: options.avatar_consent_confirmed ?? options.avatarConsentConfirmed ?? options.source_payload_json?.avatar_consent_confirmed,
   });
   return {
     ...generated,
@@ -1403,13 +1407,18 @@ async function createTopicFromAbstractIdea(abstractIdea, options = {}) {
 }
 
 async function createTopicFromAbstractIdeaV2(abstractIdea, options = {}) {
-  const generated = await generateTopicPayloadFromAbstractIdea(abstractIdea);
+  const generated = await generateTopicPayloadFromAbstractIdea(abstractIdea, options);
+  const creativeWorkflow = normalizeCreativeWorkflowForRequest(
+    options.creative_workflow ?? options.creativeWorkflow ?? options.source_payload_json?.creative_workflow,
+  );
   const topic = await createTopic({
     ...generated.generated_payload,
     abstract_idea: generated.abstract_idea,
     reel_type: options.reel_type ?? options.reelType,
+    creative_workflow: creativeWorkflow,
     character_reference: extractCharacterReferenceFromPayload(options),
     client_account_context: options.client_account_context ?? options.source_payload_json?.client_account_context,
+    avatar_consent_confirmed: options.avatar_consent_confirmed ?? options.avatarConsentConfirmed ?? options.source_payload_json?.avatar_consent_confirmed,
   });
   return {
     ...generated,
@@ -2030,7 +2039,7 @@ function hasConfiguredEnv(values = {}, keys = []) {
 function providerKeyCandidates(provider) {
   const normalized = normalizeHostedString(provider).toLowerCase();
   if (normalized === 'anthropic') {
-    return ['ANTHROPIC_API_KEY', 'TEXT_ANTHROPIC_API_KEY', 'PREMIUM_TEXT_ANTHROPIC_API_KEY'];
+    return ['ANTHROPIC_API_KEY', 'TEXT_ANTHROPIC_API_KEY'];
   }
   if (normalized === 'openai') {
     return ['OPENAI_API_KEY', 'TEXT_OPENAI_API_KEY', 'IMAGE_OPENAI_API_KEY', 'TTS_OPENAI_API_KEY', 'LLL_API_KEY'];
@@ -2078,10 +2087,36 @@ function providerOptions(values = {}, providers = []) {
   });
 }
 
-function modelSuggestionsFor(currentValue, suggestions = []) {
+function suggestionValue(item) {
+  if (item && typeof item === 'object') {
+    return normalizeHostedString(item.value);
+  }
+  return normalizeHostedString(item);
+}
+
+function suggestionLabel(item) {
+  if (item && typeof item === 'object') {
+    return normalizeHostedString(item.label) || suggestionValue(item);
+  }
+  return suggestionValue(item);
+}
+
+function modelOptionsFor(currentValue, suggestions = []) {
+  const options = [{ value: '', label: 'Use default' }];
+  const seen = new Set(['']);
+  for (const suggestion of suggestions) {
+    const value = suggestionValue(suggestion);
+    if (!value || seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    options.push({ value, label: suggestionLabel(suggestion) });
+  }
   const current = normalizeHostedString(currentValue);
-  const unique = [...new Set([...suggestions, current].map((value) => normalizeHostedString(value)).filter(Boolean))];
-  return unique;
+  if (current && !seen.has(current)) {
+    options.push({ value: current, label: `${current} (current custom)` });
+  }
+  return options;
 }
 
 function buildTextModelRouting(values = {}) {
@@ -2091,30 +2126,32 @@ function buildTextModelRouting(values = {}) {
     description: group.description,
     adapter_type: 'text',
     routes: group.routes.map((route) => {
-      const providerField = serializeConfigField(configFieldDefinition(route.providerKey), values, {
-        input_type: 'select',
-        options: [
-          { value: '', label: 'Use fallback chain' },
-          ...providerOptions(values, TEXT_PROVIDER_OPTIONS.map((option) => option.value)).map((option) => ({
-            value: option.value,
-            label: `${option.label} (${option.status_label})`,
-          })),
-        ],
-      });
+      const providerField = route.providerKey
+        ? serializeConfigField(configFieldDefinition(route.providerKey), values, {
+          input_type: 'select',
+          options: [
+            { value: '', label: 'Use fallback chain' },
+            ...providerOptions(values, TEXT_PROVIDER_OPTIONS.map((option) => option.value)).map((option) => ({
+              value: option.value,
+              label: `${option.label} (${option.status_label})`,
+            })),
+          ],
+        })
+        : null;
       const openaiField = serializeConfigField(configFieldDefinition(route.openaiModelKey), values, {
         provider: 'openai',
-        examples: modelSuggestionsFor(values[route.openaiModelKey], MODEL_SUGGESTIONS.openai_text),
+        options: modelOptionsFor(values[route.openaiModelKey], MODEL_SUGGESTIONS.openai_text),
       });
       const anthropicField = serializeConfigField(configFieldDefinition(route.anthropicModelKey), values, {
         provider: 'anthropic',
-        examples: modelSuggestionsFor(values[route.anthropicModelKey], MODEL_SUGGESTIONS.anthropic_text),
+        options: modelOptionsFor(values[route.anthropicModelKey], MODEL_SUGGESTIONS.anthropic_text),
       });
       return {
         label: route.label,
         description: route.description,
         provider_field: providerField,
         model_fields: [anthropicField, openaiField],
-        active_provider: normalizeHostedString(values[route.providerKey]),
+        active_provider: normalizeHostedString(values[route.providerKey || 'TEXT_LLM_PROVIDER']),
       };
     }),
   }));
@@ -2142,7 +2179,7 @@ function buildMediaModelRouting(values = {}) {
         : null;
       const suggestions = Object.values(route.modelSuggestions || {}).flat();
       const modelField = serializeConfigField(configFieldDefinition(route.modelKey), values, {
-        examples: modelSuggestionsFor(values[route.modelKey], suggestions),
+        options: modelOptionsFor(values[route.modelKey], suggestions),
       });
       return {
         label: route.label,
@@ -2158,8 +2195,8 @@ function buildMediaModelRouting(values = {}) {
 
 function buildModelRouting(values = {}) {
   return {
-    title: 'Task Model Routing',
-    description: 'Choose provider and model suggestions by pipeline task. Blank task providers inherit from the fallback chain.',
+    title: 'Model Selection',
+    description: 'Choose one text provider. Prompt-generation stages share one model; captions/hashtags and final QA may use separate models. Media model choices are separate from provider/API-key choices.',
     adapter_inventory: [
       ...providerOptions(values, ['anthropic', 'openai', 'fal_ai', 'fish_audio', 'smallest_ai', 'heygen']),
       ...providerOptions(values, ['remotion', 'local_ffmpeg']),
@@ -2227,6 +2264,7 @@ async function listTopics(limit = 25) {
       ci.slug,
       ci.title,
       ci.reel_type,
+      coalesce(ci.source_payload_json->>'creative_workflow', '') as creative_workflow,
       coalesce(ci.category, '') as category,
       coalesce(ci.brand_profile, '') as brand_profile,
       ci.status,
@@ -2735,6 +2773,9 @@ async function createTopic(payload) {
     payload.reel_type ?? payload.reelType ?? payload.source_payload_json?.reel_type,
     { fallback: getDefaultReelType() },
   );
+  const creativeWorkflow = normalizeCreativeWorkflowForRequest(
+    payload.creative_workflow ?? payload.creativeWorkflow ?? payload.source_payload_json?.creative_workflow,
+  );
   const rawTargetDuration = String(payload.target_duration_seconds || topicDurationConfig.defaultValue).trim();
   const targetDurationSeconds = Number.parseInt(rawTargetDuration, 10);
   if (!Number.isFinite(targetDurationSeconds)) {
@@ -2759,7 +2800,7 @@ async function createTopic(payload) {
       ?? payload.avatarConsentConfirmed
       ?? payload.source_payload_json?.avatar_consent_confirmed,
   );
-  if (reelType === 'avatar' && avatarConsentConfirmed) {
+  if (['avatar', 'hybrid'].includes(reelType) && avatarConsentConfirmed) {
     const rawAvatarPolicy = parseJsonObject(rawClientAccountContext.avatar_policy);
     rawClientAccountContext.avatar_policy = {
       ...rawAvatarPolicy,
@@ -2779,6 +2820,7 @@ async function createTopic(payload) {
 
   const sourcePayloadJson = {
     reel_type: reelType,
+    creative_workflow: creativeWorkflow,
     source_urls: Array.isArray(payload.source_urls) ? payload.source_urls.filter(Boolean) : parseTextareaLines(payload.source_urls),
     summary: String(payload.summary || '').trim(),
     notes: Array.isArray(payload.notes) ? payload.notes.filter(Boolean) : parseTextareaLines(payload.notes),
@@ -2868,6 +2910,7 @@ async function createTopic(payload) {
       account_context_key: clientAccountContextRef.account_context_key,
       client_account_context: clientAccountContext,
       client_account_context_ref: clientAccountContextRef,
+      creative_workflow: creativeWorkflow,
     };
   } catch (error) {
     await client.query('rollback').catch(() => {});
@@ -3170,7 +3213,11 @@ async function handleApi(request, response, url) {
         key,
         label: REEL_TYPE_LABELS[key] || key,
         default: key === getDefaultReelType(),
-        ...(key === 'avatar' ? { setup: avatarRuntimeRequirements() } : {}),
+        ...(['avatar', 'hybrid'].includes(key) ? { setup: avatarRuntimeRequirements() } : {}),
+      })),
+      creative_workflows: creativeWorkflowOptions().map((option) => ({
+        ...option,
+        default: option.id === DEFAULT_CREATIVE_WORKFLOW_ID,
       })),
     });
     return;
@@ -3322,7 +3369,10 @@ async function handleApi(request, response, url) {
       await createTopicFromAbstractIdeaAndStartWorkflow(
         payload.abstractIdea,
         payload.workflowKey || DEFAULT_ABSTRACT_IDEA_WORKFLOW_KEY,
-        { reel_type: payload.reelType },
+        {
+          reel_type: payload.reelType,
+          creative_workflow: payload.creativeWorkflow,
+        },
       ),
     );
     return;

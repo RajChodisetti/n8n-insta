@@ -6,12 +6,13 @@ import {
 } from './reviews.mjs';
 import { firstEnv } from '../workflows/scripts/adapter_config.mjs';
 
-export const REEL_TYPES = Object.freeze(['image', 'video', 'avatar']);
+export const REEL_TYPES = Object.freeze(['image', 'video', 'avatar', 'hybrid']);
 
 export const REEL_TYPE_LABELS = Object.freeze({
   image: 'Image Reel',
   video: 'Video Reel',
   avatar: 'Avatar Video',
+  hybrid: 'Hybrid / Auto Reel',
 });
 
 export const PIPELINE_STAGE_PLANS = Object.freeze({
@@ -20,6 +21,7 @@ export const PIPELINE_STAGE_PLANS = Object.freeze({
       'story_package_generation',
       'story_package_quality_gate',
       'director_contract',
+      'storyboard_and_shot_plan',
       'visual_prompt_builder',
       'image_asset_generation',
       'voice_performance_script',
@@ -33,6 +35,7 @@ export const PIPELINE_STAGE_PLANS = Object.freeze({
       'story_package_generation',
       'story_package_quality_gate',
       'director_contract',
+      'storyboard_and_shot_plan',
       'visual_prompt_builder',
       'asset_generation_v3',
       'voice_performance_script',
@@ -46,9 +49,23 @@ export const PIPELINE_STAGE_PLANS = Object.freeze({
       'story_package_generation',
       'story_package_quality_gate',
       'director_contract',
+      'storyboard_and_shot_plan',
       'visual_prompt_builder',
       'avatar_presenter_selector',
       'avatar_media_generation',
+      'remotion_manifest',
+      'remotion_render',
+      'caption_and_hashtags',
+      'final_qa_approval_gate',
+    ]),
+    hybrid: Object.freeze([
+      'story_package_generation',
+      'story_package_quality_gate',
+      'director_contract',
+      'storyboard_and_shot_plan',
+      'visual_prompt_builder',
+      'hybrid_media_planner',
+      'hybrid_media_generation',
       'remotion_manifest',
       'remotion_render',
       'caption_and_hashtags',

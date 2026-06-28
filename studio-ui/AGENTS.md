@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This folder contains the local browser control panel for injecting ideas, configuring runtime provider/model/avatar settings, entering provider API keys through a collapsed secret section, opting into human review checkpoints, queueing code-first pipeline runs, approving/editing generated review artifacts, approving selected renders, managing hosted objects, and inspecting recent pipeline status.
+This folder contains the local browser control panel for injecting ideas, selecting a creative workflow strategy, configuring runtime provider/model/avatar/hybrid settings, entering provider API keys through a collapsed secret section, opting into human review checkpoints, queueing code-first pipeline runs, approving/editing generated review artifacts, approving selected renders, managing hosted objects, and inspecting recent pipeline status.
 
 ## When to read this
 
@@ -10,7 +10,7 @@ Read this for Studio UI routes, local frontend changes, runtime env/settings edi
 
 ## Important files and subfolders
 
-- `server.mjs`: local HTTP server, DB access, prompt/env editing endpoints, client/account context snapshots, selected-render approval, review approval endpoints, reel-type aware code-first pipeline enqueue/status endpoints, legacy workflow launcher endpoints, hosted-object cleanup, cost aggregation.
+- `server.mjs`: local HTTP server, DB access, prompt/env editing endpoints, client/account context snapshots, selected-render approval, review approval endpoints, reel-type and creative-workflow aware code-first pipeline enqueue/status endpoints, legacy workflow launcher endpoints, hosted-object cleanup, cost aggregation.
 - `public/index.html`: UI markup, including the Settings panel shell.
 - `public/app.js`: browser behavior, including `/api/config` rendering/saving and masked secret handling.
 - `public/styles.css`: UI styling, including settings grids and collapsed secret sections.
@@ -39,7 +39,8 @@ Local operators who want to use the pipeline without editing raw workflow JSON o
 - Keep the visible UI focused on idea injection, runtime provider/model/avatar settings, review approvals, pipeline status, and final approval; prompt and legacy workflow endpoints may exist for compatibility without being exposed as first-screen controls.
 - Add code-first pipeline actions in `pipeline/` before making them the recommended Studio route; keep legacy workflow launcher entries clearly fallback-oriented.
 - Keep review-mode UI in sync with `pipeline/reviews.mjs` reviewable stage keys.
-- Show avatar setup requirements, but do not bypass the worker-side avatar consent gate.
+- Keep creative workflow UI choices in sync with `workflows/scripts/creative_workflows.mjs`.
+- Show avatar setup requirements for Avatar and Hybrid routes, but do not bypass the worker-side avatar consent gate.
 - Update prompt file group metadata when active prompt files change.
 - Adjust UI rendering in `public/` while keeping server write behavior explicit.
 - Keep selected-render approval explicit; approval writes must require a reviewer and Instagram account ID.

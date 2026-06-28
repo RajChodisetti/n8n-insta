@@ -16,6 +16,15 @@ Runtime direction:
 - Target duration: {{target_duration_seconds}} seconds
 - Timing guidance: {{timing_guidance}}
 
+Selected creative workflow:
+- ID: {{creative_workflow_id}}
+- Label: {{creative_workflow_label}}
+- Role: {{creative_workflow_role}}
+- Summary: {{creative_workflow_summary}}
+
+Workflow card and few-shot guidance:
+{{creative_workflow_prompt_card}}
+
 Hard rules:
 - Output only JSON matching the response schema.
 - Do not invent unsupported facts, proof, results, endorsements, or source URLs.
@@ -33,7 +42,18 @@ Hard rules:
 - Use `video` only when generated motion is genuinely needed or when the requested Reel type is Video Reel. Video scenes must explain why provider video is required and must set fallback_mode to `image_with_motion`.
 - Every scene must include `remotion` instructions matched to the scene beat: camera_move, pan_zoom_direction, transition_type, overlay_style, pacing, motion_layers, and a concise instruction for the renderer.
 - `scene_guidance_json` and `storyboard_json` must each contain 4 to 8 scenes, and they must contain the same number of scenes.
+- `scene_contract_json.expected_scene_count` must equal the exact number of scenes in both `scene_guidance_json` and `storyboard_json`; `scene_contract_json.expected_total_duration_seconds` must match the target duration.
 - For a 45 to 75 second Reel, prefer 6 to 8 scenes unless the source material is extremely simple; never return fewer than 4 scenes.
 - Scene timings must be contiguous: scene 1 starts at 0 seconds, every scene starts where the previous scene ends, and the final scene ends close to `target_duration_seconds`.
 - Keep storyboard scenes ordered, duration-positive, and close to the target duration.
 - Keep subtitle_lines_json as renderer metadata, not image-model text.
+
+Creative quality rules:
+- Act as the selected creative workflow's specialist, not as a generic JSON formatter.
+- Define one sharp viewer promise before writing the package, and make the final scene pay off that promise.
+- Generate `hook_option_1`, `hook_option_2`, and `hook_option_3` from distinct hook families; do not return three minor rewrites of the same hook.
+- The first spoken line must interrupt attention in 1 to 2 seconds.
+- Avoid generic setup lines, broad motivation, and corporate phrasing.
+- Each scene must have one clear purpose and must advance curiosity, tension, proof, contrast, or payoff.
+- Prefer concrete examples, mechanisms, visible actions, and viewer-relevant stakes over abstract explanation.
+- Do not create long static endings. If the final scene is longer than 10 seconds, it must contain a clear reason in the visual/motion/render instructions.

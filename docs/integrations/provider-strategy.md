@@ -41,8 +41,9 @@ Reference:
 - move to higher-quality paid models only if output quality or throughput requires it
 
 **Upgrade path:**
-- switch text provider per stage through `RESEARCH_LLM_PROVIDER`, `STORYBOARD_LLM_PROVIDER`, and `CAPTION_LLM_PROVIDER`
-- switch model tier through `RESEARCH_MODEL`, `STORYBOARD_MODEL`, `CAPTION_MODEL`, or the shared `TEXT_MODEL`
+- switch the shared text provider through `TEXT_LLM_PROVIDER`
+- switch the shared text model tier through `TEXT_MODEL` or `TEXT_ANTHROPIC_MODEL`
+- optionally switch caption and final-QA model tiers through `CAPTION_MODEL` / `CAPTION_ANTHROPIC_MODEL` and `FINAL_QA_MODEL` / `FINAL_QA_ANTHROPIC_MODEL`
 - add new provider branches in [invoke_structured_text_adapter.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/invoke_structured_text_adapter.mjs) when needed
 
 **n8n integration:**
@@ -50,7 +51,7 @@ Reference:
 - local development secrets live in the repo-root `.env`
 - runtime credentials can move into the n8n credential store as the workflows harden
 - Environment variable: `OPENAI_API_KEY`
-- Primary selectors: `TEXT_LLM_PROVIDER`, `RESEARCH_LLM_PROVIDER`, `STORYBOARD_LLM_PROVIDER`, `CAPTION_LLM_PROVIDER`, `HASHTAG_LLM_PROVIDER`
+- Primary selectors: `TEXT_LLM_PROVIDER`, `TEXT_MODEL`, `TEXT_ANTHROPIC_MODEL`, `CAPTION_MODEL`, `FINAL_QA_MODEL`
 - the production prompt text is now file-backed under [prompts/](/Users/rajchodisetti/n8n-insta/prompts/README.md), with runtime placeholder binding handled by workflow helper scripts instead of hard-coded workflow JSON
 - Current local compatibility note: the new Phase 2 OpenAI code-node workflows also accept legacy `LLL_API_KEY`, and local `n8n 1.92.2` testing is currently more reliable with `N8N_RUNNERS_ENABLED=false`
 

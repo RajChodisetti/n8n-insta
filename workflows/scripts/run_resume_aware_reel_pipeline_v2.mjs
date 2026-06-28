@@ -572,7 +572,7 @@ function assertStageOutcome(stage, summary) {
       fail(
         `Story package generation did not complete for ${summary.slug || summary.content_id}. `
         + `Expected content_status=storyboard_complete but got ${summary.content_status || '<empty>'}. `
-        + `Check that STORY_PACKAGE_MODEL or PREMIUM_TEXT_MODEL is set to a valid model and that the LLM call succeeded.`,
+        + `Check that TEXT_MODEL is set to a valid model and that the LLM call succeeded.`,
       );
     }
     return;

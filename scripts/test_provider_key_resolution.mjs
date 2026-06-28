@@ -82,34 +82,34 @@ try {
     TEXT_OPENAI_API_KEY: 'text-openai',
     STORY_PACKAGE_OPENAI_API_KEY: 'story-package-openai',
   });
-  assert.equal(selectTextApiKey('story_package_generation', 'openai'), 'story-package-openai');
+  assert.equal(selectTextApiKey('story_package_generation', 'openai'), 'text-openai');
   assert.equal(selectTextApiKey('research_and_script', 'openai'), 'text-openai');
 
   resetEnv({ OPENAI_API_KEY: 'global-openai' });
   assert.equal(selectTextApiKey('caption_and_hashtags', 'openai'), 'global-openai');
 
   resetEnv({ FINAL_QA_OPENAI_API_KEY: 'final-qa-openai', TEXT_OPENAI_API_KEY: 'text-openai' });
-  assert.equal(selectTextApiKey('final_qa_validator', 'openai'), 'final-qa-openai');
+  assert.equal(selectTextApiKey('final_qa_validator', 'openai'), 'text-openai');
 
   resetEnv({ FINAL_QA_ANTHROPIC_API_KEY: 'final-qa-anthropic', TEXT_ANTHROPIC_API_KEY: 'text-anthropic', ANTHROPIC_API_KEY: 'global-anthropic' });
-  assert.equal(selectTextApiKey('final_qa_validator', 'anthropic'), 'final-qa-anthropic');
+  assert.equal(selectTextApiKey('final_qa_validator', 'anthropic'), 'text-anthropic');
 
   resetEnv({ PREMIUM_TEXT_ANTHROPIC_API_KEY: 'premium-anthropic', TEXT_ANTHROPIC_API_KEY: 'text-anthropic' });
-  assert.equal(selectTextApiKey('visual_prompt_builder', 'anthropic'), 'premium-anthropic');
-  assert.equal(selectTextApiKey('voice_performance_script', 'anthropic'), 'premium-anthropic');
-  assert.equal(selectTextApiKey('performance_feedback_analysis', 'anthropic'), 'premium-anthropic');
+  assert.equal(selectTextApiKey('visual_prompt_builder', 'anthropic'), 'text-anthropic');
+  assert.equal(selectTextApiKey('voice_performance_script', 'anthropic'), 'text-anthropic');
+  assert.equal(selectTextApiKey('performance_feedback_analysis', 'anthropic'), 'text-anthropic');
 
   resetEnv({ AVATAR_OPENAI_API_KEY: 'avatar-openai', PREMIUM_TEXT_OPENAI_API_KEY: 'premium-openai', TEXT_OPENAI_API_KEY: 'text-openai' });
-  assert.equal(selectTextApiKey('avatar_presenter_selector', 'openai'), 'avatar-openai');
+  assert.equal(selectTextApiKey('avatar_presenter_selector', 'openai'), 'text-openai');
 
   resetEnv({ AVATAR_ANTHROPIC_API_KEY: 'avatar-anthropic', PREMIUM_TEXT_ANTHROPIC_API_KEY: 'premium-anthropic', TEXT_ANTHROPIC_API_KEY: 'text-anthropic' });
-  assert.equal(selectTextApiKey('avatar_presenter_selector', 'anthropic'), 'avatar-anthropic');
+  assert.equal(selectTextApiKey('avatar_presenter_selector', 'anthropic'), 'text-anthropic');
 
   resetEnv({ AVATAR_LLM_PROVIDER: 'anthropic', PREMIUM_TEXT_LLM_PROVIDER: 'openai', TEXT_LLM_PROVIDER: 'openai' });
-  assert.equal(selectTextProvider('avatar_presenter_selector'), 'anthropic');
+  assert.equal(selectTextProvider('avatar_presenter_selector'), 'openai');
 
   resetEnv({ PROMPT_BUILDER_ANTHROPIC_API_KEY: 'prompt-builder-anthropic', TEXT_ANTHROPIC_API_KEY: 'text-anthropic' });
-  assert.equal(selectTextApiKey('prompt_builder', 'anthropic'), 'prompt-builder-anthropic');
+  assert.equal(selectTextApiKey('prompt_builder', 'anthropic'), 'text-anthropic');
 
   resetEnv({ SCENE_IMAGE_OPENAI_API_KEY: 'scene-image-openai', IMAGE_OPENAI_API_KEY: 'image-openai', OPENAI_API_KEY: 'global-openai' });
   assert.equal(selectImageApiKey('scene_image', 'openai'), 'scene-image-openai');
@@ -135,8 +135,8 @@ try {
   tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'provider-env-'));
   const envFile = path.join(tempDir, '.env');
   fs.writeFileSync(envFile, [
-    'AVATAR_LLM_PROVIDER=anthropic',
-    'AVATAR_ANTHROPIC_API_KEY=runtime-avatar-anthropic',
+    'TEXT_LLM_PROVIDER=anthropic',
+    'TEXT_ANTHROPIC_API_KEY=runtime-text-anthropic',
     '',
   ].join('\n'));
   resetEnv({
@@ -144,7 +144,7 @@ try {
     PIPELINE_RUNTIME_ENV_FILE: envFile,
   });
   assert.equal(selectTextProvider('avatar_presenter_selector'), 'anthropic');
-  assert.equal(selectTextApiKey('avatar_presenter_selector', 'anthropic'), 'runtime-avatar-anthropic');
+  assert.equal(selectTextApiKey('avatar_presenter_selector', 'anthropic'), 'runtime-text-anthropic');
 
   process.stdout.write('provider key resolution ok\n');
 } finally {
