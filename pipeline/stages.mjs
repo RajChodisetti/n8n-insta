@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { withTransaction } from './db.mjs';
@@ -41,6 +43,23 @@ function roundToHundredths(value) {
 
 function encodePayload(payload) {
   return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64');
+}
+
+function buildPayloadInvocationArgs(payload, label = 'payload') {
+  const json = JSON.stringify(payload);
+  const encoded = Buffer.from(json, 'utf8').toString('base64');
+  if (encoded.length < 100000) {
+    return { args: [encoded], cleanup: () => {} };
+  }
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'n8n-insta-payload-'));
+  const filePath = path.join(tempDir, `${label}.json`);
+  fs.writeFileSync(filePath, json, 'utf8');
+  return {
+    args: ['--payload-file', filePath],
+    cleanup: () => {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    },
+  };
 }
 
 function objectKeyForRole(contentId, role, extension) {
@@ -1305,11 +1324,17 @@ async function runAssetGenerationV3({ pool, step }) {
   const contentId = ensureUuid(step.content_id);
   const candidate = await fetchAndClaimAssetCandidate(pool, contentId);
   const payload = buildAssetGenerationPayload(candidate, 'wf_asset_generation_v3');
-  const result = runNodeScript(
-    'workflows/scripts/generate_and_rehost_scene_assets_v3.mjs',
-    [encodePayload(payload)],
-    { label: 'asset_generation_v3' },
-  );
+  const payloadInvocation = buildPayloadInvocationArgs(payload, 'asset-generation-v3');
+  let result;
+  try {
+    result = runNodeScript(
+      'workflows/scripts/generate_and_rehost_scene_assets_v3.mjs',
+      payloadInvocation.args,
+      { label: 'asset_generation_v3' },
+    );
+  } finally {
+    payloadInvocation.cleanup();
+  }
 
   const sceneAssets = asArray(result.scene_assets);
   if (sceneAssets.length === 0) {

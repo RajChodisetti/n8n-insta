@@ -15,6 +15,7 @@
  */
 
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import { loadRenderedPromptAsset } from './prompt_utils.mjs';
 import { generateImageAsset } from './image_generation_adapters.mjs';
 import { uploadBinaryAsset } from './asset_host_adapters.mjs';
@@ -28,6 +29,16 @@ function fail(message) {
 }
 
 function decodePayload() {
+  const payloadFileIndex = process.argv.indexOf('--payload-file');
+  if (payloadFileIndex >= 0) {
+    const payloadFile = String(process.argv[payloadFileIndex + 1] || '').trim();
+    if (!payloadFile) fail('Missing value for --payload-file.');
+    try {
+      return JSON.parse(fs.readFileSync(payloadFile, 'utf8'));
+    } catch (error) {
+      fail(`Could not read workflow payload file: ${error.message}`);
+    }
+  }
   const encoded = String(process.argv[2] || '').trim();
   if (!encoded) fail('Missing base64 payload argument.');
   try {
