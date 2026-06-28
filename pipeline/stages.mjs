@@ -3714,7 +3714,7 @@ async function runRenderSyncCompletion({ pool, step }) {
   const fallbackResolution = trimString(row.resolution || request.render_request?.output?.resolution);
   const renderTimeoutMs = Math.max(
     60,
-    parsePositiveInteger(process.env.RENDER_SYNC_REQUEST_TIMEOUT_SECONDS ?? process.env.REMOTION_RENDER_REQUEST_TIMEOUT_SECONDS, 1200),
+    parsePositiveInteger(process.env.RENDER_SYNC_REQUEST_TIMEOUT_SECONDS ?? process.env.REMOTION_RENDER_REQUEST_TIMEOUT_SECONDS, 3600),
   ) * 1000;
   let renderResult;
   if (!request.worker_url) {
