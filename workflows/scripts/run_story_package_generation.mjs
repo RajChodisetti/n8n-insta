@@ -217,6 +217,177 @@ function buildDefaultTtsInstructions(scene = {}) {
   return 'Natural cinematic voiceover. Keep the pacing clear and pause cleanly at the end.';
 }
 
+function splitNarrationIntoSentences(value) {
+  const normalized = normalizeWhitespace(value);
+  if (!normalized) {
+    return [];
+  }
+  const sentences = normalized
+    .split(/(?<=[.!?])\s+/u)
+    .map((entry) => normalizeWhitespace(entry))
+    .filter(Boolean);
+  return sentences.length > 0 ? sentences : [normalized];
+}
+
+function chunkTextForScenes(value, sceneCount) {
+  const count = Math.max(1, Number(sceneCount || 1));
+  const sentences = splitNarrationIntoSentences(value);
+  if (sentences.length >= count) {
+    const chunks = Array.from({ length: count }, () => []);
+    sentences.forEach((sentence, index) => {
+      chunks[Math.min(count - 1, Math.floor((index * count) / sentences.length))].push(sentence);
+    });
+    return chunks.map((chunk) => normalizeWhitespace(chunk.join(' ')));
+  }
+
+  const words = normalizeWhitespace(value).split(/\s+/).filter(Boolean);
+  if (words.length === 0) {
+    return Array.from({ length: count }, (_, index) => `Scene ${index + 1} beat.`);
+  }
+  return Array.from({ length: count }, (_, index) => {
+    const start = Math.floor((index * words.length) / count);
+    const end = Math.floor(((index + 1) * words.length) / count);
+    return normalizeWhitespace(words.slice(start, Math.max(start + 1, end)).join(' '));
+  });
+}
+
+function targetSceneCountForRepair(sceneGuidanceScenes, storyboardScenes, targetDurationSeconds) {
+  const counts = [sceneGuidanceScenes, storyboardScenes]
+    .map((value) => Array.isArray(value) ? value.length : 0)
+    .filter((count) => count >= 4 && count <= 8);
+  if (counts.length > 0) {
+    return counts[0];
+  }
+  const duration = Number(targetDurationSeconds || 0);
+  if (duration >= 75) return 8;
+  if (duration >= 45) return 6;
+  return 4;
+}
+
+function buildSceneTimings(sceneCount, targetDurationSeconds) {
+  const count = Math.max(4, Math.min(8, Number(sceneCount || 4)));
+  const total = Number.isFinite(Number(targetDurationSeconds)) && Number(targetDurationSeconds) > 0
+    ? Number(targetDurationSeconds)
+    : count * 6;
+  const firstDuration = count > 1
+    ? roundToHundredths(Math.min(4, Math.max(2, total / count)))
+    : roundToHundredths(total);
+  const remaining = Math.max(0, total - firstDuration);
+  let cursor = 0;
+  return Array.from({ length: count }, (_, index) => {
+    const start = roundToHundredths(cursor);
+    const duration = index === 0
+      ? firstDuration
+      : roundToHundredths(remaining / Math.max(1, count - 1));
+    const end = index === count - 1
+      ? roundToHundredths(total)
+      : roundToHundredths(start + duration);
+    cursor = end;
+    return {
+      start_time_seconds: start,
+      end_time_seconds: end,
+      duration_seconds: roundToHundredths(end - start),
+    };
+  });
+}
+
+function repairTimedSceneCount(scenes, fieldName, {
+  targetCount,
+  targetDurationSeconds,
+  title,
+  narrationScript,
+  reelType,
+} = {}) {
+  const sourceScenes = Array.isArray(scenes) ? scenes : [];
+  if (sourceScenes.length === targetCount) {
+    return { scenes: sourceScenes, repaired: false, original_count: sourceScenes.length };
+  }
+
+  const sourceNarration = sourceScenes
+    .map((scene) => normalizeWhitespace(scene?.narration_text))
+    .filter(Boolean)
+    .join(' ');
+  const chunks = chunkTextForScenes(
+    firstNonEmpty(sourceNarration, narrationScript, title, 'A concise story beat for the Reel.'),
+    targetCount,
+  );
+  const timings = buildSceneTimings(targetCount, targetDurationSeconds);
+  const beatLabels = ['Hook', 'Contrast', 'Mechanism', 'Example', 'Implication', 'Turn', 'Proof', 'Close'];
+
+  const repairedScenes = Array.from({ length: targetCount }, (_, index) => {
+    const source = sourceScenes[Math.min(sourceScenes.length - 1, Math.floor((index * Math.max(1, sourceScenes.length)) / targetCount))] || {};
+    const timing = timings[index];
+    const narrationText = firstNonEmpty(chunks[index], source.narration_text, `Scene ${index + 1} beat.`);
+    const baseVisual = firstNonEmpty(
+      source.image_prompt,
+      source.visual_prompt,
+      source.visual_beat,
+      `${title || 'The story'} shown as a cinematic, text-free visual metaphor for: ${narrationText}`,
+    );
+    const common = {
+      ...source,
+      scene_number: index + 1,
+      ...timing,
+      narration_text: narrationText,
+      dialogue_lines: Array.isArray(source.dialogue_lines) && source.dialogue_lines.length > 0
+        ? source.dialogue_lines.map((line) => normalizeWhitespace(line)).filter(Boolean)
+        : [narrationText],
+      asset_type: reelType === 'video' ? 'video' : 'image',
+      asset_plan: source.asset_plan && typeof source.asset_plan === 'object'
+        ? source.asset_plan
+        : {
+          mode: reelType === 'video' ? 'video' : 'image_with_motion',
+          provider_intent: reelType === 'video' ? 'provider_video' : 'remotion_motion',
+          motion_requirement: index === 0 ? 'medium' : 'low',
+          video_generation_required: reelType === 'video',
+          video_generation_reason: reelType === 'video'
+            ? 'The operator selected Video Reel, so this scene should be generated directly as video.'
+            : 'Use a still image and let Remotion provide the camera movement and pacing.',
+          fallback_mode: 'image_with_motion',
+          budget_priority: reelType === 'video' ? 'premium' : 'standard',
+          review_required: reelType === 'video',
+        },
+      remotion: source.remotion && typeof source.remotion === 'object'
+        ? source.remotion
+        : {
+          camera_move: index === 0 ? 'push_in' : 'drift',
+          pan_zoom_direction: index === 0 ? 'center_push' : 'left_to_right',
+          motion_intensity: index === 0 ? 'medium' : 'low',
+          transition_type: index === 0 ? 'cut' : 'soft_cut',
+          overlay_style: 'subtle_vignette',
+          pacing: index === 0 ? 'quick' : 'steady',
+          motion_layers: ['parallax-style pan/zoom from the still image'],
+          instructions: 'Use restrained cinematic motion that supports the narration without adding visible text.',
+        },
+      music_cue: firstNonEmpty(source.music_cue, index === 0 ? 'subtle opening pulse' : (index === targetCount - 1 ? 'reflective closing lift' : 'steady understated bed')),
+      tts_instructions: firstNonEmpty(source.tts_instructions, buildDefaultTtsInstructions(source)),
+      includes_primary_character: source.includes_primary_character === true,
+    };
+
+    if (fieldName === 'scene_guidance_json') {
+      return {
+        ...common,
+        beat_label: firstNonEmpty(source.beat_label, beatLabels[index], `Beat ${index + 1}`),
+        image_prompt: stripVisibleTextInstructions(baseVisual) || TEXT_FREE_VISUAL_FALLBACK,
+        scene_purpose: firstNonEmpty(source.scene_purpose, `Advance beat ${index + 1} of the story.`),
+        visual_beat: firstNonEmpty(source.visual_beat, narrationText),
+        source_boundary: firstNonEmpty(source.source_boundary, 'Use only the supplied idea/source notes and preserve uncertainty.'),
+      };
+    }
+
+    return {
+      ...common,
+      visual_prompt: stripVisibleTextInstructions(baseVisual) || TEXT_FREE_VISUAL_FALLBACK,
+      transition: firstNonEmpty(source.transition, index === 0 ? 'cut' : 'soft_cut'),
+      mood: firstNonEmpty(source.mood, index === targetCount - 1 ? 'reflective' : 'clear and cinematic'),
+      is_face_image: source.is_face_image === true,
+      face_image_title: firstNonEmpty(source.face_image_title, index === 0 ? buildFaceImageTitleFallback(title) : ''),
+    };
+  });
+
+  return { scenes: repairedScenes, repaired: true, original_count: sourceScenes.length };
+}
+
 const ASSET_PLAN_MODES = new Set(['image', 'video', 'image_with_motion']);
 const MOTION_REQUIREMENTS = new Set(['low', 'medium', 'high']);
 const CAMERA_MOVES = new Set(['push_in', 'pull_out', 'pan_left', 'pan_right', 'tilt_up', 'tilt_down', 'drift', 'hold']);
@@ -588,6 +759,42 @@ async function main() {
         fail(`story package returned an empty ${field}.`);
       }
     }
+    const repairedSceneTargetCount = targetSceneCountForRepair(
+      response.scene_guidance_json,
+      response.storyboard_json,
+      targetDurationSeconds,
+    );
+    const sceneCountRepairs = [];
+    const repairedSceneGuidance = repairTimedSceneCount(response.scene_guidance_json, 'scene_guidance_json', {
+      targetCount: repairedSceneTargetCount,
+      targetDurationSeconds,
+      title,
+      narrationScript: response.narration_script,
+      reelType,
+    });
+    const repairedStoryboard = repairTimedSceneCount(response.storyboard_json, 'storyboard_json', {
+      targetCount: repairedSceneTargetCount,
+      targetDurationSeconds,
+      title,
+      narrationScript: response.narration_script,
+      reelType,
+    });
+    if (repairedSceneGuidance.repaired) {
+      sceneCountRepairs.push({
+        field: 'scene_guidance_json',
+        original_count: repairedSceneGuidance.original_count,
+        repaired_count: repairedSceneTargetCount,
+      });
+      response.scene_guidance_json = repairedSceneGuidance.scenes;
+    }
+    if (repairedStoryboard.repaired) {
+      sceneCountRepairs.push({
+        field: 'storyboard_json',
+        original_count: repairedStoryboard.original_count,
+        repaired_count: repairedSceneTargetCount,
+      });
+      response.storyboard_json = repairedStoryboard.scenes;
+    }
     const onscreenTextJson = normalizeSubtitleLines(response.onscreen_text_json);
     const sceneGuidanceJson = normalizeTimedScenes(response.scene_guidance_json, 'scene_guidance_json', { title, reelType });
     const storyboardJson = normalizeTimedScenes(response.storyboard_json, 'storyboard_json', { title, reelType });
@@ -626,6 +833,7 @@ async function main() {
       provider: String(result.generation_provider || result.llm_provider || 'openai').trim(),
       generation_model: String(result.generation_model || '').trim(),
       provider_metadata: result.provider_metadata ?? {},
+      scene_count_repairs: sceneCountRepairs,
       creative_direction_json: response.creative_direction_json ?? {},
       scene_guidance_json: sceneGuidanceJson,
       parsed_response: { ...response, scene_guidance_json: sceneGuidanceJson },
@@ -638,6 +846,7 @@ async function main() {
       provider: scriptRawResponse.provider,
       generation_model: scriptRawResponse.generation_model,
       provider_metadata: scriptRawResponse.provider_metadata,
+      scene_count_repairs: sceneCountRepairs,
       script_scene_guidance_json: sceneGuidanceJson,
       creative_direction_json: response.creative_direction_json ?? {},
       parsed_response: { ...response, storyboard_json: storyboardJson },
