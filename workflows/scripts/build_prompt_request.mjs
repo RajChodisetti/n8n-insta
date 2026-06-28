@@ -18,6 +18,7 @@ const STAGES = {
     schema: 'schemas/director_contract.schema.json',
     outputKey: 'openai_request_director_contract',
     modelEnvKeys: ['DIRECTOR_CONTRACT_MODEL', 'DIRECTOR_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
+    anthropicModelEnvKeys: ['DIRECTOR_CONTRACT_ANTHROPIC_MODEL', 'DIRECTOR_ANTHROPIC_MODEL', 'PREMIUM_TEXT_ANTHROPIC_MODEL', 'TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'],
     fallbackModel: 'gpt-4.1-mini',
   },
   director: {
@@ -50,6 +51,7 @@ const STAGES = {
     schema: 'idea_prompt_profile/response-schema.json',
     outputKey: 'openai_request_idea_prompt_profile',
     modelEnvKeys: ['IDEA_PROMPT_PROFILE_MODEL', 'PROMPT_BUILDER_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
+    anthropicModelEnvKeys: ['IDEA_PROMPT_PROFILE_ANTHROPIC_MODEL', 'PROMPT_BUILDER_ANTHROPIC_MODEL', 'TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'],
     fallbackModel: 'gpt-4o-mini',
   },
   story_package_generation: {
@@ -58,6 +60,7 @@ const STAGES = {
     schema: 'story_package_generation/response-schema.json',
     outputKey: 'openai_request_story_package_generation',
     modelEnvKeys: ['STORY_PACKAGE_MODEL', 'PREMIUM_TEXT_MODEL', 'OPENAI_STORY_PACKAGE_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
+    anthropicModelEnvKeys: ['STORY_PACKAGE_ANTHROPIC_MODEL', 'PREMIUM_TEXT_ANTHROPIC_MODEL', 'TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'],
     fallbackModel: 'gpt-4.1',
   },
   story_package_generation_v2: {
@@ -66,6 +69,7 @@ const STAGES = {
     schema: 'schemas/story_package.schema.json',
     outputKey: 'openai_request_story_package_generation_v2',
     modelEnvKeys: ['STORY_PACKAGE_V2_MODEL', 'STORY_PACKAGE_MODEL', 'PREMIUM_TEXT_MODEL', 'OPENAI_STORY_PACKAGE_MODEL', 'TEXT_MODEL', 'OPENAI_TEXT_MODEL'],
+    anthropicModelEnvKeys: ['STORY_PACKAGE_V2_ANTHROPIC_MODEL', 'STORY_PACKAGE_ANTHROPIC_MODEL', 'PREMIUM_TEXT_ANTHROPIC_MODEL', 'TEXT_ANTHROPIC_MODEL', 'ANTHROPIC_TEXT_MODEL', 'ANTHROPIC_MODEL'],
     fallbackModel: 'gpt-4.1',
   },
   storyboard_and_prompts: {
@@ -148,6 +152,8 @@ function stageEnvPrefix(stageKey) {
     director_contract: 'DIRECTOR',
     director: 'DIRECTOR',
     idea_prompt_profile: 'PROMPT_BUILDER',
+    story_package_generation: 'STORY_PACKAGE',
+    story_package_generation_v2: 'STORY_PACKAGE_V2',
     visual_prompt_builder: 'VISUAL_PROMPT',
     voice_performance_script: 'VOICE_PERFORMANCE',
     avatar_presenter_selector: 'AVATAR',

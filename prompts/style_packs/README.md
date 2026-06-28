@@ -4,10 +4,13 @@ Style packs are reusable creative contracts for future director and storyboard u
 
 Use `style_pack_registry.json` as the machine-readable index and each Markdown file as the human-readable brief.
 
+`video_styles.json` is a separate research catalog for future video-scene visual style presets. It is not runtime-loaded yet and should be wired through a later director/visual-prompt implementation rather than referenced directly by providers.
+
 Validation:
 
 ```bash
 jq empty prompts/style_packs/style_pack_registry.json
+jq empty prompts/style_packs/video_styles.json
 jq empty prompts/schemas/style_pack.schema.json
 ```
 

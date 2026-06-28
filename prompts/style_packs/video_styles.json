@@ -1,0 +1,463 @@
+{
+  "version": "0.1",
+  "last_reviewed": "2026-06-28",
+  "status": "research_catalog_only_not_runtime_loaded",
+  "purpose": "Candidate video visual styles for future scene generation and director/style-pack wiring. This file is a research catalog only; current prompt rendering does not load it automatically.",
+  "selection_guidance": [
+    "Use exactly one primary video style per reel unless a future director contract explicitly supports scene-level style changes.",
+    "Prefer styles with strong lighting, palette, lens, texture, and motion rules because those are easier to keep consistent across generated scenes.",
+    "For future provider prompts, use prompt_safe_descriptor and consistency_controls rather than asking a model to copy a named living artist or studio.",
+    "Keep global rules, brand safety, no-readable-text constraints, consent rules, and final QA higher priority than any style choice."
+  ],
+  "prompt_safety": {
+    "named_reference_policy": "Reference names are research labels for humans. When this catalog is wired into prompts, convert named references into the neutral prompt_safe_descriptor and consistency_controls first.",
+    "copyright_boundary": [
+      "Do not copy exact film frames, compositions, characters, logos, vehicles, city layouts, props, or branded settings from referenced works.",
+      "Do not request a living creator's exact style from a provider; use the trait-based descriptor instead.",
+      "Do not make readable signs, UI, labels, or captions inside generated visuals unless an upstream workflow explicitly approves text rendering."
+    ],
+    "provider_boundary": "Future model/provider adapters should treat this as creative direction only, not as permission to bypass provider safety, IP, likeness, or content policies."
+  },
+  "video_styles": [
+    {
+      "id": "luminous_sky_anime_drama",
+      "display_name": "Luminous Sky Anime Drama",
+      "research_reference_names": ["Makoto Shinkai", "Your Name", "Weathering With You", "Suzume"],
+      "prompt_safe_descriptor": "luminous modern anime realism with vast skies, precise weather, reflective surfaces, golden-hour light, saturated blue and cyan skies, soft lens bloom, and emotionally quiet urban or rural backgrounds",
+      "best_for": "Emotional hooks, longing, transformation stories, founder reflection, travel, memory, hope, and high-polish cinematic reels.",
+      "avoid_for": "Comedy bits, gritty crime, aggressive sales, heavy product demos, or anything needing a documentary-only look.",
+      "consistency_controls": {
+        "palette": "sky blue, cyan, warm amber, clean white highlights, soft pink sunset accents",
+        "lighting": "backlit clouds, glowing rain, sun flare, bright rim light, reflective puddles and glass",
+        "line_and_shape": "clean anime linework, realistic architecture, delicate facial silhouettes, high-detail backgrounds",
+        "camera": "wide sky reveals, slow push-ins, low-angle skyline views, reflective close-ups, quiet match cuts",
+        "motion": "slow drifting clouds, rain streaks, hair and fabric moved by wind, subtle parallax on backgrounds",
+        "texture": "crisp digital anime finish with controlled bloom and very clean gradients"
+      },
+      "continuity_rules": [
+        "Anchor every scene with a sky, weather, reflection, or light transition.",
+        "Keep characters small against large environments unless the script beat is intimate.",
+        "Use one recurring weather cue across the reel: rain, wind, sunset, clouds, or dawn.",
+        "Do not switch into gritty cyberpunk or vintage cel grain mid-reel."
+      ],
+      "negative_prompt_guidance": [
+        "no copied anime characters",
+        "no exact film locations",
+        "no readable signage",
+        "no cluttered neon cityscape unless specifically requested"
+      ],
+      "research_sources": [
+        {
+          "title": "BFI interview with Makoto Shinkai on Your Name",
+          "url": "https://www.bfi.org.uk/sight-and-sound/interviews/trading-places-makoto-shinkai-your-name",
+          "notes": "Useful for photorealistic Tokyo, location fidelity, and the documentary-like aspect of the animation."
+        },
+        {
+          "title": "Animation Scoop interview with Makoto Shinkai on Weathering With You",
+          "url": "https://www.animationscoop.com/interview-makoto-shinkai-director-weathering-with-you/",
+          "notes": "Useful for rain animation, hand-drawn/CG blending, climate inspiration, and weather research."
+        }
+      ]
+    },
+    {
+      "id": "pastoral_hand_drawn_fantasy",
+      "display_name": "Pastoral Hand-Drawn Fantasy",
+      "research_reference_names": ["Studio Ghibli", "Hayao Miyazaki", "Spirited Away", "My Neighbor Totoro"],
+      "prompt_safe_descriptor": "warm hand-drawn pastoral fantasy with lush natural environments, soft atmospheric depth, tactile everyday objects, expressive but simple character shapes, and a gentle sense of wonder",
+      "best_for": "Nature, community, local business warmth, childhood memory, craft, wellness, low-pressure brand stories, and magical-real everyday moments.",
+      "avoid_for": "Dense tech demos, hard sci-fi, nightlife, fast meme cuts, or luxury brand minimalism.",
+      "consistency_controls": {
+        "palette": "leaf green, moss, cream, warm wood, soft blue sky, muted flower accents",
+        "lighting": "diffuse daylight, dappled forest light, window light, warm lanterns at dusk",
+        "line_and_shape": "rounded forms, hand-drawn edges, expressive silhouettes, detailed nature backgrounds",
+        "camera": "gentle pans, low-to-ground details, slow reveal of environments, character-in-landscape framing",
+        "motion": "wind in grass, drifting dust, small creature-like motion in objects, soft walking pace",
+        "texture": "painted backgrounds, paper warmth, subtle imperfect edges, natural material detail"
+      },
+      "continuity_rules": [
+        "Make nature, craft, or tactile objects part of every scene.",
+        "Favor wonder and tenderness over spectacle.",
+        "Keep backgrounds painterly and warm; avoid chrome, hard neon, and sterile UI panels.",
+        "Use slow environmental transitions instead of hard glitch effects."
+      ],
+      "negative_prompt_guidance": [
+        "no copied Ghibli characters",
+        "no exact bathhouse, forest spirit, or creature designs",
+        "no readable signs",
+        "no sterile SaaS dashboard"
+      ],
+      "research_sources": [
+        {
+          "title": "TIME on Spirited Away and Studio Ghibli's hand-drawn legacy",
+          "url": "https://time.com/6081937/spirited-away-changed-animation-studio-ghibli/",
+          "notes": "Useful for the continued importance of 2D hand-drawn animation and richly designed visuals."
+        }
+      ]
+    },
+    {
+      "id": "sunlit_digital_family_adventure",
+      "display_name": "Sunlit Digital Family Adventure",
+      "research_reference_names": ["Mamoru Hosoda", "Summer Wars", "Belle", "Studio Chizu"],
+      "prompt_safe_descriptor": "clean sunlit anime adventure with energetic character motion, everyday family spaces contrasted with abstract digital worlds, bright simple shapes, and optimistic emotional pacing",
+      "best_for": "Community stories, product networks, family-safe explainers, social platforms, education, technology made approachable, and optimistic transformation.",
+      "avoid_for": "Noir, horror, heavy grief, dense corporate dashboards, or ultra-realistic product walkthroughs.",
+      "consistency_controls": {
+        "palette": "sunny white, sky blue, fresh green, warm skin tones, bright digital accent colors",
+        "lighting": "clear daylight, soft home interiors, high-key digital spaces, clean shadow shapes",
+        "line_and_shape": "simple character silhouettes, clean edges, graphic digital architecture, airy negative space",
+        "camera": "quick character movement, clean group staging, bright wide shots, clear digital-world reveals",
+        "motion": "energetic running, clean gesture arcs, floating digital elements, snappy but readable transitions",
+        "texture": "smooth digital anime finish with minimal grain and crisp color blocks"
+      },
+      "continuity_rules": [
+        "Keep human warmth visible even when the scene uses digital abstraction.",
+        "Use clear, bright spatial design instead of chaotic UI clutter.",
+        "Repeat one digital motif across scenes: circles, portals, avatars, cards, or network lines.",
+        "Keep expressions energetic but grounded."
+      ],
+      "negative_prompt_guidance": [
+        "no copied virtual-world designs",
+        "no branded platform UI",
+        "no unreadable data walls",
+        "no dark cyberpunk mood"
+      ],
+      "research_sources": [
+        {
+          "title": "The Film Stage interview with Mamoru Hosoda on Belle",
+          "url": "https://thefilmstage.com/mamoru-hosoda-on-creating-an-idealized-digital-world-in-belle/",
+          "notes": "Useful for digital-world evolution, fine-art influence, and repeated imagery across projects."
+        }
+      ]
+    },
+    {
+      "id": "urban_dream_psychological_realism",
+      "display_name": "Urban Dream Psychological Realism",
+      "research_reference_names": ["Satoshi Kon", "Perfect Blue", "Millennium Actress", "Paprika"],
+      "prompt_safe_descriptor": "grounded urban anime realism with precise interior staging, dreamlike match cuts, memory fragments, mirrored compositions, and a controlled blur between ordinary reality and subjective perception",
+      "best_for": "Identity stories, memory, transformation, creator anxiety, psychological tension, mystery, and sophisticated narrative reels.",
+      "avoid_for": "Light local promotions, product demos, cheerful how-to lessons, or simple comedic pain points.",
+      "consistency_controls": {
+        "palette": "muted city neutrals, deep reds, hospital whites, train gray, night blue, selective saturated accents",
+        "lighting": "fluorescent interiors, reflected glass, stage light, harsh room contrast, rainy evening streets",
+        "line_and_shape": "realistic human proportions, detailed rooms, repeating frames within frames, posters and screens without readable text",
+        "camera": "match cuts, mirror shots, abrupt perspective shifts, subjective close-ups, corridors and thresholds",
+        "motion": "hard cuts between related shapes, slow unease, repeated gestures, scene transitions through reflections",
+        "texture": "clean but slightly tense anime realism with restrained grain and sharp layout"
+      },
+      "continuity_rules": [
+        "Use repeated visual motifs to connect scenes: mirrors, doors, train windows, stage lights, or screens.",
+        "Keep surreal moments grounded in realistic camera blocking.",
+        "Use match cuts as the main transition language.",
+        "Do not turn surreal beats into random fantasy imagery."
+      ],
+      "negative_prompt_guidance": [
+        "no copied characters or posters",
+        "no explicit horror gore",
+        "no readable headlines or screens",
+        "no whimsical pastoral tone"
+      ],
+      "research_sources": [
+        {
+          "title": "Animation Obsessive on Satoshi Kon and dream/reality motifs",
+          "url": "https://animationobsessive.substack.com/p/inside-satoshi-kons-last-unfinished",
+          "notes": "Useful for Kon's recurring surreal interaction of reality and dreams."
+        }
+      ]
+    },
+    {
+      "id": "neon_brutalist_cyberpunk_city",
+      "display_name": "Neon Brutalist Cyberpunk City",
+      "research_reference_names": ["Ghost in the Shell", "Akira", "Patlabor 2", "cyberpunk anime cityscapes"],
+      "prompt_safe_descriptor": "dense anime cyberpunk city with rain-drenched concrete, layered urban depth, industrial infrastructure, moody night color, hazy billboards without readable text, and oppressive vertical scale",
+      "best_for": "AI, surveillance, futuristic anxiety, data infrastructure, security, high-stakes technology, and dystopian cautionary stories.",
+      "avoid_for": "Human-centered wellness, bright family content, gentle local promos, or luxury calm brand films.",
+      "consistency_controls": {
+        "palette": "wet asphalt, deep teal, electric cyan, sodium amber, emergency red, concrete gray",
+        "lighting": "rainy neon reflections, underpass shadows, billboard haze, hard rim light, fogged glass",
+        "line_and_shape": "brutalist blocks, pipes, cables, layered streets, dense skyline silhouettes",
+        "camera": "low-angle city canyons, long urban pans, compressed telephoto streets, surveillance-like overheads",
+        "motion": "rain, steam, traffic light streaks, elevator movement, slow mechanical pans, occasional sharp action burst",
+        "texture": "painted anime backgrounds with grime, mist, and analog-mechanical detail"
+      },
+      "continuity_rules": [
+        "Keep vertical scale and urban layering in every scene.",
+        "Use wet surfaces and reflections as the recurring visual glue.",
+        "Keep signage abstract or unreadable.",
+        "Limit bright neon to accents; preserve concrete and shadow as the dominant read."
+      ],
+      "negative_prompt_guidance": [
+        "no exact Neo-Tokyo or New Port City layouts",
+        "no copied motorcycles, cyborg designs, or police logos",
+        "no readable billboards",
+        "no clean corporate UI"
+      ],
+      "research_sources": [
+        {
+          "title": "032c on Anime Architecture and Ghost in the Shell",
+          "url": "https://magazine.032c.com/magazine/anime-architecture-ghost-shell-built",
+          "notes": "Useful for brutalist architecture, Hong Kong/Tokyo location research, rain-drenched neon, and layered background construction."
+        },
+        {
+          "title": "Journal of Anime and Manga Studies on city imagery in Ghost in the Shell",
+          "url": "https://iopn.library.illinois.edu/journals/jams/article/view/968",
+          "notes": "Useful for cyberpunk city imagery as a signifier of societal structure."
+        },
+        {
+          "title": "Little White Lies on anime beyond Akira and cyberpunk Tokyo",
+          "url": "https://lwlies.com/article/anime-beyond-akira-cyberpunk-tokyo",
+          "notes": "Useful for gritty, realistic urban anime sci-fi and industrial Tokyo ambience."
+        }
+      ]
+    },
+    {
+      "id": "retro_vhs_cel_action",
+      "display_name": "Retro VHS Cel Action",
+      "research_reference_names": ["1980s anime", "1990s anime", "VHS-era anime", "cel animation"],
+      "prompt_safe_descriptor": "retro cel-anime action with analog grain, imperfect line texture, chunky mechanical props, bold shadow shapes, CRT-era color, and tactile pre-digital motion cues",
+      "best_for": "High-energy reels, creator hooks, gaming, retro technology, action metaphors, attention-grabbing intros, and stylized tech explainers.",
+      "avoid_for": "Premium calm brand films, emotional romance, realistic client case studies, or modern SaaS walkthroughs.",
+      "consistency_controls": {
+        "palette": "black, crimson, magenta, muted teal, dirty yellow, steel gray",
+        "lighting": "hard cel shadows, low-res glow, CRT flicker, strong red focal accents, night action lighting",
+        "line_and_shape": "thick outlines, angular silhouettes, chunky devices, visible cel-style shading",
+        "camera": "fast zooms, speed lines used sparingly, hard action cuts, close-up impact frames",
+        "motion": "limited-animation holds, smear frames, whip pans, rapid foreground wipes, analog scanline flicker",
+        "texture": "VHS noise, film grain, subtle chromatic offset, low-res edge jitter"
+      },
+      "continuity_rules": [
+        "Use analog imperfection consistently; do not mix with pristine 3D gloss.",
+        "Repeat one focal accent color across every scene.",
+        "Keep props bulky and physical rather than glassy and futuristic.",
+        "Maintain readable silhouettes during fast motion."
+      ],
+      "negative_prompt_guidance": [
+        "no copied 1980s anime characters",
+        "no copyrighted UI",
+        "no modern smartphone glass aesthetic",
+        "no over-clean neon"
+      ],
+      "research_sources": [
+        {
+          "title": "Creative Bloq on retro VHS-era anime art direction",
+          "url": "https://www.creativebloq.com/3d/video-game-design/why-mullet-madjacks-retro-vhs-era-anime-art-style-still-stands-out",
+          "notes": "Useful for VHS noise, CRT texture, older cyberpunk references, and imperfection as an art direction choice."
+        }
+      ]
+    },
+    {
+      "id": "city_pop_twilight_slice_of_life",
+      "display_name": "City Pop Twilight Slice of Life",
+      "research_reference_names": ["city pop", "1980s Japanese pop culture", "retro anime city scenes"],
+      "prompt_safe_descriptor": "nostalgic city-pop anime mood with pastel twilight skylines, warm night drives, quiet apartments, cassette-era objects, soft neon reflections, and relaxed urban optimism",
+      "best_for": "Lifestyle reels, creator reflection, local business mood, personal memory, gentle product positioning, and soft aspirational content.",
+      "avoid_for": "Hard sci-fi, serious warnings, medical/legal topics, high-pressure sales, or dark psychological edits.",
+      "consistency_controls": {
+        "palette": "pastel pink, lavender, aqua, warm orange, night blue, soft cream",
+        "lighting": "twilight skyline, car-window reflections, bar and apartment glow, summer night haze",
+        "line_and_shape": "clean retro anime figures, simple city skylines, vintage consumer objects, rounded cars",
+        "camera": "car-window pans, balcony views, quiet street-level shots, record-player or cassette close-ups",
+        "motion": "slow cruising movement, blinking city lights, hair in warm breeze, relaxed handheld moments",
+        "texture": "soft film grain, light VHS warmth, smooth pastel gradients, watercolor-like backgrounds"
+      },
+      "continuity_rules": [
+        "Use nostalgia through color, objects, and pacing, not copyrighted music or album art.",
+        "Keep the mood relaxed and bittersweet.",
+        "Repeat a city-night motif across scenes: windows, car lights, balconies, or cassette objects.",
+        "Avoid hard dystopian cyberpunk cues."
+      ],
+      "negative_prompt_guidance": [
+        "no album cover recreations",
+        "no readable storefront signs",
+        "no copied anime characters",
+        "no aggressive glitch effects"
+      ],
+      "research_sources": [
+        {
+          "title": "Van Paugam on City Pop Aesthetics",
+          "url": "https://vanpaugam.com/blog/2020/10/20/city-pop-aesthetics",
+          "notes": "Useful for pastel city scenes, nostalgia, 1980s motifs, and retro anime associations."
+        },
+        {
+          "title": "Pitchfork on the life cycle and revival of Japanese city pop",
+          "url": "https://pitchfork.com/features/article/the-endless-life-cycle-of-japanese-city-pop/",
+          "notes": "Useful for city pop's late-1970s and 1980s context, cosmopolitan lifestyle, and nostalgic online revival."
+        }
+      ]
+    },
+    {
+      "id": "minimal_watercolor_everyday",
+      "display_name": "Minimal Watercolor Everyday",
+      "research_reference_names": ["watercolor anime", "quiet slice of life", "minimalist Japanese animation"],
+      "prompt_safe_descriptor": "minimal watercolor slice-of-life animation with airy white space, soft wash color, small everyday gestures, understated backgrounds, and gentle emotional clarity",
+      "best_for": "Simple lessons, wellness, routine, family moments, calm tutorials, reflective captions, and low-stimulus educational reels.",
+      "avoid_for": "Epic drama, dense action, cyberpunk, product-detail walkthroughs, or high-energy hooks.",
+      "consistency_controls": {
+        "palette": "white paper, pale blue, soft green, peach, light gray, small warm accents",
+        "lighting": "natural window light, overcast daylight, soft morning sun, no harsh contrast",
+        "line_and_shape": "loose thin lines, open composition, simple faces, sparse props",
+        "camera": "locked-off quiet frames, slow pans, object close-ups, negative-space compositions",
+        "motion": "small hand gestures, steam rising, curtains moving, soft walking cycles, slow page turns",
+        "texture": "paper grain, watercolor bleed, faint pencil line, low saturation"
+      },
+      "continuity_rules": [
+        "Keep scenes uncluttered and emotionally legible.",
+        "Use one everyday object as a repeating anchor.",
+        "Let captions and narration do the explaining; visuals should stay quiet.",
+        "Avoid spectacle, intense camera motion, and dense background detail."
+      ],
+      "negative_prompt_guidance": [
+        "no crowded city neon",
+        "no copied characters",
+        "no high-contrast action lighting",
+        "no readable text"
+      ],
+      "research_sources": [
+        {
+          "title": "TIME on the value of hand-drawn 2D animation in Studio Ghibli work",
+          "url": "https://time.com/6081937/spirited-away-changed-animation-studio-ghibli/",
+          "notes": "Useful as broad context for hand-drawn animation craft and subtle 2D aesthetics."
+        }
+      ]
+    },
+    {
+      "id": "ink_wash_folklore_period",
+      "display_name": "Ink Wash Folklore Period",
+      "research_reference_names": ["sumi-e", "Japanese ink wash", "period folklore animation"],
+      "prompt_safe_descriptor": "ink-wash period animation with black brush lines, misty negative space, restrained earth tones, folklore silhouettes, and elegant scroll-like compositions",
+      "best_for": "Mythic explainers, heritage stories, philosophical lessons, traditional craft, folklore metaphors, and premium quiet storytelling.",
+      "avoid_for": "Modern SaaS, social media tutorials, neon nightlife, avatar sales outreach, or fast meme edits.",
+      "consistency_controls": {
+        "palette": "ink black, rice paper white, muted indigo, warm ochre, moss green, cinnabar accents",
+        "lighting": "mist, lantern glow, moonlit silhouettes, soft morning haze, no glossy highlights",
+        "line_and_shape": "brush-stroke silhouettes, sparse landscapes, flowing robes, simple architecture",
+        "camera": "lateral scroll movement, slow reveals through mist, balanced tableau staging, negative-space framing",
+        "motion": "ink bleed transitions, drifting fog, falling leaves, slow fabric arcs, water ripples",
+        "texture": "paper grain, brush dry-out, ink diffusion, matte finish"
+      },
+      "continuity_rules": [
+        "Use negative space as an active composition tool.",
+        "Repeat one natural motif: mist, leaves, water, moon, or brush ink.",
+        "Keep movement sparse and deliberate.",
+        "Avoid modern props unless the concept explicitly uses contrast."
+      ],
+      "negative_prompt_guidance": [
+        "no copied folklore characters from specific films",
+        "no modern logos",
+        "no glossy cyberpunk surfaces",
+        "no readable calligraphy unless approved"
+      ],
+      "research_sources": [
+        {
+          "title": "TIME on Japanese animation's international cultural reach through Spirited Away",
+          "url": "https://time.com/6081937/spirited-away-changed-animation-studio-ghibli/",
+          "notes": "Useful as broad context for folklore-inflected Japanese animation reaching global audiences."
+        }
+      ]
+    },
+    {
+      "id": "real_robot_space_opera",
+      "display_name": "Real Robot Space Opera",
+      "research_reference_names": ["real robot anime", "mecha anime", "space opera animation"],
+      "prompt_safe_descriptor": "cinematic real-robot anime with believable mechanical scale, orbital light, hangar detail, cockpit reflections, military-industrial silhouettes, and restrained heroic drama",
+      "best_for": "Systems thinking, infrastructure, AI agents, logistics, operations, engineering, launch narratives, and high-stakes strategy explainers.",
+      "avoid_for": "Wellness, lifestyle, local promos, romance, soft education, or content where machinery would distract from the message.",
+      "consistency_controls": {
+        "palette": "space black, off-white hulls, steel gray, warning orange, cockpit green, deep blue planet glow",
+        "lighting": "hard rim light in space, hangar work lights, cockpit glass reflections, missile-trail glows used sparingly",
+        "line_and_shape": "hard-surface panels, modular joints, realistic scale, readable silhouettes, detailed hangars",
+        "camera": "slow scale reveals, cockpit POV, launch bay tracking shots, orbital wide shots, mechanical close-ups",
+        "motion": "thruster bursts, slow mass-heavy turns, docking clamps, hydraulic movement, brief combat-like cuts only when story needs it",
+        "texture": "painted sci-fi anime with panel lines, chipped paint, heat haze, and industrial grit"
+      },
+      "continuity_rules": [
+        "Make machinery feel heavy and functional, not toy-like.",
+        "Repeat one visual system: cockpit HUD shapes without readable text, warning lights, hangar rails, or orbital horizon.",
+        "Keep mecha and vehicles original and generic.",
+        "Use scale and process as the emotional driver."
+      ],
+      "negative_prompt_guidance": [
+        "no copied mecha designs",
+        "no faction logos",
+        "no readable HUD text",
+        "no magical fantasy effects"
+      ],
+      "research_sources": [
+        {
+          "title": "Little White Lies on Patlabor 2, mecha, and realistic Tokyo sci-fi",
+          "url": "https://lwlies.com/article/anime-beyond-akira-cyberpunk-tokyo",
+          "notes": "Useful for sparse mecha deployment, realistic urban stakes, and technology as political tension."
+        }
+      ]
+    },
+    {
+      "id": "rainy_tokyo_noir",
+      "display_name": "Rainy Tokyo Noir",
+      "research_reference_names": ["anime noir", "rainy urban drama", "Tokyo night cinema"],
+      "prompt_safe_descriptor": "rainy anime noir with reflective streets, compressed urban alleys, train platforms, muted faces under umbrellas, practical light sources, and restrained investigative tension",
+      "best_for": "Mystery hooks, problem investigation, founder struggle, risk analysis, security stories, and serious B2B narratives.",
+      "avoid_for": "Cheerful launches, childlike wonder, bright tutorials, slapstick humor, or wellness calm.",
+      "consistency_controls": {
+        "palette": "charcoal, wet black, muted teal, sodium amber, deep maroon, pale fluorescent white",
+        "lighting": "practical lamps, vending-machine glow without readable branding, train-platform fluorescents, headlight reflections",
+        "line_and_shape": "realistic urban forms, umbrellas, train rails, narrow alleys, window grids, overpasses",
+        "camera": "telephoto street compression, over-shoulder reveals, slow tracking through crowds, reflection-based transitions",
+        "motion": "rain streaks, passing trains, umbrella movement, car lights, slow tension-building push-ins",
+        "texture": "wet asphalt, lens moisture, soft film grain, restrained bloom"
+      },
+      "continuity_rules": [
+        "Keep rain and reflections as the primary continuity device.",
+        "Use tension through framing rather than action spectacle.",
+        "Keep faces partially obscured when anonymity or mood matters.",
+        "Avoid readable store signs and real brands."
+      ],
+      "negative_prompt_guidance": [
+        "no exact real street recreation",
+        "no readable signage",
+        "no copied detective characters",
+        "no bright pastoral palette"
+      ],
+      "research_sources": [
+        {
+          "title": "032c on Ghost in the Shell architecture and rain-drenched neon",
+          "url": "https://magazine.032c.com/magazine/anime-architecture-ghost-shell-built",
+          "notes": "Useful for urban rain, neon, and oppressive-yet-beautiful city atmosphere."
+        }
+      ]
+    },
+    {
+      "id": "painterly_cloudscape_fantasy",
+      "display_name": "Painterly Cloudscape Fantasy",
+      "research_reference_names": ["sky fantasy animation", "cloudscape anime", "weather-driven fantasy"],
+      "prompt_safe_descriptor": "painterly cloudscape fantasy with towering skies, floating landforms, sun shafts, atmospheric perspective, small human silhouettes, and awe-driven scale",
+      "best_for": "Hopeful openings, spiritual or philosophical ideas, big transitions, product vision, brand aspiration, and story beats about possibility.",
+      "avoid_for": "Grounded product UI, gritty urban stories, realistic case studies, or any content requiring concrete physical proof.",
+      "consistency_controls": {
+        "palette": "cloud white, pale gold, ultramarine, soft violet, dawn pink, distant green",
+        "lighting": "sun shafts, rim-lit clouds, glowing horizon, misty atmospheric depth, soft haloing",
+        "line_and_shape": "large cloud masses, tiny figures, simple floating silhouettes, expansive horizon lines",
+        "camera": "wide aerial reveals, slow vertical climbs, drifting parallax, clouds opening to reveal subject",
+        "motion": "cloud drift, birds-eye movement without identifiable creatures, gentle fabric motion, slow light changes",
+        "texture": "painterly sky gradients, soft brush clouds, subtle digital polish"
+      },
+      "continuity_rules": [
+        "Use scale contrast in every scene: small subject, vast sky.",
+        "Repeat one sky state across the reel: dawn, storm clearing, sunset, or high noon.",
+        "Keep fantasy forms original and generic.",
+        "Avoid switching into urban realism unless it is a clear story landing."
+      ],
+      "negative_prompt_guidance": [
+        "no copied floating islands or castle designs",
+        "no readable text in clouds",
+        "no specific film shot recreation",
+        "no hard sci-fi machinery unless selected as a hybrid later"
+      ],
+      "research_sources": [
+        {
+          "title": "BFI interview with Makoto Shinkai on realistic location-based animation",
+          "url": "https://www.bfi.org.uk/sight-and-sound/interviews/trading-places-makoto-shinkai-your-name",
+          "notes": "Useful for balancing photorealistic grounding with heightened animated atmosphere."
+        }
+      ]
+    }
+  ]
+}

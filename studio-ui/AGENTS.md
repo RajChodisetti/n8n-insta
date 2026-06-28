@@ -65,6 +65,7 @@ Then inspect the local UI at `http://localhost:7780` when the stack is running. 
 
 - Prompt edit endpoints still exist, but the visible UI only exposes the curated runtime env/settings subset from `/api/config`.
 - The fast path queues code-first `pipeline_runs`; the legacy workflow launcher still uses `execute_workflow_by_name.mjs`, which interacts with the running n8n instance.
+- Studio allows multiple unfinished content items to have active or queued generation runs; the Pipeline list is the status surface. Same-content duplicate run protection belongs in `pipeline/runs.mjs`.
 - Review-mode runs pause with `pipeline_runs.status = 'awaiting_review'` until a `pipeline_reviews` row is approved, then resume at the next pending step.
 - Server code protects prompt paths against path traversal; keep that boundary if adding file-edit routes.
 

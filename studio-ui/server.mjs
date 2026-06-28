@@ -439,28 +439,6 @@ function isSensitiveConfigKey(key) {
     || normalized.includes('SECRET')
     || normalized.includes('ENCRYPTION_KEY');
 }
-const ACTIVE_REEL_PIPELINE_STATUSES = Object.freeze([
-  'idea_approved',
-  'scripting',
-  'script_complete',
-  'directing',
-  'directed',
-  'storyboarding',
-  'storyboard_complete',
-  'validating',
-  'validation_complete',
-  'generating_assets',
-  'assets_ready',
-  'generating_narration',
-  'narration_ready',
-  'building_render_manifest',
-  'render_manifest_ready',
-  'dispatching_render',
-  'render_queued',
-  'render_complete',
-  'render_failed',
-]);
-
 const workflowJobs = new Map();
 
 const CONFIG_SECTIONS = [
@@ -585,15 +563,25 @@ const CONFIG_SECTIONS = [
       field('ANTHROPIC_VERSION', 'Anthropic API Version', 'Anthropic API version header used for Claude structured text requests.', ['2023-06-01']),
       field('ANTHROPIC_MAX_TOKENS', 'Anthropic Max Tokens', 'Maximum tokens for Anthropic structured text responses.', ['4096', '8192']),
       field('IDEA_INGEST_MODEL', 'Idea Ingest Model', 'Model used to turn an abstract idea into a topic payload.', ['gpt-4.1-mini', 'gpt-4o-mini']),
+      field('IDEA_INGEST_ANTHROPIC_MODEL', 'Idea Ingest Anthropic Model', 'Anthropic model used to turn an abstract idea into a topic payload.', ['claude-sonnet-4-6']),
       field('IDEA_PROMPT_PROFILE_MODEL', 'Idea Prompt Profile Model', 'Model used for idea prompt profile generation when that stage is enabled.', ['gpt-4.1-mini', 'gpt-4o-mini']),
+      field('IDEA_PROMPT_PROFILE_ANTHROPIC_MODEL', 'Idea Prompt Profile Anthropic Model', 'Anthropic model used for idea prompt profile generation when that stage is enabled.', ['claude-sonnet-4-6']),
       field('PROMPT_BUILDER_MODEL', 'Prompt Builder Model', 'Optional prompt-builder model override for the Studio UI generator.', ['gpt-4o-mini', 'gpt-4.1-mini']),
+      field('PROMPT_BUILDER_ANTHROPIC_MODEL', 'Prompt Builder Anthropic Model', 'Anthropic model used by the Studio UI prompt generator.', ['claude-sonnet-4-6']),
       field('RESEARCH_MODEL', 'Research Model', 'Research-stage model override.', ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini']),
+      field('RESEARCH_ANTHROPIC_MODEL', 'Research Anthropic Model', 'Anthropic model for research/script generation.', ['claude-sonnet-4-6']),
       field('DIRECTOR_CONTRACT_MODEL', 'Director Contract Model', 'Director-contract model override before Director Model.', ['gpt-4.1-mini', 'gpt-4.1']),
+      field('DIRECTOR_CONTRACT_ANTHROPIC_MODEL', 'Director Contract Anthropic Model', 'Anthropic model for director-contract generation before Director Anthropic Model.', ['claude-sonnet-4-6']),
       field('DIRECTOR_MODEL', 'Director Model', 'Director-contract model override.', ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4.1']),
+      field('DIRECTOR_ANTHROPIC_MODEL', 'Director Anthropic Model', 'Anthropic model for director stages.', ['claude-sonnet-4-6']),
       field('STORY_PACKAGE_MODEL', 'Story Package Model', 'One-pass story package model override.', ['gpt-4.1', 'gpt-4.1-mini']),
+      field('STORY_PACKAGE_ANTHROPIC_MODEL', 'Story Package Anthropic Model', 'Anthropic model for one-pass story package generation.', ['claude-sonnet-4-6']),
       field('STORY_PACKAGE_V2_MODEL', 'Story Package V2 Model', 'V2 story package model override.', ['gpt-4.1', 'gpt-4.1-mini']),
+      field('STORY_PACKAGE_V2_ANTHROPIC_MODEL', 'Story Package V2 Anthropic Model', 'Anthropic model for story package V2 generation.', ['claude-sonnet-4-6']),
       field('STORYBOARD_MODEL', 'Storyboard Model', 'Storyboard-stage model override.', ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini']),
+      field('STORYBOARD_ANTHROPIC_MODEL', 'Storyboard Anthropic Model', 'Anthropic model for storyboard/prompt generation.', ['claude-sonnet-4-6']),
       field('CAPTION_MODEL', 'Caption Model', 'Caption-stage model override.', ['gpt-4o-mini', 'gpt-4.1-mini']),
+      field('CAPTION_ANTHROPIC_MODEL', 'Caption Anthropic Model', 'Anthropic model for caption and hashtag generation.', ['claude-sonnet-4-6']),
       field('VISUAL_PROMPT_MODEL', 'Visual Prompt Model', 'OpenAI model for visual prompt refinement.', ['gpt-4.1-mini', 'gpt-4.1']),
       field('VISUAL_PROMPT_ANTHROPIC_MODEL', 'Visual Prompt Anthropic Model', 'Anthropic model for visual prompt refinement.', ['claude-sonnet-4-6']),
       field('VOICE_PERFORMANCE_MODEL', 'Voice Performance Model', 'OpenAI model for narration performance enrichment.', ['gpt-4.1-mini', 'gpt-4.1']),
@@ -1329,44 +1317,7 @@ async function createTopicFromAbstractIdeaV2(abstractIdea, options = {}) {
   };
 }
 
-async function findBlockingReelCandidates(limit = 5) {
-  const result = await pool.query(
-    `select
-      content_id,
-      slug,
-      title,
-      status,
-      updated_at
-    from content_items
-    where status = any($1::text[])
-    order by updated_at desc, created_at desc
-    limit $2`,
-    [ACTIVE_REEL_PIPELINE_STATUSES, Math.max(1, Math.min(Number(limit) || 5, 25))],
-  );
-  return result.rows.map((row) => ({
-    content_id: String(row.content_id || '').trim(),
-    slug: String(row.slug || '').trim(),
-    title: String(row.title || '').trim(),
-    status: String(row.status || '').trim(),
-    updated_at: row.updated_at ? new Date(row.updated_at).toISOString() : null,
-  }));
-}
-
-async function assertNoBlockingReelCandidates() {
-  const blockingCandidates = await findBlockingReelCandidates();
-  if (!blockingCandidates.length) {
-    return;
-  }
-
-  fail(
-    409,
-    `Cannot auto-start a new Reel while another unfinished candidate exists: ${blockingCandidates.map((item) => `${item.title || item.slug || item.content_id} [${item.status || 'unknown'}]`).join('; ')}`,
-    { blocking_candidates: blockingCandidates },
-  );
-}
-
 async function createTopicFromAbstractIdeaAndStartWorkflow(abstractIdea, workflowKey = DEFAULT_ABSTRACT_IDEA_WORKFLOW_KEY, options = {}) {
-  await assertNoBlockingReelCandidates();
   const created = await createTopicFromAbstractIdea(abstractIdea, options);
   const pipelineRun = await createPipelineRun(pool, {
     contentId: created.topic.content_id,
@@ -1386,7 +1337,6 @@ async function createTopicFromAbstractIdeaAndStartWorkflow(abstractIdea, workflo
 }
 
 async function createTopicFromAbstractIdeaAndStartWorkflowV2(abstractIdea, options = {}) {
-  await assertNoBlockingReelCandidates();
   const created = await createTopicFromAbstractIdeaV2(abstractIdea, options);
   const pipelineRun = await createPipelineRun(pool, {
     contentId: created.topic.content_id,
