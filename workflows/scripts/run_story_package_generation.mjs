@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { invokeStructuredTextStage } from './invoke_structured_text_adapter.mjs';
 import { mapStoryPackageV2ToLegacyResponse } from './story_package_v2_compat.mjs';
 
@@ -84,7 +86,7 @@ function plainObject(value) {
 
 function normalizeReelType(value) {
   const normalized = String(value || '').trim().toLowerCase();
-  if (normalized === 'image' || normalized === 'video' || normalized === 'avatar') {
+  if (normalized === 'image' || normalized === 'video' || normalized === 'avatar' || normalized === 'hybrid') {
     return normalized;
   }
   return 'video';
@@ -258,6 +260,125 @@ function assertStoryPackageSceneContract(response, targetDurationSeconds) {
   if (Number.isFinite(targetDuration) && targetDuration > 0 && Math.abs(expectedDuration - targetDuration) > 2) {
     fail(`story package scene_contract_json.expected_total_duration_seconds (${expectedDuration}) must stay within 2 seconds of target_duration_seconds (${targetDuration}).`);
   }
+}
+
+function syncSceneContractForRepairs(response, {
+  sceneCount,
+  targetDurationSeconds,
+  reason = '',
+  repairs = [],
+} = {}) {
+  const nextSceneCount = Number.parseInt(sceneCount, 10);
+  if (!Number.isInteger(nextSceneCount) || nextSceneCount < 4 || nextSceneCount > 8) {
+    return;
+  }
+  const contract = plainObject(response.scene_contract_json);
+  const originalSceneCount = Number.parseInt(contract.expected_scene_count, 10);
+  const originalDuration = Number(contract.expected_total_duration_seconds);
+  const targetDuration = Number(targetDurationSeconds || 0);
+  const nextDuration = roundToHundredths(
+    Number.isFinite(targetDuration) && targetDuration > 0
+      ? targetDuration
+      : (Number.isFinite(originalDuration) && originalDuration > 0 ? originalDuration : nextSceneCount * 6),
+  );
+  const needsRepair = originalSceneCount !== nextSceneCount
+    || !Number.isFinite(originalDuration)
+    || originalDuration <= 0
+    || Math.abs(originalDuration - nextDuration) > 2;
+  if (!needsRepair) {
+    return;
+  }
+  response.scene_contract_json = {
+    ...contract,
+    expected_scene_count: nextSceneCount,
+    expected_total_duration_seconds: nextDuration,
+    scene_count_rationale: firstNonEmpty(
+      contract.scene_count_rationale,
+      reason,
+      `Scene contract repaired to match ${nextSceneCount} generated scene beats.`,
+    ),
+  };
+  repairs.push({
+    field: 'scene_contract_json',
+    original_expected_scene_count: Number.isInteger(originalSceneCount) ? originalSceneCount : null,
+    repaired_count: nextSceneCount,
+    original_expected_total_duration_seconds: Number.isFinite(originalDuration) ? originalDuration : null,
+    repaired_total_duration_seconds: nextDuration,
+  });
+}
+
+function repairStoryPackageSceneStructure(response, {
+  targetDurationSeconds,
+  title,
+  narrationScript,
+  reelType,
+} = {}) {
+  const targetCount = targetSceneCountForRepair(
+    response.scene_guidance_json,
+    response.storyboard_json,
+    targetDurationSeconds,
+  );
+  const repairs = [];
+  const repairedSceneGuidance = repairTimedSceneCount(response.scene_guidance_json, 'scene_guidance_json', {
+    targetCount,
+    targetDurationSeconds,
+    title,
+    narrationScript,
+    reelType,
+  });
+  const repairedStoryboard = repairTimedSceneCount(response.storyboard_json, 'storyboard_json', {
+    targetCount,
+    targetDurationSeconds,
+    title,
+    narrationScript,
+    reelType,
+  });
+  if (repairedSceneGuidance.repaired) {
+    repairs.push({
+      field: 'scene_guidance_json',
+      original_count: repairedSceneGuidance.original_count,
+      repaired_count: targetCount,
+      repair_reason: repairedSceneGuidance.original_count === 0
+        ? 'model_returned_empty_scene_array'
+        : 'model_returned_wrong_scene_count',
+    });
+    response.scene_guidance_json = repairedSceneGuidance.scenes;
+  }
+  if (repairedStoryboard.repaired) {
+    repairs.push({
+      field: 'storyboard_json',
+      original_count: repairedStoryboard.original_count,
+      repaired_count: targetCount,
+      repair_reason: repairedStoryboard.original_count === 0
+        ? 'model_returned_empty_scene_array'
+        : 'model_returned_wrong_scene_count',
+    });
+    response.storyboard_json = repairedStoryboard.scenes;
+  }
+  if (repairs.length > 0) {
+    syncSceneContractForRepairs(response, {
+      sceneCount: targetCount,
+      targetDurationSeconds,
+      reason: 'The model returned missing or mis-sized scene arrays; the pipeline rebuilt scene timing from the accepted narration script and source title.',
+      repairs,
+    });
+  } else {
+    const guidanceCount = sceneArrayCount(response.scene_guidance_json);
+    const storyboardCount = sceneArrayCount(response.storyboard_json);
+    if (guidanceCount === storyboardCount && guidanceCount >= 4 && guidanceCount <= 8) {
+      syncSceneContractForRepairs(response, {
+        sceneCount: guidanceCount,
+        targetDurationSeconds,
+        reason: 'Scene contract metadata repaired to match the returned scene arrays.',
+        repairs,
+      });
+    }
+  }
+  return {
+    response,
+    target_count: targetCount,
+    repairs,
+  };
 }
 
 function splitFaceImageTitleWords(value) {
@@ -860,44 +981,15 @@ async function main() {
     if (isMetaNarrationInstruction(response.narration_script) && wordCount(response.short_script) >= 12) {
       fail('story package narration_script is a pipeline-meta no-narration instruction instead of usable spoken/story content.');
     }
+    const sceneRepairResult = repairStoryPackageSceneStructure(response, {
+      targetDurationSeconds,
+      title,
+      narrationScript: response.narration_script,
+      reelType,
+    });
+    const sceneCountRepairs = sceneRepairResult.repairs;
     assertStoryPackageSceneArrays(response);
     assertStoryPackageSceneContract(response, targetDurationSeconds);
-    const repairedSceneTargetCount = targetSceneCountForRepair(
-      response.scene_guidance_json,
-      response.storyboard_json,
-      targetDurationSeconds,
-    );
-    const sceneCountRepairs = [];
-    const repairedSceneGuidance = repairTimedSceneCount(response.scene_guidance_json, 'scene_guidance_json', {
-      targetCount: repairedSceneTargetCount,
-      targetDurationSeconds,
-      title,
-      narrationScript: response.narration_script,
-      reelType,
-    });
-    const repairedStoryboard = repairTimedSceneCount(response.storyboard_json, 'storyboard_json', {
-      targetCount: repairedSceneTargetCount,
-      targetDurationSeconds,
-      title,
-      narrationScript: response.narration_script,
-      reelType,
-    });
-    if (repairedSceneGuidance.repaired) {
-      sceneCountRepairs.push({
-        field: 'scene_guidance_json',
-        original_count: repairedSceneGuidance.original_count,
-        repaired_count: repairedSceneTargetCount,
-      });
-      response.scene_guidance_json = repairedSceneGuidance.scenes;
-    }
-    if (repairedStoryboard.repaired) {
-      sceneCountRepairs.push({
-        field: 'storyboard_json',
-        original_count: repairedStoryboard.original_count,
-        repaired_count: repairedSceneTargetCount,
-      });
-      response.storyboard_json = repairedStoryboard.scenes;
-    }
     const metadataRepairs = [];
     const onscreenTextJson = normalizeSubtitleLines(response.onscreen_text_json);
     const sceneGuidanceJson = normalizeTimedScenes(response.scene_guidance_json, 'scene_guidance_json', { title, reelType });
@@ -1080,7 +1172,22 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error.message}\n`);
-  process.exit(1);
+export const __storyPackageGenerationTestHooks = Object.freeze({
+  repairStoryPackageSceneStructure,
+  assertStoryPackageSceneArrays,
+  assertStoryPackageSceneContract,
+  normalizeTimedScenes,
+  validateScenes,
 });
+
+function isDirectExecution() {
+  const argvPath = String(process.argv[1] || '').trim();
+  return Boolean(argvPath) && path.resolve(argvPath) === fileURLToPath(import.meta.url);
+}
+
+if (isDirectExecution()) {
+  main().catch((error) => {
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
+  });
+}

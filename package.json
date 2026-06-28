@@ -7,7 +7,7 @@
   "scripts": {
     "studio": "node studio-ui/server.mjs",
     "worker": "node pipeline/worker.mjs",
-    "check": "node --check studio-ui/server.mjs && node --check pipeline/worker.mjs && node --check pipeline/stages.mjs && node --check pipeline/runs.mjs && node --check infra/remotion-renderer/server.mjs && node scripts/test_pipeline_reel_type_plans.mjs && node scripts/test_provider_key_resolution.mjs && node scripts/test_avatar_presenter_prompt_request.mjs && node scripts/test_avatar_runtime_routing.mjs && node scripts/test_creative_workflow_prompt_context.mjs && node scripts/test_story_package_v2_compat_contract.mjs && node scripts/test_storyboard_split_merge.mjs"
+    "check": "node --check studio-ui/server.mjs && node --check pipeline/worker.mjs && node --check pipeline/stages.mjs && node --check pipeline/runs.mjs && node --check infra/remotion-renderer/server.mjs && node scripts/test_pipeline_reel_type_plans.mjs && node scripts/test_provider_key_resolution.mjs && node scripts/test_avatar_presenter_prompt_request.mjs && node scripts/test_avatar_runtime_routing.mjs && node scripts/test_creative_workflow_prompt_context.mjs && node scripts/test_story_package_v2_compat_contract.mjs && node scripts/test_story_package_empty_scene_repair.mjs && node scripts/test_storyboard_split_merge.mjs"
   },
   "engines": {
     "node": ">=22"
