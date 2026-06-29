@@ -6,6 +6,8 @@ import { buildStageRequest } from '../workflows/scripts/build_prompt_request.mjs
 const KEYS = [
   'PIPELINE_DISABLE_RUNTIME_ENV_FILE',
   'AVATAR_LLM_PROVIDER',
+  'CAPTION_LLM_PROVIDER',
+  'FINAL_QA_LLM_PROVIDER',
   'HYBRID_MEDIA_PLANNER_LLM_PROVIDER',
   'PREMIUM_TEXT_LLM_PROVIDER',
   'TEXT_LLM_PROVIDER',
@@ -178,12 +180,13 @@ try {
     TEXT_LLM_PROVIDER: 'openai',
     TEXT_MODEL: 'gpt-text-test',
     AVATAR_LLM_PROVIDER: 'anthropic',
+    TEXT_ANTHROPIC_MODEL: 'claude-avatar-text-test',
     AVATAR_MODEL: 'gpt-avatar-test',
   });
   const openai = await buildStageRequest('avatar_presenter_selector', avatarPayload());
-  assert.equal(openai.llm_provider, 'openai');
-  assert.equal(openai.openai_request_avatar_presenter_selector.provider, 'openai');
-  assert.equal(openai.openai_request_avatar_presenter_selector.model, 'gpt-text-test');
+  assert.equal(openai.llm_provider, 'anthropic');
+  assert.equal(openai.openai_request_avatar_presenter_selector.provider, 'anthropic');
+  assert.equal(openai.openai_request_avatar_presenter_selector.model, 'claude-avatar-text-test');
   assert.match(openai.openai_request_avatar_presenter_selector.messages[0].content, /active avatar presenter selector/i);
   assert.match(openai.openai_request_avatar_presenter_selector.messages[0].content, /HeyGen capability summary/i);
   assert.equal(openai.openai_request_avatar_presenter_selector.response_schema.properties.effective_reel_type.type, 'string');
@@ -192,23 +195,25 @@ try {
     TEXT_LLM_PROVIDER: 'anthropic',
     TEXT_ANTHROPIC_MODEL: 'claude-text-test',
     AVATAR_LLM_PROVIDER: 'openai',
+    TEXT_MODEL: 'gpt-avatar-text-test',
     AVATAR_ANTHROPIC_MODEL: 'claude-avatar-test',
   });
   const anthropic = await buildStageRequest('avatar_presenter_selector', avatarPayload());
-  assert.equal(anthropic.llm_provider, 'anthropic');
-  assert.equal(anthropic.openai_request_avatar_presenter_selector.provider, 'anthropic');
-  assert.equal(anthropic.openai_request_avatar_presenter_selector.model, 'claude-text-test');
+  assert.equal(anthropic.llm_provider, 'openai');
+  assert.equal(anthropic.openai_request_avatar_presenter_selector.provider, 'openai');
+  assert.equal(anthropic.openai_request_avatar_presenter_selector.model, 'gpt-avatar-text-test');
 
   resetEnv({
     TEXT_LLM_PROVIDER: 'openai',
     TEXT_MODEL: 'gpt-text-test',
     HYBRID_MEDIA_PLANNER_LLM_PROVIDER: 'anthropic',
+    TEXT_ANTHROPIC_MODEL: 'claude-hybrid-text-test',
     HYBRID_MEDIA_PLANNER_MODEL: 'gpt-hybrid-test',
   });
   const hybrid = await buildStageRequest('hybrid_media_planner', hybridPayload());
-  assert.equal(hybrid.llm_provider, 'openai');
-  assert.equal(hybrid.openai_request_hybrid_media_planner.provider, 'openai');
-  assert.equal(hybrid.openai_request_hybrid_media_planner.model, 'gpt-text-test');
+  assert.equal(hybrid.llm_provider, 'anthropic');
+  assert.equal(hybrid.openai_request_hybrid_media_planner.provider, 'anthropic');
+  assert.equal(hybrid.openai_request_hybrid_media_planner.model, 'claude-hybrid-text-test');
   assert.match(hybrid.openai_request_hybrid_media_planner.messages[0].content, /hybrid media planner/i);
   assert.equal(hybrid.openai_request_hybrid_media_planner.response_schema.properties.segments.type, 'array');
 
@@ -275,6 +280,21 @@ try {
   const anthropicFinalQa = await buildStageRequest('final_qa_validator', finalQaPayload());
   assert.equal(anthropicFinalQa.openai_request_final_qa_validator.provider, 'anthropic');
   assert.equal(anthropicFinalQa.openai_request_final_qa_validator.model, 'claude-qa-test');
+
+  resetEnv({
+    TEXT_LLM_PROVIDER: 'anthropic',
+    TEXT_ANTHROPIC_MODEL: 'claude-text-test',
+    CAPTION_LLM_PROVIDER: 'openai',
+    CAPTION_MODEL: 'gpt-caption-test',
+    FINAL_QA_LLM_PROVIDER: 'openai',
+    FINAL_QA_MODEL: 'gpt-qa-test',
+  });
+  const openaiCaptionOverride = await buildStageRequest('caption_and_hashtags', captionPayload());
+  assert.equal(openaiCaptionOverride.openai_request_caption_and_hashtags.provider, 'openai');
+  assert.equal(openaiCaptionOverride.openai_request_caption_and_hashtags.model, 'gpt-caption-test');
+  const openaiFinalQaOverride = await buildStageRequest('final_qa_validator', finalQaPayload());
+  assert.equal(openaiFinalQaOverride.openai_request_final_qa_validator.provider, 'openai');
+  assert.equal(openaiFinalQaOverride.openai_request_final_qa_validator.model, 'gpt-qa-test');
 
   process.stdout.write('avatar presenter prompt request ok\n');
 } finally {

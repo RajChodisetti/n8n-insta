@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { providerNotImplemented, selectImageApiKey, selectImageProvider } from './adapter_config.mjs';
+import { firstEnv, providerNotImplemented, selectImageApiKey, selectImageProvider } from './adapter_config.mjs';
 import { getNoVisibleTextGenerationDirective, getNoVisibleTextNegativePrompt } from './prompt_hard_rules.mjs';
 
 function fail(message) {
@@ -46,36 +46,36 @@ function normalizeOpenAiFallbackRequest(request = {}) {
     model: firstGptImageModel(
       request.openai_model,
       request.model,
-      process.env.OPENAI_SCENE_IMAGE_MODEL,
-      process.env.OPENAI_IMAGE_MODEL,
-      process.env.SCENE_IMAGE_MODEL,
-      process.env.IMAGE_MODEL,
+      firstEnv(['OPENAI_SCENE_IMAGE_MODEL']),
+      firstEnv(['OPENAI_IMAGE_MODEL']),
+      firstEnv(['SCENE_IMAGE_MODEL']),
+      firstEnv(['IMAGE_MODEL']),
     ),
     size: firstNonEmpty(
       request.openai_size,
       request.size,
-      process.env.OPENAI_SCENE_IMAGE_SIZE,
-      process.env.OPENAI_IMAGE_SIZE,
-      process.env.SCENE_IMAGE_SIZE,
-      process.env.IMAGE_SIZE,
+      firstEnv(['OPENAI_SCENE_IMAGE_SIZE']),
+      firstEnv(['OPENAI_IMAGE_SIZE']),
+      firstEnv(['SCENE_IMAGE_SIZE']),
+      firstEnv(['IMAGE_SIZE']),
       '1024x1536',
     ),
     quality: firstNonEmpty(
       request.openai_quality,
       request.quality,
-      process.env.OPENAI_SCENE_IMAGE_QUALITY,
-      process.env.OPENAI_IMAGE_QUALITY,
-      process.env.SCENE_IMAGE_QUALITY,
-      process.env.IMAGE_QUALITY,
+      firstEnv(['OPENAI_SCENE_IMAGE_QUALITY']),
+      firstEnv(['OPENAI_IMAGE_QUALITY']),
+      firstEnv(['SCENE_IMAGE_QUALITY']),
+      firstEnv(['IMAGE_QUALITY']),
       'medium',
     ),
     output_compression: firstNonEmpty(
       request.openai_output_compression,
       request.output_compression,
-      process.env.OPENAI_SCENE_IMAGE_COMPRESSION,
-      process.env.OPENAI_IMAGE_COMPRESSION,
-      process.env.SCENE_IMAGE_COMPRESSION,
-      process.env.IMAGE_COMPRESSION,
+      firstEnv(['OPENAI_SCENE_IMAGE_COMPRESSION']),
+      firstEnv(['OPENAI_IMAGE_COMPRESSION']),
+      firstEnv(['SCENE_IMAGE_COMPRESSION']),
+      firstEnv(['IMAGE_COMPRESSION']),
       '92',
     ),
   };
@@ -86,7 +86,7 @@ function isProviderBillingOrQuotaError(error) {
 }
 
 function shouldFallbackFalImageToOpenAi(component, error) {
-  if (String(process.env.DISABLE_FAL_IMAGE_OPENAI_FALLBACK || '').trim().toLowerCase() === 'true') {
+  if (String(firstEnv(['DISABLE_FAL_IMAGE_OPENAI_FALLBACK']) || '').trim().toLowerCase() === 'true') {
     return false;
   }
   return isProviderBillingOrQuotaError(error) && Boolean(String(selectImageApiKey(component, 'openai')).trim());
@@ -105,6 +105,37 @@ function normalizeReferenceImages(value) {
     }
   }
   return references.slice(0, 16);
+}
+
+function dimensionsFromSize(size) {
+  const sizeMatch = String(size || '').trim().match(/^(\d+)x(\d+)$/i);
+  return sizeMatch
+    ? { width: Number(sizeMatch[1]), height: Number(sizeMatch[2]) }
+    : { width: 1024, height: 1536 };
+}
+
+function aspectRatioFromSize(size, fallback = '9:16') {
+  const { width, height } = dimensionsFromSize(size);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return fallback;
+  }
+  const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+  const divisor = gcd(width, height);
+  const ratio = `${Math.round(width / divisor)}:${Math.round(height / divisor)}`;
+  const supported = new Set(['21:9', '16:9', '3:2', '4:3', '5:4', '1:1', '4:5', '3:4', '2:3', '9:16']);
+  return supported.has(ratio) ? ratio : fallback;
+}
+
+function falImageResolutionForComponent(component, request = {}) {
+  const componentPrefix = String(component || '').trim().toLowerCase() === 'post_image' ? 'POST_IMAGE' : 'SCENE_IMAGE';
+  const value = firstNonEmpty(
+    request.resolution,
+    firstEnv([`${componentPrefix}_RESOLUTION`]),
+    firstEnv(['IMAGE_RESOLUTION']),
+    firstEnv(['FAL_IMAGE_RESOLUTION']),
+    '2K',
+  ).toUpperCase();
+  return ['1K', '2K', '4K'].includes(value) ? value : '2K';
 }
 
 async function fetchWithContext(url, options, failureContext) {
@@ -190,8 +221,14 @@ function falAppIdFromModel(model) {
   const m = String(model || '').trim().toLowerCase();
   if (!m || m === 'flux-schnell' || m === 'flux/schnell') return 'fal-ai/flux/schnell';
   if (m === 'flux-dev' || m === 'flux/dev') return 'fal-ai/flux/dev';
+  if (m === 'flux-2-klein' || m === 'flux-2/klein/9b') return 'fal-ai/flux-2/klein/9b';
+  if (m === 'nano-banana-pro' || m === 'banana-pro') return 'fal-ai/nano-banana-pro';
   if (m.startsWith('fal-ai/') || m.startsWith('fal/')) return m;
   return 'fal-ai/flux/schnell';
+}
+
+function isNanoBananaImageModel(model) {
+  return String(model || '').trim().toLowerCase().includes('nano-banana');
 }
 
 async function generateWithFalAi(prompt, request, contextLabel) {
@@ -206,22 +243,29 @@ async function generateWithFalAi(prompt, request, contextLabel) {
     ensureString('image prompt', prompt),
     getNoVisibleTextGenerationDirective(),
   ].join('\n\n');
-  const appId = falAppIdFromModel(request.model || process.env.SCENE_IMAGE_MODEL || process.env.IMAGE_MODEL);
+  const appId = falAppIdFromModel(request.model || firstEnv(['SCENE_IMAGE_MODEL', 'IMAGE_MODEL']));
 
-  const sizeMatch = String(request.size || '').trim().match(/^(\d+)x(\d+)$/i);
-  const imageSize = sizeMatch
-    ? { width: Number(sizeMatch[1]), height: Number(sizeMatch[2]) }
-    : { width: 1024, height: 1536 };
-
-  const body = {
-    prompt: rawPrompt.length > 4000 ? rawPrompt.slice(0, 4000) : rawPrompt,
-    negative_prompt: getNoVisibleTextNegativePrompt(),
-    image_size: imageSize,
-    num_inference_steps: 4,
-    num_images: 1,
-    enable_safety_checker: false,
-    sync_mode: true,
-  };
+  const body = isNanoBananaImageModel(appId)
+    ? {
+      prompt: rawPrompt.length > 8000 ? rawPrompt.slice(0, 8000) : rawPrompt,
+      aspect_ratio: String(request.aspect_ratio || aspectRatioFromSize(request.size)).trim() || '9:16',
+      resolution: falImageResolutionForComponent(component, request),
+      output_format: 'jpeg',
+      num_images: 1,
+      safety_tolerance: String(request.safety_tolerance || firstEnv(['FAL_IMAGE_SAFETY_TOLERANCE']) || '4').trim() || '4',
+      sync_mode: true,
+      limit_generations: true,
+      system_prompt: getNoVisibleTextGenerationDirective(),
+    }
+    : {
+      prompt: rawPrompt.length > 4000 ? rawPrompt.slice(0, 4000) : rawPrompt,
+      negative_prompt: getNoVisibleTextNegativePrompt(),
+      image_size: dimensionsFromSize(request.size),
+      num_inference_steps: 4,
+      num_images: 1,
+      enable_safety_checker: false,
+      sync_mode: true,
+    };
 
   const endpoint = `https://fal.run/${appId}`;
   const response = await fetchWithContext(

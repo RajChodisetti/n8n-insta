@@ -42,6 +42,8 @@ const KEYS = [
   'FINAL_QA_ANTHROPIC_API_KEY',
   'PERFORMANCE_FEEDBACK_ANTHROPIC_API_KEY',
   'AVATAR_LLM_PROVIDER',
+  'CAPTION_LLM_PROVIDER',
+  'FINAL_QA_LLM_PROVIDER',
   'PREMIUM_TEXT_LLM_PROVIDER',
   'TEXT_LLM_PROVIDER',
   'IMAGE_OPENAI_API_KEY',
@@ -106,7 +108,12 @@ try {
   assert.equal(selectTextApiKey('avatar_presenter_selector', 'anthropic'), 'text-anthropic');
 
   resetEnv({ AVATAR_LLM_PROVIDER: 'anthropic', PREMIUM_TEXT_LLM_PROVIDER: 'openai', TEXT_LLM_PROVIDER: 'openai' });
-  assert.equal(selectTextProvider('avatar_presenter_selector'), 'openai');
+  assert.equal(selectTextProvider('avatar_presenter_selector'), 'anthropic');
+
+  resetEnv({ CAPTION_LLM_PROVIDER: 'openai', FINAL_QA_LLM_PROVIDER: 'openai', TEXT_LLM_PROVIDER: 'anthropic' });
+  assert.equal(selectTextProvider('caption_and_hashtags'), 'openai');
+  assert.equal(selectTextProvider('final_qa_validator'), 'openai');
+  assert.equal(selectTextProvider('visual_prompt_builder'), 'anthropic');
 
   resetEnv({ PROMPT_BUILDER_ANTHROPIC_API_KEY: 'prompt-builder-anthropic', TEXT_ANTHROPIC_API_KEY: 'text-anthropic' });
   assert.equal(selectTextApiKey('prompt_builder', 'anthropic'), 'text-anthropic');

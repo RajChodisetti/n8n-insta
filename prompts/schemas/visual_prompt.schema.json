@@ -13,7 +13,7 @@
   "properties": {
     "visual_prompt_version": {
       "type": "string",
-      "enum": ["1.0"]
+      "enum": ["1.0", "1.1"]
     },
     "source_stage": {
       "type": "string",
@@ -157,6 +157,30 @@
             "minLength": 1
           },
           "visual_prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "image_prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "video_prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visual_evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "continuity_anchor": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text_risk_strategy": {
             "type": "string",
             "minLength": 1
           },

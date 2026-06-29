@@ -141,6 +141,10 @@ On failure:
 
 ## Render rules
 
+### Per-Scene Narration Timing
+
+For code-first Remotion renders, the runtime `timeline[].duration_seconds` should fit the measured per-scene narration duration plus a short bounded tail. Keep the storyboard/seed duration as `planned_duration_seconds` for diagnostics, but do not let an overlong planned duration create silent/still holds after a scene's dialogue ends.
+
 ### Face Image (Scene 1)
 
 The first scene in the timeline may include optional `is_face_image` and `face_image_title` fields:

@@ -50,6 +50,16 @@ const IMAGE_PRICE_TABLE = [
 ];
 
 const VIDEO_PRICE_TABLE = [
+  // Confirmed from fal live pricing on 2026-06-29.
+  { pattern: 'fal-ai/veo3.1/fast/image-to-video', unit_price: 0.15, billing_unit: 'second' },
+  { pattern: 'fal-ai/veo3.1/fast', unit_price: 0.15, billing_unit: 'second' },
+  { pattern: 'fal-ai/veo3.1/lite/image-to-video', unit_price: 0.05, billing_unit: 'second' },
+  { pattern: 'fal-ai/veo3.1/lite', unit_price: 0.05, billing_unit: 'second' },
+  { pattern: 'fal-ai/veo3.1/image-to-video', unit_price: 0.40, billing_unit: 'second' },
+  { pattern: 'fal-ai/veo3.1', unit_price: 0.40, billing_unit: 'second' },
+  // Confirmed from fal official model docs on 2026-06-29.
+  { pattern: 'bytedance/seedance-2.0/fast/text-to-video', unit_price: 0.2419, billing_unit: 'second' },
+  { pattern: 'bytedance/seedance-2.0/text-to-video', unit_price: 0.3034, billing_unit: 'second' },
   // Confirmed from fal official pricing on 2026-05-04.
   { pattern: 'fal-ai/wan/v2.7/reference-to-video', unit_price: 0.10, billing_unit: 'second' },
   { pattern: 'fal-ai/wan/reference-to-video', unit_price: 0.10, billing_unit: 'second' },

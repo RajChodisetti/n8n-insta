@@ -69,7 +69,7 @@ With a running stack, also check `docker compose --env-file infra/.env -f infra/
 - `image`, `video`, `avatar`, and `hybrid` use different stage lists. `video` remains the default for backward compatibility.
 - `creative_workflow` is separate from `reel_type`; it changes prompt role/few-shot guidance without changing stage plan or provider route.
 - `avatar` runs use `avatar_presenter_selector` and `avatar_media_generation`; approved routes rely on HeyGen's embedded avatar audio/video asset, while blocked or unavailable routes auto-downgrade to the normal video asset, voice performance, and narration path before Remotion finishing. Avatar fallback preserves storyboard asset plans and may use `image_with_motion`; do not force every fallback scene to provider video unless the storyboard already requested it.
-- `hybrid` runs use `hybrid_media_planner` and `hybrid_media_generation` to mix scene-level HeyGen avatar clips, Fal/Wan scene video, and image-motion scenes in one Remotion manifest. Non-avatar scenes get per-scene TTS; avatar scenes use embedded HeyGen audio.
+- `hybrid` runs use `hybrid_media_planner` and `hybrid_media_generation` to mix scene-level HeyGen avatar clips, Fal Veo scene video, and image-motion scenes in one Remotion manifest. Non-avatar scenes get per-scene TTS; avatar scenes use embedded HeyGen audio.
 - Existing `content_items.status` remains `render_complete` after generation so Studio's selected-render approval route keeps working.
 - Existing Postgres volumes do not automatically rerun init SQL; `ensurePipelineSchema` applies the new schema from Studio/worker startup paths.
 

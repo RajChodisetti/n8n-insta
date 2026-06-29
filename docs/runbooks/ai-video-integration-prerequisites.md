@@ -25,7 +25,7 @@ Decide and provide credentials only when a live test session explicitly asks for
 | --- | --- | --- | --- |
 | Text generation | OpenAI or Anthropic project, one shared prompt-generation model, and optional caption/QA model overrides. | `OPENAI_API_KEY`, `TEXT_OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TEXT_ANTHROPIC_API_KEY`, `TEXT_LLM_PROVIDER`, `TEXT_MODEL`, `TEXT_ANTHROPIC_MODEL`, `CAPTION_MODEL`, `FINAL_QA_MODEL` | No |
 | Image generation | OpenAI image or Fal image provider choice. | `IMAGE_GENERATION_PROVIDER`, `SCENE_IMAGE_PROVIDER`, `IMAGE_OPENAI_API_KEY`, `SCENE_IMAGE_OPENAI_API_KEY`, `FAL_AI_API_KEY` | No |
-| Video generation | Fal/Wan model choice for scene video generation. | `FAL_AI_API_KEY`, `SCENE_VIDEO_FAL_AI_API_KEY`, `WAN_VIDEO_MODEL`, `WAN_REFERENCE_VIDEO_MODEL` | No |
+| Video generation | Fal Veo 3.1 Fast model choice for storyboard image-to-video scene generation. | `FAL_AI_API_KEY`, `SCENE_VIDEO_FAL_AI_API_KEY`, `VEO_VIDEO_MODEL`, `VEO_REFERENCE_VIDEO_MODEL`, `VEO_VIDEO_RESOLUTION`, `VEO_VIDEO_DURATION_SECONDS` | No |
 | Narration/TTS | Fish Audio, Smallest AI, or OpenAI TTS choice and voice. | `NARRATION_PROVIDER`, `TTS_PROVIDER`, `NARRATION_FISH_AUDIO_API_KEY`, `NARRATION_SMALLEST_AI_API_KEY`, `NARRATION_OPENAI_API_KEY` | No |
 | Avatar video | HeyGen account, avatar ID, voice ID, and consent policy. | `HEYGEN_API_KEY`, `HEYGEN_AVATAR_ID`, `HEYGEN_VOICE_ID`, `HEYGEN_AVATAR_CONSENT_RECORD_URI` | Only for live avatar runs |
 | Asset hosting | Local object storage or Google Cloud Storage. | `ASSET_HOST_PROVIDER`, `GOOGLE_CLOUD_STORAGE_*`, `REELS_STORAGE_*` | No |

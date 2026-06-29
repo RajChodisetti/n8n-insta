@@ -8,6 +8,7 @@ import {
 } from './creative_workflows.mjs';
 
 const FIXED_PIPELINE_CONTENT_LANGUAGE = 'English';
+const DEFAULT_TARGET_DURATION_SECONDS = 80;
 const DEFAULT_RULE_REGISTRY_SUMMARY = 'Use the global rule registry concepts: brand_safety, visual_consistency, voice, music_sfx, avatar, editing, provider_routing, platform_publishing, and approval. Treat blocking rules as publish blockers.';
 const DEFAULT_STYLE_PACK_REGISTRY_SUMMARY = 'Known style pack IDs include founder_explainer, cinematic_problem_solution, fast_reel_hook, product_demo_walkthrough, before_after_transformation, client_testimonial_case_study, educational_mini_lesson, meme_relatable_pain_point, premium_brand_film, local_business_promo, avatar_sales_outreach, and ugc_style_product_pitch.';
 
@@ -253,7 +254,7 @@ function resolveResearchTimingGuidance(templateData) {
     templateData.timing_guidance,
     process.env.RESEARCH_TIMING_GUIDANCE,
     (() => {
-      const rawSeconds = parsePositiveNumber(templateData.target_duration_seconds) ?? 45;
+      const rawSeconds = parsePositiveNumber(templateData.target_duration_seconds) ?? DEFAULT_TARGET_DURATION_SECONDS;
       const seconds = effectiveTargetDurationSeconds(rawSeconds, speedMultiplier);
       const wordBudget = speechWordBudget(seconds);
       return `Aim for roughly ${wordBudget} spoken words total. The main narration should fit inside about ${seconds} seconds without sounding rushed.`;
@@ -272,7 +273,7 @@ function resolveStoryboardTimingGuidance(templateData) {
     templateData.storyboard_timing_guidance,
     process.env.STORYBOARD_TIMING_GUIDANCE,
     (() => {
-      const rawSeconds = parsePositiveNumber(templateData.target_duration_seconds) ?? 45;
+      const rawSeconds = parsePositiveNumber(templateData.target_duration_seconds) ?? DEFAULT_TARGET_DURATION_SECONDS;
       const seconds = effectiveTargetDurationSeconds(rawSeconds, speedMultiplier);
       return `Keep the total planned scene time very close to ${seconds} seconds. Most scenes should stay between 4 and 12 seconds unless the beat truly needs more room.`;
     })(),
@@ -329,7 +330,7 @@ function resolveNarrationTimingGuidance(templateData) {
     templateData.narration_timing_guidance,
     process.env.NARRATION_TIMING_GUIDANCE,
     (() => {
-      const rawSeconds = parsePositiveNumber(templateData.target_duration_seconds) ?? 45;
+      const rawSeconds = parsePositiveNumber(templateData.target_duration_seconds) ?? DEFAULT_TARGET_DURATION_SECONDS;
       const seconds = effectiveTargetDurationSeconds(rawSeconds, speedMultiplier);
       return `Keep the full read close to ${seconds} seconds. Use short, intentional pauses at scene boundaries and give the hook and ending slightly cleaner emphasis.`;
     })(),
@@ -367,7 +368,7 @@ export function resolveDirectorTemplateData(templateData = {}) {
   return {
     title: String(templateData.title || '').trim(),
     category: String(templateData.category || 'general').trim() || 'general',
-    target_duration_seconds: String(templateData.target_duration_seconds || '45').trim(),
+    target_duration_seconds: String(templateData.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS).trim(),
     narration_script: String(templateData.narration_script || '').trim(),
     script_scene_guidance_json: JSON.stringify(scenes, null, 2),
     scene_count: String(scenes.length || ''),
@@ -561,7 +562,7 @@ export function resolveStagePromptTemplateData(stageKey, templateData = {}) {
     merged.media_provider_inventory_json = jsonString(merged.media_provider_inventory_json || mediaProviderInventory);
     merged.hybrid_rules_summary = firstNonEmpty(
       merged.hybrid_rules_summary,
-      'Hybrid planning may combine HeyGen avatar clips, Fal/Wan scene video, and image-with-Remotion-motion scenes. Avatar requires explicit policy and consent metadata. Provider-video failures should fail unless fallback is explicitly allowed. Uploaded character references are creative context only, never consent evidence.',
+      'Hybrid planning may combine HeyGen avatar clips, Fal Veo scene video, and image-with-Remotion-motion scenes. Avatar requires explicit policy and consent metadata. Provider-video failures should fail unless fallback is explicitly allowed. Uploaded character references are creative context only, never consent evidence.',
     );
   }
 

@@ -21,6 +21,6 @@ Hard rules:
 - Output only JSON matching story_package.schema.json.
 - Preserve uncertainty; do not fabricate evidence, quotes, metrics, or sources.
 - Keep clean_script speakable and appropriate for a short Reel.
-- Plan downstream scene_count as 4 to 8 scenes. For a 45 to 75 second Reel, prefer 6 to 8 scenes unless the source material is extremely simple.
+- Plan downstream scene_count as 4 to 8 scenes. For a 45 to 80 second Reel, prefer 6 to 8 scenes unless the source material is extremely simple.
 - Downstream storyboard/render constraints must preserve contiguous timing from 0 seconds to close to target_duration_seconds.
 - Place publish blockers in risk_flags/downstream_constraints instead of hiding them.

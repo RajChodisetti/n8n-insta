@@ -19,8 +19,13 @@ import fs from 'node:fs';
 import { loadRenderedPromptAsset } from './prompt_utils.mjs';
 import { generateImageAsset } from './image_generation_adapters.mjs';
 import { uploadBinaryAsset } from './asset_host_adapters.mjs';
-import { selectVideoApiKey } from './adapter_config.mjs';
-import { getNoVisibleTextNegativePrompt, getSceneImageRelevanceGuard, getSceneImageTextGuard } from './prompt_hard_rules.mjs';
+import { firstEnv, selectVideoApiKey } from './adapter_config.mjs';
+import {
+  getNoVisibleTextNegativePrompt,
+  getSceneImageRelevanceGuard,
+  getSceneImageTextGuard,
+  getSceneVisualContinuityGuard,
+} from './prompt_hard_rules.mjs';
 import { resolveStagePromptTemplateData } from './prompt_stage_defaults.mjs';
 import { computeImageCost, computeVideoCost } from './cost_calculator.mjs';
 
@@ -177,7 +182,7 @@ function normalizeAssetPlan(scene = {}) {
 }
 
 function shouldFallbackVideoToImage(error, { strictVideoAssets = false } = {}) {
-  if (strictVideoAssets || String(process.env.DISABLE_VIDEO_TO_IMAGE_FALLBACK || '').trim().toLowerCase() === 'true') {
+  if (strictVideoAssets || String(firstEnv(['DISABLE_VIDEO_TO_IMAGE_FALLBACK']) || '').trim().toLowerCase() === 'true') {
     return false;
   }
   const message = String(error?.message || error || '').toLowerCase();
@@ -191,32 +196,80 @@ function compactErrorMessage(error) {
     .slice(0, 500);
 }
 
-function normalizeWanModel(value) {
+function normalizeSceneVideoModel(value) {
   const normalized = String(value || '').trim().toLowerCase();
-  if (!normalized) return 'fal-ai/wan-t2v';
+  if (!normalized) return normalizeFalVeoModel('', { reference: false });
+  if (
+    normalized === 'veo'
+    || normalized === 'veo-latest'
+    || normalized === 'veo-3.1'
+    || normalized === 'veo-3.1-latest'
+    || normalized === 'fal-ai/wan-t2v'
+    || normalized === 'wan-t2v'
+    || normalized === 'seedance'
+    || normalized === 'seedance-2'
+    || normalized === 'seedance-2.0'
+    || normalized === 'seedance-2.0-text-to-video'
+    || normalized === 'seedance-2.0-reference-to-video'
+    || normalized === 'bytedance/seedance'
+    || normalized.startsWith('bytedance/seedance-2.0')
+  ) {
+    return normalizeFalVeoModel(normalized, { reference: false });
+  }
   if (
     normalized === 'fal-ai/wan/v2.5/t2v/1.3b'
     || normalized === 'fal-ai/wan/v2.1/t2v/14b'
     || normalized === 'fal-ai/wan-2.1-t2v-14b'
     || normalized === 'wan-2.1-t2v-14b'
-    || normalized === 'wan-t2v'
   ) {
     return 'fal-ai/wan-t2v';
   }
   return normalized;
 }
 
-function normalizeWanReferenceModel(value) {
+function normalizeSceneReferenceVideoModel(value) {
   const normalized = String(value || '').trim().toLowerCase();
-  if (!normalized) return 'fal-ai/wan/v2.7/reference-to-video';
+  if (!normalized) return normalizeFalVeoModel('', { reference: true });
   if (
-    normalized === 'fal-ai/wan/reference-to-video'
+    normalized === 'veo'
+    || normalized === 'veo-latest'
+    || normalized === 'veo-3.1'
+    || normalized === 'veo-3.1-latest'
+    || normalized === 'fal-ai/veo3.1'
+    || normalized === 'fal-ai/veo3.1/image-to-video'
+    || normalized === 'fal-ai/wan/v2.7/reference-to-video'
+    || normalized === 'fal-ai/wan/reference-to-video'
     || normalized === 'wan-reference-to-video'
     || normalized === 'reference-to-video'
+    || normalized === 'seedance'
+    || normalized === 'seedance-2'
+    || normalized === 'seedance-2.0'
+    || normalized === 'seedance-2.0-reference-to-video'
+    || normalized === 'seedance-2.0-text-to-video'
+    || normalized === 'bytedance/seedance'
+    || normalized.startsWith('bytedance/seedance-2.0')
   ) {
-    return 'fal-ai/wan/v2.7/reference-to-video';
+    return normalizeFalVeoModel(normalized, { reference: true });
   }
   return normalized;
+}
+
+function isSeedanceModel(value) {
+  return String(value || '').trim().toLowerCase().includes('seedance');
+}
+
+function normalizeVideoResolution(value, { seedance = false } = {}) {
+  const normalized = String(value || '720p').trim().toLowerCase();
+  const allowed = seedance ? new Set(['480p', '720p', '1080p', '4k']) : new Set(['720p', '1080p']);
+  return allowed.has(normalized) ? normalized : '720p';
+}
+
+function clampSeedanceVideoDurationSeconds(value, fallback = 5) {
+  const parsed = Number.parseFloat(String(value ?? '').trim());
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return Math.max(4, Math.min(15, Math.round(fallback)));
+  }
+  return Math.max(4, Math.min(15, Math.round(parsed)));
 }
 
 function normalizeCharacterReference(value) {
@@ -264,6 +317,28 @@ function buildCharacterContinuityHint(characterReference) {
   return characterIdentity;
 }
 
+function normalizeVideoReferenceMode(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['off', 'disabled', 'false', '0', 'none'].includes(normalized)) {
+    return 'off';
+  }
+  if (['preferred', 'optional'].includes(normalized)) {
+    return 'preferred';
+  }
+  return 'required';
+}
+
+function buildSceneReferenceContinuityHint(referenceImage) {
+  if (!referenceImage?.storage_url) {
+    return '';
+  }
+  return [
+    'Use the supplied reference image as the first frame and visual identity anchor.',
+    'Preserve the same people, faces, body positions, clothing, setting, props, era cues, palette, lighting, lens feel, camera angle, and composition from that reference image.',
+    'Only add natural motion needed for the narrated beat; do not introduce unrelated rooms, crowds, title cards, documents, screens, signs, logos, subtitles, captions, UI, watermarks, or readable text.',
+  ].join(' ');
+}
+
 function roundUsd(value) {
   return Number(Number(value || 0).toFixed(6));
 }
@@ -295,6 +370,17 @@ function objectKeyForScene(contentId, title, sceneNumber) {
   return `${prefix}/scene-assets/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${stamp}-${contentId}-${sceneSlug}-${titleSlug}.jpg`;
 }
 
+function objectKeyForSceneReferenceImage(contentId, title, sceneNumber) {
+  const now = new Date();
+  const stamp = now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const prefix = String(process.env.REELS_STORAGE_KEY_PREFIX || 'generated/instagram-posts')
+    .trim()
+    .replace(/^\/+|\/+$/g, '');
+  const titleSlug = slugify(title, 'story');
+  const sceneSlug = `scene-${String(sceneNumber).padStart(2, '0')}`;
+  return `${prefix}/scene-reference-images/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${stamp}-${contentId}-${sceneSlug}-${titleSlug}-reference.jpg`;
+}
+
 function fileNameFromObjectKey(objectKey) {
   const parts = String(objectKey || '').split('/');
   return parts[parts.length - 1] || 'scene-image.jpg';
@@ -316,12 +402,15 @@ function buildSceneImageMetadata(storage, scene, generation, title, workflowName
     generation_model: String(request.model || ''),
     title,
     scene_number: Number(scene.scene_number),
+    asset_role: String(options.assetRole || 'scene_image'),
     duration_seconds: Number(scene.duration_seconds),
     narration_text: String(scene.narration_text || ''),
     mood: String(scene.mood || ''),
     transition: String(scene.transition || ''),
     visual_prompt: String(scene.visual_prompt || ''),
-    requested_asset_type: String(scene.asset_type || ''),
+    video_prompt: String(scene.video_prompt || ''),
+    requested_asset_type: String(options.requestedAssetType || scene.asset_type || ''),
+    reference_for_asset_role: String(options.referenceForAssetRole || ''),
     asset_plan: normalizeAssetPlan(scene),
     remotion: plainObject(scene.remotion ?? scene.remotion_guidance),
     fallback_from_video: options.fallbackFromVideo === true,
@@ -336,6 +425,7 @@ function buildSceneImageMetadata(storage, scene, generation, title, workflowName
     rehost_provider: storage.mode,
     image_sha256: sha256Hex(generation.binary),
     generated_at: new Date().toISOString(),
+    reference_image_for_scene_video: options.referenceForAssetRole === 'scene_video',
     asset_validation_note: `Generated the scene creative with ${generation.provider}, uploaded the JPEG to ${describeHostProvider(storage.mode)}, and persisted the public delivery URL.`,
   };
 
@@ -446,6 +536,7 @@ async function generateSceneImage(scene, payload, imageRequest, title, category,
   const prompt = [
     ensureString(`scene ${sceneNumber} base prompt`, basePrompt),
     getSceneImageRelevanceGuard(sanitizedScene),
+    getSceneVisualContinuityGuard(sanitizedScene),
     getSceneImageTextGuard(sceneNumber),
   ].join('\n').trim();
 
@@ -455,6 +546,9 @@ async function generateSceneImage(scene, payload, imageRequest, title, category,
 // ---------------------------------------------------------------------------
 // Video helpers (scenes 2+)
 // ---------------------------------------------------------------------------
+
+const DEFAULT_FAL_VEO_VIDEO_MODEL = 'fal-ai/veo3.1/fast';
+const DEFAULT_FAL_VEO_REFERENCE_VIDEO_MODEL = 'fal-ai/veo3.1/fast/image-to-video';
 
 function objectKeyForSceneVideo(contentId, title, sceneNumber) {
   const now = new Date();
@@ -466,14 +560,242 @@ function objectKeyForSceneVideo(contentId, title, sceneNumber) {
   return `${prefix}/scene-videos/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, '0')}/${stamp}-${contentId}-${sceneStr}-${titleSlug}.mp4`;
 }
 
-async function generateWanVideo(videoPrompt) {
+function normalizeFalVeoModel(value, { reference = false } = {}) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (
+    !normalized
+    || normalized === 'veo'
+    || normalized === 'veo-latest'
+    || normalized === 'veo-3.1'
+    || normalized === 'veo-3.1-latest'
+    || normalized === 'fal-ai/veo3.1'
+    || normalized === 'fal-ai/wan-t2v'
+    || normalized === 'wan-t2v'
+    || normalized === 'fal-ai/wan/v2.7/reference-to-video'
+    || normalized === 'fal-ai/wan/reference-to-video'
+    || normalized === 'wan-reference-to-video'
+    || normalized === 'reference-to-video'
+    || normalized === 'seedance'
+    || normalized === 'seedance-2'
+    || normalized === 'seedance-2.0'
+    || normalized === 'seedance-2.0-text-to-video'
+    || normalized === 'seedance-2.0-reference-to-video'
+    || normalized === 'bytedance/seedance'
+    || normalized.startsWith('bytedance/seedance-2.0')
+  ) {
+    return reference ? DEFAULT_FAL_VEO_REFERENCE_VIDEO_MODEL : DEFAULT_FAL_VEO_VIDEO_MODEL;
+  }
+  if (normalized === 'veo-3.1-fast' || normalized === 'veo-fast' || normalized === 'fal-ai/veo3.1/fast') {
+    return reference ? 'fal-ai/veo3.1/fast/image-to-video' : 'fal-ai/veo3.1/fast';
+  }
+  if (normalized === 'veo-3.1-lite' || normalized === 'veo-lite' || normalized === 'fal-ai/veo3.1/lite') {
+    return reference ? 'fal-ai/veo3.1/lite/image-to-video' : 'fal-ai/veo3.1/lite';
+  }
+  if (reference && normalized === 'fal-ai/veo3.1/image-to-video') return normalized;
+  if (reference && normalized === 'fal-ai/veo3.1/fast/image-to-video') return normalized;
+  if (reference && normalized === 'fal-ai/veo3.1/lite/image-to-video') return normalized;
+  if (reference && normalized === 'fal-ai/veo3.1/reference-to-video') return DEFAULT_FAL_VEO_REFERENCE_VIDEO_MODEL;
+  if (reference && normalized.endsWith('/image-to-video')) return normalized;
+  if (reference && normalized.startsWith('fal-ai/veo3.1')) return `${normalized.replace(/\/+$/, '')}/image-to-video`;
+  if (!reference && normalized.endsWith('/image-to-video')) return normalized.replace(/\/image-to-video$/, '');
+  return normalized;
+}
+
+function isFalVeoModel(value) {
+  return String(value || '').trim().toLowerCase().startsWith('fal-ai/veo3.1');
+}
+
+function normalizeFalVeoResolution(value, model = '') {
+  const normalized = String(value || '720p').trim().toLowerCase();
+  const allowed = String(model || '').includes('/lite')
+    ? new Set(['720p', '1080p'])
+    : new Set(['720p', '1080p', '4k']);
+  return allowed.has(normalized) ? normalized : '720p';
+}
+
+function nearestFalVeoDurationSeconds(value) {
+  const parsed = Number.parseFloat(String(value ?? '').trim());
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 8;
+  }
+  const allowed = [4, 6, 8];
+  return allowed.reduce((best, current) => (
+    Math.abs(current - parsed) < Math.abs(best - parsed) ? current : best
+  ), 8);
+}
+
+function parseEnvBoolean(value, fallback = false) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+}
+
+async function generateFalVeoVideo(videoPrompt, scene = {}, referenceImage = null, requestedModel = '') {
+  const apiKey = ensureString(
+    'SCENE_VIDEO_FAL_AI_API_KEY, WAN_REFERENCE_VIDEO_FAL_AI_API_KEY, or FAL_AI_API_KEY',
+    selectVideoApiKey('scene_video', 'fal_ai') || selectVideoApiKey('wan_reference_video', 'fal_ai'),
+  );
+  const hasReferenceImage = Boolean(referenceImage?.storage_url);
+  const model = normalizeFalVeoModel(requestedModel, { reference: hasReferenceImage });
+  const resolution = normalizeFalVeoResolution(firstEnv(['VEO_VIDEO_RESOLUTION', 'WAN_VIDEO_RESOLUTION']) || '720p', model);
+  const durationSeconds = nearestFalVeoDurationSeconds(firstEnv(['VEO_VIDEO_DURATION_SECONDS']) || scene?.duration_seconds);
+  const promptLimit = Number.parseInt(String(firstEnv(['VEO_PROMPT_MAX_CHARS']) || '5000'), 10) || 5000;
+  const body = {
+    prompt: videoPrompt.length > promptLimit ? videoPrompt.slice(0, promptLimit) : videoPrompt,
+    aspect_ratio: hasReferenceImage ? 'auto' : '9:16',
+    duration: `${durationSeconds}s`,
+    negative_prompt: buildWanNegativePrompt().slice(0, 500),
+    resolution,
+    generate_audio: parseEnvBoolean(firstEnv(['VEO_GENERATE_AUDIO']), false),
+    auto_fix: parseEnvBoolean(firstEnv(['VEO_AUTO_FIX']), !hasReferenceImage),
+    safety_tolerance: String(firstEnv(['VEO_SAFETY_TOLERANCE']) || '4').trim() || '4',
+  };
+  const seed = Number.parseInt(String(firstEnv(['VEO_SEED']) || '').trim(), 10);
+  if (Number.isInteger(seed)) {
+    body.seed = seed;
+  }
+  if (hasReferenceImage) {
+    body.image_url = referenceImage.storage_url;
+    body.aspect_ratio = '9:16';
+  }
+  const finalResult = await fetchQueuedFalVideoResult({
+    apiKey,
+    model,
+    body,
+    label: hasReferenceImage ? 'Fal Veo image-to-video' : 'Fal Veo text-to-video',
+  });
+  const videoUrl = finalResult?.video?.url || finalResult?.videos?.[0]?.url;
+  if (!videoUrl) {
+    fail(`Fal Veo generation returned no video URL. Response: ${JSON.stringify(finalResult).slice(0, 500)}`);
+  }
+  const binary = await downloadBinaryFromUrl(videoUrl, 'Fal Veo video');
+  return {
+    provider: hasReferenceImage ? 'fal_ai_veo_image_to_video' : 'fal_ai_veo',
+    model,
+    binary,
+    estimatedDuration: Number(finalResult?.video?.duration || durationSeconds) || durationSeconds,
+    sha256: sha256Hex(binary),
+    seed: finalResult?.seed ?? seed ?? null,
+    actualPrompt: finalResult?.actual_prompt ?? null,
+    referenceImageUrl: referenceImage?.storage_url || '',
+    resolution,
+    falRequest: body,
+  };
+}
+
+async function fetchQueuedFalVideoResult({ apiKey, model, body, label }) {
+  const queueEndpoint = `https://queue.fal.run/${model}`;
+  const response = await fetch(queueEndpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Key ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const responseBody = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const errMsg = Array.isArray(responseBody.detail)
+      ? responseBody.detail.map((d) => d.msg || JSON.stringify(d)).join(', ')
+      : (responseBody.detail || responseBody.message || 'unknown error');
+    fail(`${label} generation failed (${response.status}): ${errMsg}`);
+  }
+
+  const requestId = String(responseBody.request_id || '').trim();
+  const statusUrl = String(responseBody.status_url || '').trim();
+  const responseUrl = String(responseBody.response_url || '').trim();
+  if (!requestId || !statusUrl) {
+    fail(`${label} generation did not return queue metadata. Response: ${JSON.stringify(responseBody).slice(0, 500)}`);
+  }
+
+  const deadline = Date.now() + (12 * 60 * 1000);
+  while (Date.now() < deadline) {
+    const statusResponse = await fetch(`${statusUrl}${statusUrl.includes('?') ? '&' : '?'}logs=1`, {
+      headers: {
+        Authorization: `Key ${apiKey}`,
+      },
+    });
+    const statusBody = await statusResponse.json().catch(() => ({}));
+    if (!statusResponse.ok) {
+      fail(`${label} status check failed (${statusResponse.status}): ${JSON.stringify(statusBody).slice(0, 500)}`);
+    }
+
+    const status = String(statusBody.status || '').trim().toUpperCase();
+    if (status === 'COMPLETED') {
+      const resultResponse = await fetch(responseUrl || `${queueEndpoint}/requests/${encodeURIComponent(requestId)}`, {
+        headers: {
+          Authorization: `Key ${apiKey}`,
+        },
+      });
+      const finalResult = await resultResponse.json().catch(() => ({}));
+      if (!resultResponse.ok) {
+        fail(`${label} result fetch failed (${resultResponse.status}): ${JSON.stringify(finalResult).slice(0, 500)}`);
+      }
+      return finalResult;
+    }
+
+    if (status && status !== 'IN_QUEUE' && status !== 'IN_PROGRESS') {
+      fail(`${label} entered unexpected status '${status}'. Body: ${JSON.stringify(statusBody).slice(0, 500)}`);
+    }
+
+    await sleep(4000);
+  }
+
+  fail(`${label} generation timed out after waiting for request ${requestId}.`);
+}
+
+async function generateWanVideo(videoPrompt, scene = {}) {
+  const model = normalizeSceneVideoModel(firstEnv(['VEO_VIDEO_MODEL', 'WAN_VIDEO_MODEL']) || DEFAULT_FAL_VEO_VIDEO_MODEL);
+  if (isFalVeoModel(model)) {
+    return generateFalVeoVideo(videoPrompt, scene, null, model);
+  }
+
   const apiKey = ensureString('SCENE_VIDEO_FAL_AI_API_KEY or FAL_AI_API_KEY', selectVideoApiKey('scene_video', 'fal_ai'));
-  const model = normalizeWanModel(process.env.WAN_VIDEO_MODEL || 'fal-ai/wan-t2v');
-  const numFrames = Number.parseInt(String(process.env.WAN_VIDEO_NUM_FRAMES || '81'), 10);
-  const frameRate = Number.parseInt(String(process.env.WAN_VIDEO_FRAME_RATE || '16'), 10);
-  const resolution = String(process.env.WAN_VIDEO_RESOLUTION || '720p').trim();
+  const numFrames = Number.parseInt(String(firstEnv(['WAN_VIDEO_NUM_FRAMES']) || '81'), 10);
+  const frameRate = Number.parseInt(String(firstEnv(['WAN_VIDEO_FRAME_RATE']) || '16'), 10);
+  const seedance = isSeedanceModel(model);
+  const resolution = normalizeVideoResolution(firstEnv(['WAN_VIDEO_RESOLUTION']), { seedance });
 
   const negativePrompt = buildWanNegativePrompt();
+
+  if (seedance) {
+    const requestedDuration = clampSeedanceVideoDurationSeconds(
+      firstEnv(['SEEDDANCE_VIDEO_DURATION_SECONDS']) || scene?.duration_seconds,
+      Number.isFinite(numFrames / Math.max(frameRate, 1)) ? numFrames / Math.max(frameRate, 1) : 5,
+    );
+    const body = {
+      prompt: videoPrompt.length > 5000 ? videoPrompt.slice(0, 5000) : videoPrompt,
+      resolution,
+      duration: String(requestedDuration),
+      aspect_ratio: '9:16',
+      generate_audio: false,
+      bitrate_mode: String(firstEnv(['SEEDDANCE_VIDEO_BITRATE_MODE']) || 'high').trim().toLowerCase() === 'standard' ? 'standard' : 'high',
+    };
+    const finalResult = await fetchQueuedFalVideoResult({
+      apiKey,
+      model,
+      body,
+      label: 'SeedDance video',
+    });
+    const videoUrl = finalResult?.video?.url || finalResult?.videos?.[0]?.url;
+    if (!videoUrl) {
+      fail(`SeedDance video generation returned no video URL. Response: ${JSON.stringify(finalResult).slice(0, 500)}`);
+    }
+    const binary = await downloadBinaryFromUrl(videoUrl, 'SeedDance video');
+    const actualDuration = Number(finalResult?.video?.duration || requestedDuration);
+    return {
+      provider: 'fal_ai_seedance',
+      model,
+      binary,
+      estimatedDuration: Number.isFinite(actualDuration) && actualDuration > 0 ? actualDuration : requestedDuration,
+      sha256: sha256Hex(binary),
+      seed: finalResult?.seed ?? null,
+      actualPrompt: finalResult?.actual_prompt ?? null,
+    };
+  }
 
   const body = {
     prompt: videoPrompt.length > 2000 ? videoPrompt.slice(0, 2000) : videoPrompt,
@@ -482,7 +804,7 @@ async function generateWanVideo(videoPrompt) {
     frames_per_second: Number.isFinite(frameRate) ? Math.max(5, Math.min(24, frameRate)) : 16,
     resolution,
     aspect_ratio: '9:16',
-    num_inference_steps: Number.parseInt(String(process.env.WAN_VIDEO_INFERENCE_STEPS || '30'), 10) || 30,
+    num_inference_steps: Number.parseInt(String(firstEnv(['WAN_VIDEO_INFERENCE_STEPS']) || '30'), 10) || 30,
     enable_safety_checker: true,
     enable_prompt_expansion: false,
   };
@@ -523,100 +845,61 @@ async function generateWanVideo(videoPrompt) {
   };
 }
 
-async function generateWanReferenceVideo(videoPrompt, scene, characterReference) {
+async function generateWanReferenceVideo(videoPrompt, scene, referenceImage) {
+  const model = normalizeSceneReferenceVideoModel(firstEnv(['VEO_REFERENCE_VIDEO_MODEL', 'VEO_VIDEO_MODEL', 'WAN_REFERENCE_VIDEO_MODEL']) || DEFAULT_FAL_VEO_REFERENCE_VIDEO_MODEL);
+  if (isFalVeoModel(model)) {
+    return generateFalVeoVideo(videoPrompt, scene, referenceImage, model);
+  }
+
   const apiKey = ensureString('WAN_REFERENCE_VIDEO_FAL_AI_API_KEY, SCENE_VIDEO_FAL_AI_API_KEY, or FAL_AI_API_KEY', selectVideoApiKey('wan_reference_video', 'fal_ai'));
-  const model = normalizeWanReferenceModel(process.env.WAN_REFERENCE_VIDEO_MODEL || 'fal-ai/wan/v2.7/reference-to-video');
-  const resolution = String(process.env.WAN_VIDEO_RESOLUTION || '720p').trim();
-  const duration = clampSceneVideoDurationSeconds(scene?.duration_seconds, 5);
-  const body = {
-    prompt: videoPrompt.length > 5000 ? videoPrompt.slice(0, 5000) : videoPrompt,
-    reference_image_urls: [characterReference.storage_url],
-    negative_prompt: buildWanNegativePrompt().slice(0, 500),
-    aspect_ratio: '9:16',
-    resolution: resolution === '1080p' ? '1080p' : '720p',
-    duration,
-    multi_shots: false,
-    enable_safety_checker: true,
-  };
+  const seedance = isSeedanceModel(model);
+  const resolution = normalizeVideoResolution(firstEnv(['WAN_VIDEO_RESOLUTION']), { seedance });
+  const duration = seedance
+    ? clampSeedanceVideoDurationSeconds(scene?.duration_seconds, 5)
+    : clampSceneVideoDurationSeconds(scene?.duration_seconds, 5);
+  const body = seedance
+    ? {
+      prompt: `@Image1 ${videoPrompt.length > 5000 ? videoPrompt.slice(0, 5000) : videoPrompt}`,
+      image_urls: [referenceImage.storage_url],
+      aspect_ratio: '9:16',
+      resolution,
+      duration: String(duration),
+      generate_audio: false,
+      bitrate_mode: String(firstEnv(['SEEDDANCE_VIDEO_BITRATE_MODE']) || 'high').trim().toLowerCase() === 'standard' ? 'standard' : 'high',
+    }
+    : {
+      prompt: videoPrompt.length > 5000 ? videoPrompt.slice(0, 5000) : videoPrompt,
+      reference_image_urls: [referenceImage.storage_url],
+      negative_prompt: buildWanNegativePrompt().slice(0, 500),
+      aspect_ratio: '9:16',
+      resolution,
+      duration,
+      multi_shots: false,
+      enable_safety_checker: true,
+    };
 
-  const queueEndpoint = `https://queue.fal.run/${model}`;
-  const response = await fetch(queueEndpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Key ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
+  const finalResult = await fetchQueuedFalVideoResult({
+    apiKey,
+    model,
+    body,
+    label: seedance ? 'SeedDance reference video' : 'Wan reference video',
   });
-
-  const responseBody = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const errMsg = Array.isArray(responseBody.detail)
-      ? responseBody.detail.map((d) => d.msg || JSON.stringify(d)).join(', ')
-      : (responseBody.detail || responseBody.message || 'unknown error');
-    fail(`Wan reference video generation failed (${response.status}): ${errMsg}`);
-  }
-
-  const requestId = String(responseBody.request_id || '').trim();
-  const statusUrl = String(responseBody.status_url || '').trim();
-  const responseUrl = String(responseBody.response_url || '').trim();
-  if (!requestId || !statusUrl) {
-    fail(`Wan reference video generation did not return queue metadata. Response: ${JSON.stringify(responseBody).slice(0, 500)}`);
-  }
-
-  const deadline = Date.now() + (12 * 60 * 1000);
-  let finalResult = null;
-  while (Date.now() < deadline) {
-    const statusResponse = await fetch(`${statusUrl}${statusUrl.includes('?') ? '&' : '?'}logs=1`, {
-      headers: {
-        Authorization: `Key ${apiKey}`,
-      },
-    });
-    const statusBody = await statusResponse.json().catch(() => ({}));
-    if (!statusResponse.ok) {
-      fail(`Wan reference video status check failed (${statusResponse.status}): ${JSON.stringify(statusBody).slice(0, 500)}`);
-    }
-
-    const status = String(statusBody.status || '').trim().toUpperCase();
-    if (status === 'COMPLETED') {
-      const resultResponse = await fetch(responseUrl || `${queueEndpoint}/requests/${encodeURIComponent(requestId)}`, {
-        headers: {
-          Authorization: `Key ${apiKey}`,
-        },
-      });
-      finalResult = await resultResponse.json().catch(() => ({}));
-      if (!resultResponse.ok) {
-        fail(`Wan reference video result fetch failed (${resultResponse.status}): ${JSON.stringify(finalResult).slice(0, 500)}`);
-      }
-      break;
-    }
-
-    if (status && status !== 'IN_QUEUE' && status !== 'IN_PROGRESS') {
-      fail(`Wan reference video entered unexpected status '${status}'. Body: ${JSON.stringify(statusBody).slice(0, 500)}`);
-    }
-
-    await sleep(4000);
-  }
-
-  if (!finalResult) {
-    fail(`Wan reference video generation timed out after waiting for request ${requestId}.`);
-  }
 
   const videoUrl = finalResult?.video?.url || finalResult?.videos?.[0]?.url;
   if (!videoUrl) {
-    fail(`Wan reference video generation returned no video URL. Response: ${JSON.stringify(finalResult).slice(0, 500)}`);
+    fail(`${seedance ? 'SeedDance' : 'Wan'} reference video generation returned no video URL. Response: ${JSON.stringify(finalResult).slice(0, 500)}`);
   }
 
-  const binary = await downloadBinaryFromUrl(videoUrl, 'Wan reference video');
+  const binary = await downloadBinaryFromUrl(videoUrl, seedance ? 'SeedDance reference video' : 'Wan reference video');
   const actualDuration = Number(finalResult?.video?.duration || duration);
 
   return {
-    provider: 'fal_ai_wan_reference',
+    provider: seedance ? 'fal_ai_seedance_reference' : 'fal_ai_wan_reference',
     model,
     binary,
     estimatedDuration: Number.isFinite(actualDuration) && actualDuration > 0 ? actualDuration : duration,
     sha256: sha256Hex(binary),
-    referenceImageUrl: characterReference.storage_url,
+    referenceImageUrl: referenceImage.storage_url,
     seed: finalResult?.seed ?? null,
     actualPrompt: finalResult?.actual_prompt ?? null,
   };
@@ -643,8 +926,9 @@ async function main() {
   const strictVideoAssets = payload.strict_video_assets === true
     || (
       String(payload.reel_type || '').trim().toLowerCase() === 'video'
-      && String(process.env.ALLOW_VIDEO_TO_IMAGE_FALLBACK || '').trim().toLowerCase() !== 'true'
+      && String(firstEnv(['ALLOW_VIDEO_TO_IMAGE_FALLBACK']) || '').trim().toLowerCase() !== 'true'
     );
+  const videoReferenceMode = normalizeVideoReferenceMode(firstEnv(['SCENE_VIDEO_REFERENCE_MODE']) || 'required');
 
   if (scenes.length === 0) fail('No scenes were provided for scene asset generation.');
 
@@ -731,6 +1015,91 @@ async function main() {
     trackImageUsage(generation.provider, generation.request?.model);
   }
 
+  async function generateAndStoreSceneReferenceImage(scene, assetPlan) {
+    const sceneNumber = Number(scene.scene_number);
+    const sceneForImage = {
+      ...scene,
+      visual_prompt: sanitizeGeneratedAssetPrompt(scene.visual_prompt, {
+        title,
+        narrationText: scene.narration_text,
+        sceneNumber,
+      }),
+      image_prompt: trimString(scene.image_prompt)
+        ? sanitizeGeneratedAssetPrompt(scene.image_prompt, {
+          title,
+          narrationText: scene.narration_text,
+          sceneNumber,
+        })
+        : '',
+      video_prompt: trimString(scene.video_prompt)
+        ? sanitizeGeneratedAssetPrompt(scene.video_prompt, {
+          title,
+          narrationText: scene.narration_text,
+          sceneNumber,
+        })
+        : '',
+      asset_plan: assetPlan,
+    };
+    const generation = await generateSceneImage(
+      sceneForImage, payload, imageRequest, title, category, selectedHook,
+      narrationScriptExcerpt, styleNotes, directorGlobalVisualStyle,
+      directorAvoidRules, workflowName,
+    );
+    const objectKey = objectKeyForSceneReferenceImage(contentId, title, sceneNumber);
+    const storage = await uploadBinaryAsset('scene_image', generation.binary, {
+      objectKey,
+      contentType: 'image/jpeg',
+      fileName: fileNameFromObjectKey(objectKey),
+    });
+    const metadata = buildSceneImageMetadata(storage, sceneForImage, generation, title, workflowName, {
+      assetRole: 'scene_reference_image',
+      requestedAssetType: 'scene_reference_image',
+      referenceForAssetRole: 'scene_video',
+    });
+    const referenceAsset = {
+      scene_number: sceneNumber,
+      asset_role: 'scene_reference_image',
+      provider: buildProviderId(generation.provider, generation.request?.model, storage.mode),
+      source_url: storage.url,
+      storage_url: storage.url,
+      mime_type: 'image/jpeg',
+      width: dimensions.width,
+      height: dimensions.height,
+      duration_seconds: Number(scene.duration_seconds),
+      metadata_json: metadata,
+    };
+    generatedScenes.push(referenceAsset);
+    trackImageUsage(generation.provider, generation.request?.model);
+    return referenceAsset;
+  }
+
+  function promoteReferenceImageToSceneImage(referenceAsset, scene, fallbackReason = '') {
+    if (!referenceAsset?.storage_url) {
+      return false;
+    }
+    const sceneNumber = Number(scene.scene_number);
+    if (generatedScenes.some((entry) => Number(entry.scene_number) === sceneNumber && entry.asset_role === 'scene_image')) {
+      return false;
+    }
+    generatedScenes.push({
+      ...referenceAsset,
+      asset_role: 'scene_image',
+      duration_seconds: Number(scene.duration_seconds),
+      metadata_json: {
+        ...plainObject(referenceAsset.metadata_json),
+        asset_role: 'scene_image',
+        requested_asset_type: 'scene_image',
+        promoted_from_asset_role: 'scene_reference_image',
+        promoted_from_reference_image: true,
+        reference_for_asset_role: '',
+        fallback_from_video: true,
+        fallback_reason: fallbackReason,
+        promoted_at: new Date().toISOString(),
+      },
+    });
+    return true;
+  }
+
   async function generateAndStoreSceneVideo(scene, assetPlan) {
     const sceneNumber = Number(scene.scene_number);
     const narrationText = trimString(scene.narration_text);
@@ -739,30 +1108,70 @@ async function main() {
       narrationText,
       sceneNumber,
     });
+    const imagePrompt = trimString(scene.image_prompt)
+      ? sanitizeGeneratedAssetPrompt(scene.image_prompt, {
+        title,
+        narrationText,
+        sceneNumber,
+      })
+      : visualPrompt;
+    const videoPromptSeed = trimString(scene.video_prompt)
+      ? sanitizeGeneratedAssetPrompt(scene.video_prompt, {
+        title,
+        narrationText,
+        sceneNumber,
+      })
+      : visualPrompt;
     const mood = String(scene.mood || '').trim();
     const includesPrimaryCharacter = scene?.includes_primary_character === true;
-    const useCharacterReference = includesPrimaryCharacter && Boolean(characterReference?.storage_url);
+    const characterReferenceAvailable = includesPrimaryCharacter && Boolean(characterReference?.storage_url);
 
     if (!visualPrompt) fail(`Scene ${sceneNumber} has no visual_prompt for video generation.`);
-    if (isMetaNarrationInstruction(narrationText) || isMetaNarrationInstruction(visualPrompt)) {
+    if (isMetaNarrationInstruction(narrationText) || isMetaNarrationInstruction(visualPrompt) || isMetaNarrationInstruction(videoPromptSeed)) {
       fail(`Scene ${sceneNumber} contains pipeline-meta narration instructions instead of a concrete video beat.`);
     }
 
     const remotion = plainObject(scene.remotion ?? scene.remotion_guidance);
+    let sceneReferenceAsset = null;
+    if (videoReferenceMode !== 'off') {
+      sceneReferenceAsset = await generateAndStoreSceneReferenceImage({
+        ...scene,
+        visual_prompt: imagePrompt,
+        image_prompt: imagePrompt,
+        video_prompt: videoPromptSeed,
+      }, assetPlan);
+    }
+    const referenceForVideo = sceneReferenceAsset || (characterReferenceAvailable ? characterReference : null);
+    const useReferenceVideo = Boolean(referenceForVideo?.storage_url);
     const videoPrompt = [
-      visualPrompt,
+      useReferenceVideo ? buildSceneReferenceContinuityHint(referenceForVideo) : '',
+      videoPromptSeed,
       mood ? `Mood: ${mood}.` : '',
       narrationText ? `The scene shows: ${narrationText.slice(0, 200)}` : '',
       assetPlan.motion_requirement ? `Motion requirement: ${assetPlan.motion_requirement}.` : '',
       assetPlan.video_generation_reason ? `Generate only the needed motion: ${String(assetPlan.video_generation_reason).slice(0, 280)}` : '',
       remotion.instructions ? `Camera/motion intent for this generated clip: ${String(remotion.instructions).slice(0, 280)}` : '',
-      useCharacterReference ? buildCharacterContinuityHint(characterReference) : '',
+      characterReferenceAvailable ? buildCharacterContinuityHint(characterReference) : '',
+      getSceneVisualContinuityGuard({
+        ...scene,
+        visual_prompt: imagePrompt,
+        image_prompt: imagePrompt,
+        narration_text: narrationText,
+      }),
       'Cinematic vertical video, 9:16 aspect ratio. Absolutely no readable text, no subtitles, no captions, no title cards, no logos, no signs, no labels, no UI, no watermarks. The renderer adds the opening title card and final pacing later.',
     ].filter(Boolean).join(' ');
 
-    const generation = useCharacterReference
-      ? await generateWanReferenceVideo(videoPrompt, scene, characterReference)
-      : await generateWanVideo(videoPrompt);
+    let generation;
+    try {
+      generation = useReferenceVideo
+        ? await generateWanReferenceVideo(videoPrompt, scene, referenceForVideo)
+        : await generateWanVideo(videoPrompt, scene);
+    } catch (error) {
+      if (sceneReferenceAsset) {
+        error.sceneReferenceAsset = sceneReferenceAsset;
+      }
+      throw error;
+    }
     const objectKey = objectKeyForSceneVideo(contentId, title, sceneNumber);
     const storage = await uploadBinaryAsset('scene_video', generation.binary, {
       objectKey,
@@ -773,7 +1182,7 @@ async function main() {
     generatedScenes.push({
       scene_number: sceneNumber,
       asset_role: 'scene_video',
-      provider: `fal_ai_wan_${slugId(generation.model, 'wan')}_rehosted_mp4_${slugId(storage.mode, 'host')}`,
+      provider: `${slugId(generation.provider, 'fal_ai_video')}_${slugId(generation.model, 'model')}_rehosted_mp4_${slugId(storage.mode, 'host')}`,
       source_url: storage.url,
       storage_url: storage.url,
       mime_type: 'video/mp4',
@@ -784,20 +1193,28 @@ async function main() {
         scene_number: sceneNumber,
         provider: generation.provider,
         generation_model: generation.model,
-        generation_mode: useCharacterReference ? 'reference_to_video' : 'text_to_video',
         asset_host_provider: storage.mode,
         workflow_name: workflowName,
         visual_prompt: visualPrompt,
+        image_prompt: imagePrompt,
+        video_prompt: videoPromptSeed,
+        provider_prompt: videoPrompt,
+        negative_prompt: buildWanNegativePrompt(),
         requested_asset_type: 'video',
         asset_plan: assetPlan,
         remotion,
         mood,
         narration_text: narrationText,
         scene_includes_primary_character: includesPrimaryCharacter,
-        character_reference_used: useCharacterReference,
-        character_reference_url: useCharacterReference ? characterReference.storage_url : '',
-        character_name: useCharacterReference ? characterReference.character_name : '',
-        character_description: useCharacterReference ? characterReference.character_description : '',
+        generation_mode: useReferenceVideo ? 'reference_to_video' : 'text_to_video',
+        reference_image_used: useReferenceVideo,
+        reference_image_url: useReferenceVideo ? referenceForVideo.storage_url : '',
+        reference_asset_role: sceneReferenceAsset ? 'scene_reference_image' : (characterReferenceAvailable ? 'primary_character' : ''),
+        scene_reference_image_url: sceneReferenceAsset?.storage_url || '',
+        character_reference_used: characterReferenceAvailable,
+        character_reference_url: characterReferenceAvailable ? characterReference.storage_url : '',
+        character_name: characterReferenceAvailable ? characterReference.character_name : '',
+        character_description: characterReferenceAvailable ? characterReference.character_description : '',
         actual_prompt: generation.actualPrompt ?? null,
         generation_seed: generation.seed ?? null,
         estimated_duration_seconds: generation.estimatedDuration,
@@ -848,10 +1265,13 @@ async function main() {
       }
       forceImageFallbackForRemaining = true;
       videoFallbackReason = compactErrorMessage(error);
-      await generateAndStoreSceneImage(scene, {
-        fallbackFromVideo: true,
-        fallbackReason: videoFallbackReason,
-      });
+      const promotedReference = promoteReferenceImageToSceneImage(error.sceneReferenceAsset, scene, videoFallbackReason);
+      if (!promotedReference) {
+        await generateAndStoreSceneImage(scene, {
+          fallbackFromVideo: true,
+          fallbackReason: videoFallbackReason,
+        });
+      }
     }
   }
 
@@ -867,12 +1287,14 @@ async function main() {
     .filter((component) => component.type === 'video')
     .reduce((sum, component) => sum + Number(component.total_usd || 0), 0);
   const sceneImageCount = generatedScenes.filter((scene) => scene.asset_role === 'scene_image').length;
+  const sceneReferenceImageCount = generatedScenes.filter((scene) => scene.asset_role === 'scene_reference_image').length;
   const sceneVideoCount = generatedScenes.filter((scene) => scene.asset_role === 'scene_video').length;
   const assetCost = {
     type: 'asset_generation',
     provider: costComponents.length === 1 ? String(costComponents[0].provider || '') : 'mixed',
     model: costComponents.length === 1 ? String(costComponents[0].model || '') : 'mixed',
     scene_image_count: sceneImageCount,
+    scene_reference_image_count: sceneReferenceImageCount,
     scene_video_count: sceneVideoCount,
     image_total_usd: roundUsd(imageTotalUsd),
     video_total_usd: roundUsd(videoTotalUsd),
@@ -892,8 +1314,9 @@ async function main() {
     run_started_at: String(payload.run_started_at || new Date().toISOString()).trim() || new Date().toISOString(),
     status_after_success: 'assets_ready',
     scene_assets: generatedScenes,
-    scene_count: generatedScenes.length,
-    generation_provider: firstVideoScene ? `${String(firstVideoScene?.metadata_json?.provider || 'fal_ai_wan')}+scene_image` : String(firstImageScene?.metadata_json?.generation_provider || ''),
+    scene_count: scenes.length,
+    asset_count: generatedScenes.length,
+    generation_provider: firstVideoScene ? `${String(firstVideoScene?.metadata_json?.provider || 'fal_ai_video')}+scene_image` : String(firstImageScene?.metadata_json?.generation_provider || ''),
     generation_model: firstVideoScene
       ? `${String(firstVideoScene?.metadata_json?.generation_model || '')}+${String(imageRequest.model || '')}`
       : String(imageRequest.model || ''),

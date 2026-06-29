@@ -62,9 +62,11 @@ function loadRuntimeEnvValues() {
 export function firstEnv(keys = []) {
   const runtimeValues = loadRuntimeEnvValues();
   for (const key of keys) {
-    const value = String(runtimeValues[key] ?? process.env[key] ?? '').trim();
-    if (value) {
-      return value;
+    for (const candidate of [runtimeValues[key], process.env[key]]) {
+      const value = String(candidate ?? '').trim();
+      if (value) {
+        return value;
+      }
     }
   }
   return '';
@@ -94,8 +96,9 @@ function stageEnvPrefix(stageKey) {
   return normalized.toUpperCase();
 }
 
-export function selectTextProvider(_stageKey) {
-  return normalize(firstEnv(['TEXT_LLM_PROVIDER']), 'openai');
+export function selectTextProvider(stageKey) {
+  const stagePrefix = stageEnvPrefix(stageKey || 'text');
+  return normalize(firstEnv([`${stagePrefix}_LLM_PROVIDER`, 'TEXT_LLM_PROVIDER']), 'openai');
 }
 
 export function selectTextApiKey(_stageKey, provider) {
@@ -153,13 +156,15 @@ export function selectNarrationApiKey(provider) {
 
 export function selectVideoApiKey(component = 'scene_video', provider = 'fal_ai') {
   const providerPrefix = providerEnvPrefix(provider);
+  const providerFallbacks = providerPrefix === 'GEMINI'
+    ? ['GEMINI_API_KEY', 'GOOGLE_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY', 'GOOGLE_GENAI_API_KEY']
+    : [`${providerPrefix}_API_KEY`, providerPrefix === 'FAL_AI' ? 'FAL_API_KEY' : ''];
   return firstEnv([
     `${stageEnvPrefix(component)}_${providerPrefix}_API_KEY`,
     `SCENE_VIDEO_${providerPrefix}_API_KEY`,
     `WAN_VIDEO_${providerPrefix}_API_KEY`,
     `VIDEO_${providerPrefix}_API_KEY`,
-    `${providerPrefix}_API_KEY`,
-    providerPrefix === 'FAL_AI' ? 'FAL_API_KEY' : '',
+    ...providerFallbacks,
   ]);
 }
 

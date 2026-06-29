@@ -18,7 +18,7 @@
         </a>
         <nav class="topnav" aria-label="Primary">
           <a href="#create">Create</a>
-          <a href="#settings">Settings</a>
+          <a href="#providers">Providers</a>
           <a href="#reviews">Review</a>
           <a href="#pipeline">Pipeline</a>
         </nav>
@@ -88,18 +88,14 @@
           </form>
         </section>
 
-        <section class="panel panel-wide" id="settings">
+        <section class="panel panel-wide" id="providers">
           <div class="panel-header">
             <div>
-              <p class="panel-kicker">Runtime Settings</p>
-              <h2>Providers, models, and avatar options</h2>
-            </div>
-            <div class="panel-actions">
-              <span class="inline-status" id="settings-status" aria-live="polite"></span>
-              <button id="save-settings" class="primary" type="submit" form="settings-form">Save Settings</button>
+              <p class="panel-kicker">Providers</p>
+              <h2>Configured generation routes</h2>
             </div>
           </div>
-          <form id="settings-form" class="settings-form"></form>
+          <div id="provider-status" class="provider-status"></div>
         </section>
 
         <section class="panel" id="reviews">
@@ -125,6 +121,21 @@
             </div>
           </div>
           <div id="pipeline-list" class="pipeline-list"></div>
+        </section>
+
+        <section class="panel panel-wide reel-detail-panel" id="reel-detail" hidden>
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Reel Detail</p>
+              <h2 id="reel-detail-title">Selected reel</h2>
+            </div>
+            <div class="panel-actions">
+              <span class="inline-status" id="detail-status" aria-live="polite"></span>
+              <button id="close-detail" class="secondary" type="button">Close</button>
+            </div>
+          </div>
+          <div id="detail-tabs" class="detail-tabs" role="tablist"></div>
+          <div id="reel-detail-body" class="reel-detail-body"></div>
         </section>
       </main>
     </div>

@@ -27,6 +27,9 @@ Prompt requirements:
 - The 2-second opening title card is added later by Remotion; never ask the image/video model to draw title text.
 - Do not repeat the Reel title, selected hook text, quoted title words, or any phrase that should only appear in renderer-owned overlays.
 - Do not invent people, brands, claims, events, or visual evidence not supported by the story context.
+- Preserve continuity with adjacent scenes: same story world, factual context, visual style, lighting family, palette, recurring people/objects when present, and environment logic.
+- Do not substitute unrelated stock metaphors. Avoid romance, hand-holding couples, military cadets, soldiers, guns, weapons, formation drills, random portraits, or generic teamwork unless explicitly named by this scene's narration or storyboard.
+- For disaster, crisis, emergency, operational, or historical scenes, depict literal relevant evidence such as evacuation movement, protective equipment, controlled spaces, responders, infrastructure, environment, or affected objects; do not reinterpret abstract phrases like "coordinate action" as unrelated military imagery.
 - Keep the prompt concise enough for an image/video model, but specific enough to avoid generic results.
 
 Return only the final generation prompt text.

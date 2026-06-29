@@ -237,9 +237,10 @@ try {
       subtitles: { enabled: false },
     },
   });
-  assert.equal(manifest.duration_seconds, 40);
-  assert.equal(manifest.render_manifest_json.timeline[0].duration_seconds, 10);
+  assert.equal(manifest.duration_seconds, 5.72);
+  assert.equal(manifest.render_manifest_json.timeline[0].duration_seconds, 1.43);
   assert.equal(manifest.render_manifest_json.timeline[0].planned_duration_seconds, 10);
+  assert.equal(manifest.render_manifest_json.timeline[0].duration_source, 'narration_fit');
 
   const hybridPlan = {
     hybrid_media_plan_version: '1.0',
@@ -376,6 +377,9 @@ try {
   assert.equal(hybridManifest.render_manifest_json.timeline[0].narration_url, '');
   assert.equal(hybridManifest.render_manifest_json.timeline[1].asset_role, 'scene_video');
   assert.equal(hybridManifest.render_manifest_json.timeline[1].audio_mode, 'scene_narration');
+  assert.equal(hybridManifest.render_manifest_json.timeline[1].duration_seconds, 1.43);
+  assert.equal(hybridManifest.render_manifest_json.timeline[1].planned_duration_seconds, 10);
+  assert.equal(hybridManifest.render_manifest_json.timeline[1].duration_source, 'narration_fit');
   assert.equal(hybridManifest.render_manifest_json.audio.narration.scenes.length, 3);
   assert.equal(hybridManifest.render_manifest_json.audio.narration.embedded_avatar_scenes.length, 1);
 

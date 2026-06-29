@@ -35,7 +35,7 @@ The current implementation is migrating from a local n8n-centered automation sta
 8. Story package generation normalizes each scene with `asset_plan` (`image`, `video`, or `image_with_motion`) and `remotion` guidance. Image reels default scenes to `image_with_motion`; video reels opt into direct provider video per scene.
 9. `story_package_quality_gate` runs offline before media generation, using `validating` -> `validation_complete`. It checks scene count, narration, prompt specificity, text-rendering risk, asset-plan/remotion defaults, and render-seed timeline consistency; when `scene_guidance_json.image_prompt` is stronger than `storyboard_json.visual_prompt`, it promotes that prompt into the storyboard scene for asset generation.
 10. Active code-first generation then runs `director_contract`, `storyboard_and_shot_plan`, and `visual_prompt_builder`; the director contract is persisted in `directors`, the split storyboard plan refines scene jobs while merging back into the legacy `storyboard_json` shape, and the visual prompt plan writes final scene-level `visual_prompt`/`image_prompt` before image/video provider spend.
-11. `image` runs use image-only scene assets plus narration; `video` runs use v3 video assets plus narration and fall back to still images for remaining scenes when Wan/Fal is unavailable, billing-locked, or quota-blocked; `avatar` runs use `avatar_presenter_selector` and `avatar_media_generation` to either create a HeyGen avatar MP4 asset or auto-downgrade to the normal video asset, voice performance, and narration path; `hybrid` runs use `hybrid_media_planner` and `hybrid_media_generation` to mix scene-level HeyGen avatar clips, Fal/Wan video clips, and image-motion scenes in one Remotion render.
+11. `image` runs use image-only scene assets plus narration; `video` runs use v3 video assets plus narration and fall back to still images for remaining scenes when Fal Veo is unavailable, billing-locked, or quota-blocked; `avatar` runs use `avatar_presenter_selector` and `avatar_media_generation` to either create a HeyGen avatar MP4 asset or auto-downgrade to the normal video asset, voice performance, and narration path; `hybrid` runs use `hybrid_media_planner` and `hybrid_media_generation` to mix scene-level HeyGen avatar clips, Fal Veo video clips, and image-motion scenes in one Remotion render.
 12. Image/video narration runs `voice_performance_script` after scene assets and before TTS. It enriches per-scene delivery instructions in `storyboard_json[].tts_instructions` while keeping spoken narration text clean.
 13. Render manifest construction writes a Remotion-compatible canonical payload into `renders.render_manifest_json`, preserving per-scene camera moves, pan/zoom direction, transition type, overlays, pacing, motion layers, and provider-video fallback metadata.
 14. Render sync calls the configured sync render endpoint, defaulting to `remotion-renderer:8081/render-sync`. The Remotion service renders H.264 MP4 and uploads the result; `infra/render-worker/` remains fallback.
@@ -71,10 +71,10 @@ Current code-level provider support observed:
 - Text: `openai`, `anthropic`
 - Image: `openai`, `fal_ai`
 - TTS/narration: `openai`, `fish_audio`, `smallest_ai`
-- Scene video v3 path: Fal/Wan helpers in `generate_and_rehost_scene_assets_v3.mjs`, with billing/quota/provider-availability fallback to image assets plus Remotion motion
+- Scene video v3 path: Fal Veo helpers in `generate_and_rehost_scene_assets_v3.mjs`, with billing/quota/provider-availability fallback to image assets plus Remotion motion
 - Render: `remotion` by default, with per-scene motion plans used for camera moves, overlays, fades, and pacing; `local_ffmpeg` fallback through `infra/render-worker/`
 - Avatar video: `avatar_presenter_selector` structured text routing plus HeyGen Direct Video API through `avatar_media_generation` / legacy `heygen_avatar_generation`
-- Hybrid video: `hybrid_media_planner` chooses per-scene avatar/video/image-motion routes; `hybrid_media_generation` calls HeyGen for avatar scenes, v3 Fal/Wan/image assets for non-avatar scenes, and TTS only for non-avatar scenes
+- Hybrid video: `hybrid_media_planner` chooses per-scene avatar/video/image-motion routes; `hybrid_media_generation` calls HeyGen for avatar scenes, v3 Fal Veo/image assets for non-avatar scenes, and TTS only for non-avatar scenes
 - Asset host: `object_storage`, `google_cloud_storage`
 
 Avatar provider calls are attempted only when `HEYGEN_API_KEY`, `HEYGEN_AVATAR_ID`, `HEYGEN_VOICE_ID`, account `avatar_policy.avatar_allowed=true`, consent metadata, disclosure, and provider identity pass revalidation. Avatar-only generation auto-downgrades to the normal video reel path while preserving the requested run intent; hybrid avatar segments fail explicitly instead of silently downgrading.
@@ -111,7 +111,7 @@ Client/account context is policy metadata, not a CRM. It may guide brand, style,
 
 ## Frontend/backend boundaries
 
-There is no separate product web app. `studio-ui/` is local operations tooling. The visible UI covers idea injection, runtime provider/model/avatar settings, collapsed provider API key inputs, opt-in review approvals, pipeline status, and final render approval. Compatibility endpoints can still read/write prompts, selected `.env` keys, DB rows, client/account context snapshots, hosted objects, and n8n workflow executions.
+There is no separate product web app. `studio-ui/` is local operations tooling. The visible UI covers idea injection, curated runtime provider/model/voice/music settings, collapsed provider API key inputs, opt-in review approvals, pipeline status, reel detail inspection, and final render approval. Runtime settings save selected `.env` keys only; blank values intentionally fall back to existing env/defaults. Compatibility endpoints can still read prompts, selected `.env` keys, DB rows, client/account context snapshots, hosted objects, and n8n workflow executions, but broad prompt editing/runtime prompt customization is no longer exposed in the visible UI.
 
 ## Testing strategy
 

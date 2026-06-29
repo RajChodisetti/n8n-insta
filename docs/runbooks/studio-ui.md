@@ -6,9 +6,9 @@ The visible UI is intentionally narrow and meant to cover the normal operating l
 
 - inject a new idea into the default code-first Reel pipeline
 - optionally require human approval before generated downstream artifacts are used by the next phase
-- configure runtime providers, models, avatar settings, and collapsed provider API key inputs
+- inspect configured provider/model routes and credential readiness
 - approve or edit pending review artifacts
-- inspect each idea as a step-by-step pipeline
+- inspect each idea as a step-by-step pipeline with assets, prompts, media playback, and cost breakdown
 - approve the selected render before explicit publish actions
 
 ## Start the UI
@@ -53,20 +53,30 @@ Current repo defaults:
 
 - minimum: `15`
 - maximum: `180`
-- default: `45`
+- default: `80`
 
 With review mode off, the code-first pipeline worker can claim it immediately and run without human intervention.
 
-### Runtime settings
+### Runtime Settings
 
-The `Runtime Settings` panel renders the visible subset of `/api/config`:
+The `Providers` panel renders a curated runtime settings form from `/api/config`:
 
-- `Narration & Voice` for voice style, TTS voice, speed, and extra delivery instructions
-- `Adapters & Models` for OpenAI/Anthropic provider routing, premium text routing, stage models, image/video/TTS provider defaults, render provider, and default Reel type
-- `Provider API Keys`, collapsed by default, for OpenAI, Anthropic, Fal, Fish Audio, Smallest AI, and related stage-specific keys
-- `Avatar Video` for HeyGen identity, polling, consent fallback URI, and offline mock avatar outputs
+- provider/model routing for text, image, video, voice, and render stages
+- music mode and selected background track
+- provider API key fields, with masked existing secrets
+- adapter availability chips and credential readiness by provider
 
-Secret values are masked in the browser. Keeping the mask preserves the existing value; replacing or clearing it writes the changed value to the repo-root `.env`.
+Saving this panel writes only the curated keys to the repo-root `.env`. Blank provider/model values mean "use the env/default fallback"; masked secrets are preserved unless a replacement is entered.
+
+### Reel detail
+
+Every card in the `Pipeline` section has a `Details` action. The detail view calls `GET /api/topics/:content_id/detail` and shows:
+
+- final video playback plus cover image
+- scene-level generated assets, including `scene_reference_image`, `scene_image`, `scene_video`, narration, and avatar assets when present
+- prompt metadata recorded for each asset, including image prompts, video prompts, provider prompts, actual provider prompts, negative prompts, and fallback prompts
+- total cost and workflow/provider cost breakdown
+- latest pipeline steps and recent workflow rows
 
 ### Human review mode
 
@@ -83,13 +93,13 @@ With review mode off, none of these intermediate pauses are created.
 
 ### Hidden compatibility endpoints
 
-The server still contains prompt, upload, and legacy workflow endpoints used by older local workflows and scripts, but the visible UI no longer exposes prompt-file editing, character-reference upload, or legacy workflow launching as general operator controls.
+The server still contains prompt-read, upload, and legacy workflow endpoints used by older local workflows and scripts, but the visible UI no longer exposes prompt-file editing, runtime prompt-builder editing, character-reference upload, or legacy workflow launching as general operator controls. Env editing is limited to the curated Runtime Settings form.
 
-Prompt-file changes still do not require container recreation when made through compatible endpoints or direct file edits.
+Prompt-file changes still do not require container recreation when made through direct file edits.
 
 ## Restart boundary
 
-New Node-side model/provider calls read the repo-root `.env` at call time through `adapter_config.mjs`, so Studio-saved LLM keys, provider choices, model names, default Reel type, and HeyGen avatar config are picked up by new text/avatar calls without recreating containers.
+New Node-side model/provider calls read the repo-root `.env` at call time through `adapter_config.mjs`, so env-file provider choices, model names, voice choices, music selection, default Reel type, and HeyGen avatar config are picked up by new pipeline calls without recreating containers.
 
 Still recreate affected containers after changing lower-level service settings, render service settings, Docker-only env, or anything consumed by a non-Node service:
 
@@ -106,7 +116,7 @@ Why:
 
 Google Cloud Storage note:
 
-- if you switch any host selector to `google_cloud_storage`, configure `GOOGLE_CLOUD_STORAGE_BUCKET`, `GOOGLE_CLOUD_STORAGE_SERVICE_ACCOUNT_KEY_PATH`, `GOOGLE_CLOUD_STORAGE_ENDPOINT`, and `GOOGLE_CLOUD_STORAGE_PUBLIC_BASE_URL` in `.env` or through the compatibility config API
+- if you switch any host selector to `google_cloud_storage`, configure `GOOGLE_CLOUD_STORAGE_BUCKET`, `GOOGLE_CLOUD_STORAGE_SERVICE_ACCOUNT_KEY_PATH`, `GOOGLE_CLOUD_STORAGE_ENDPOINT`, and `GOOGLE_CLOUD_STORAGE_PUBLIC_BASE_URL` in `.env`
 - see [docs/runbooks/google-cloud-storage-asset-host.md](/Users/rajchodisetti/n8n-insta/docs/runbooks/google-cloud-storage-asset-host.md) for the full setup sequence
 
 ## Workflow launching
@@ -142,4 +152,5 @@ For normal live pipeline use:
 4. Click `Image Reel`, `Video Reel`, or `Avatar Reel`.
 5. If review mode is on, approve or edit each pending review.
 6. Track the idea in the `Pipeline` section.
-7. Approve the selected render before any explicit publish action.
+7. Open `Details` to inspect generated media, image/video prompts, final output, and cost.
+8. Approve the selected render before any explicit publish action.

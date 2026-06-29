@@ -22,6 +22,7 @@ const bannedKeys = new Set([
 ]);
 const providerNamePattern = /\b(openai|fal|fish_audio|smallest_ai|gcs|google_cloud_storage|minio|s3|ffmpeg|remotion|wan|meta graph)\b/i;
 const genericPromptPattern = /\b(symbolic (?:image|scene|representation)|abstract (?:image|scene|visual|representation)|mysterious (?:figure|silhouette|person)|shadowy figure|cinematic atmosphere|dramatic (?:background|atmosphere)|dark moody (?:scene|background|atmosphere)|people in shadows|atmospheric background|ominous vibe|generic mood)\b/i;
+const abstractStoryPattern = /\b(case moved|court ruling|justice delayed|lesser compensation|corporation walked free|no justice|lost hope|corporate escape)\b/i;
 const textExclusionPattern = /\b(text|letters|numbers|subtitles|captions|logo|logos|watermark|labels?|signage|ui)\b/i;
 const noReadableTextPattern = /\b(no|without|free|unreadable|blank|blurred|reserved)\b/i;
 
@@ -153,6 +154,7 @@ function validateVisualPromptContract(fixture) {
   prompts.forEach((prompt, index) => {
     const scenePath = `prompts[${index}]`;
     const expectedSceneNumber = index + 1;
+    const requiresV11 = fixture.visual_prompt_version === '1.1';
     if (prompt.scene_number !== expectedSceneNumber) {
       errors.push(`${scenePath}.scene_number must be ${expectedSceneNumber}`);
     }
@@ -174,6 +176,25 @@ function validateVisualPromptContract(fixture) {
     }
     if (wordCount(prompt.visual_prompt) < 24) {
       errors.push(`${scenePath}.visual_prompt must contain at least 24 words`);
+    }
+    if (requiresV11) {
+      for (const field of ['image_prompt', 'video_prompt', 'continuity_anchor', 'text_risk_strategy']) {
+        if (wordCount(prompt[field]) < 8) {
+          errors.push(`${scenePath}.${field} must be concrete enough for v1.1 asset generation`);
+        }
+      }
+      if (!Array.isArray(prompt.visual_evidence) || prompt.visual_evidence.length === 0) {
+        errors.push(`${scenePath}.visual_evidence must list concrete visible evidence for v1.1 asset generation`);
+      }
+      if (!String(prompt.video_prompt || '').toLowerCase().includes('reference image')) {
+        errors.push(`${scenePath}.video_prompt must instruct the video model to continue from the reference image`);
+      }
+      if (!String(prompt.image_prompt || '').toLowerCase().includes('9:16')) {
+        errors.push(`${scenePath}.image_prompt must include the vertical 9:16 keyframe shape`);
+      }
+      if (abstractStoryPattern.test(String(prompt.image_prompt || '')) || abstractStoryPattern.test(String(prompt.video_prompt || ''))) {
+        errors.push(`${scenePath}.image_prompt/video_prompt must translate abstract story claims into visible evidence`);
+      }
     }
     if (wordCount(prompt.fallback_prompt) < 12) {
       errors.push(`${scenePath}.fallback_prompt must contain at least 12 words`);

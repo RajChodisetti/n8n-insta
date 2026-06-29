@@ -563,6 +563,12 @@ label > span {
   list-style-position: inside;
 }
 
+.settings-section summary::marker,
+.model-route-group summary::marker,
+.credential-advanced summary::marker {
+  color: var(--muted);
+}
+
 .settings-section summary strong {
   display: block;
 }
@@ -590,6 +596,14 @@ label > span {
   display: grid;
   gap: 14px;
   padding: 0 15px 15px;
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 2px;
 }
 
 .settings-field {
@@ -667,7 +681,8 @@ label > span {
 }
 
 .model-route-group-head {
-  display: block;
+  cursor: pointer;
+  list-style-position: inside;
 }
 
 .model-route-group-head strong,
@@ -750,6 +765,195 @@ label > span {
   font-weight: 750;
 }
 
+.provider-status,
+.provider-route-list,
+.reel-detail-body,
+.cost-breakdown,
+.workflow-log-list {
+  display: grid;
+  gap: 14px;
+}
+
+.provider-route-group,
+.scene-detail-card,
+.prompt-asset-card,
+.cost-row,
+.workflow-log-row,
+.detail-summary,
+.final-media {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+  min-width: 0;
+}
+
+.provider-route-group-head,
+.provider-route-card,
+.asset-card-head,
+.scene-detail-head,
+.cost-summary,
+.workflow-log-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.provider-route-group-head {
+  margin-bottom: 10px;
+}
+
+.provider-route-group-head strong,
+.provider-route-card strong,
+.asset-card-head strong,
+.scene-detail-head strong,
+.detail-summary h3,
+.final-media h3,
+.cost-row strong,
+.workflow-log-row strong,
+.prompt-block strong {
+  display: block;
+}
+
+.provider-route-group-head small,
+.provider-route-card small,
+.asset-card-head small,
+.scene-detail-head small,
+.cost-row small,
+.workflow-log-row small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.provider-route-card {
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.provider-route-card:first-of-type {
+  border-top: 0;
+}
+
+.provider-route-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.provider-route-meta code {
+  max-width: min(420px, 52vw);
+  overflow-wrap: anywhere;
+  color: var(--neutral);
+  font-size: 0.78rem;
+}
+
+.detail-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.detail-tabs button.active {
+  border-color: var(--accent);
+  background: #ecfdf3;
+  color: var(--accent-strong);
+}
+
+.detail-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(280px, 1.15fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.final-media video,
+.asset-card video,
+.final-media img,
+.asset-card img {
+  display: block;
+  width: 100%;
+  max-height: 520px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #0b1220;
+  object-fit: contain;
+}
+
+.asset-card audio {
+  width: 100%;
+}
+
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.asset-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.asset-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.prompt-block {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.prompt-block pre,
+.cost-row pre {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 11px;
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.cost-summary {
+  padding: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #fbfcfe;
+  font-size: 1.05rem;
+}
+
+.cost-row {
+  display: grid;
+}
+
+.detail-step-list {
+  margin-top: 12px;
+}
+
+.empty-state.compact {
+  padding: 12px;
+}
+
 @media (max-width: 760px) {
   .topbar,
   .panel-header,
@@ -789,6 +993,17 @@ label > span {
   .model-route-row,
   .model-route-controls {
     grid-template-columns: 1fr;
+  }
+
+  .detail-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .provider-route-card,
+  .cost-summary,
+  .workflow-log-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .topic-status-stack {

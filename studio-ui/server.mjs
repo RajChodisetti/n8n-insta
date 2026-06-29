@@ -224,13 +224,13 @@ const PLACEHOLDER_HELP = Object.freeze({
     allowed_confidence_labels_json: { label: 'Allowed Confidence Labels', description: 'The exact confidence labels the model must choose from.', examples: ['["unverified","legend","disputed","likely","confirmed"]'] },
     target_duration_min_seconds: { label: 'Min Duration', description: 'The minimum allowed runtime for injected topic rows.', examples: ['15', '150'] },
     target_duration_max_seconds: { label: 'Max Duration', description: 'The maximum allowed runtime for injected topic rows.', examples: ['180'] },
-    target_duration_default_seconds: { label: 'Default Duration', description: 'The default runtime to use when the abstract idea does not imply a different length.', examples: ['45', '160'] },
+    target_duration_default_seconds: { label: 'Default Duration', description: 'The default runtime to use when the abstract idea does not imply a different length.', examples: ['80', '160'] },
   },
   research_and_script: {
     topic: { label: 'Topic', description: 'The core topic title for the Reel.', examples: ['The Dyatlov Pass Incident', 'Why Kurnool became Andhra’s capital'] },
     category: { label: 'Category', description: 'The content bucket used to shape tone and framing.', examples: ['mystery', 'history'] },
     content_language: { label: 'Content Language', description: 'The language the written output should use. This pipeline currently resolves to English only.', examples: ['English'] },
-    target_duration_seconds: { label: 'Target Duration', description: 'Desired runtime for the main narration package.', examples: ['45', '160'] },
+    target_duration_seconds: { label: 'Target Duration', description: 'Desired runtime for the main narration package.', examples: ['80', '160'] },
     confidence_context: { label: 'Confidence Context', description: 'How cautiously the story should treat disputed facts.', examples: ['Current stored confidence label: disputed.', 'Current stored confidence label: confirmed.'] },
     source_notes: { label: 'Source Notes', description: 'The factual boundary for research and scripting.', examples: ['Tent found cut open from the inside.', 'Kurnool was selected after regional negotiations.'] },
     brand_tone: { label: 'Brand Tone', description: 'The channel voice for this writing stage.', examples: ['cinematic, concise, credible', 'measured, suspenseful, grounded'] },
@@ -247,7 +247,7 @@ const PLACEHOLDER_HELP = Object.freeze({
   director_contract: {
     title: { label: 'Title', description: 'Story title used to anchor the director contract.', examples: ['The Mary Celeste Mystery', 'A Survivor Tells Her Story'] },
     category: { label: 'Category', description: 'Category context for voice, visual style, and pacing.', examples: ['mystery', 'social issue'] },
-    target_duration_seconds: { label: 'Target Duration', description: 'Desired Reel runtime.', examples: ['45', '160'] },
+    target_duration_seconds: { label: 'Target Duration', description: 'Desired Reel runtime.', examples: ['80', '160'] },
     scene_count: { label: 'Scene Count', description: 'Number of timed script scenes the contract must match.', examples: ['5', '7'] },
     narration_script: { label: 'Narration Script', description: 'Final script that the contract directs without rewriting.', examples: ['I learned to speak only when the room was empty...'] },
     script_scene_guidance_json: { label: 'Script Scene Guidance JSON', description: 'Timed scene beats from research_and_script.', examples: ['[{"scene_number":1,"visual_beat":"a survivor alone at a window"}]'] },
@@ -258,7 +258,7 @@ const PLACEHOLDER_HELP = Object.freeze({
     title: { label: 'Title', description: 'Story title used to anchor the storyboard.', examples: ['The Mary Celeste Mystery', 'Andhra Capital politics in 1952'] },
     category: { label: 'Category', description: 'Category context for visual style decisions.', examples: ['mystery', 'history'] },
     content_language: { label: 'Content Language', description: 'Language context for subtitle and storyboard planning. This pipeline currently resolves to English only.', examples: ['English'] },
-    target_duration_seconds: { label: 'Target Duration', description: 'Desired overall Reel runtime for scene planning.', examples: ['45', '160'] },
+    target_duration_seconds: { label: 'Target Duration', description: 'Desired overall Reel runtime for scene planning.', examples: ['80', '160'] },
     narration_script: { label: 'Narration Script', description: 'The final narration that the storyboard must follow.', examples: ['What if the crew vanished without a trace?', 'In 1952, Kurnool became Andhra’s capital...'] },
     script_scene_guidance_json: { label: 'Script Scene Guidance JSON', description: 'Timed scene beat guide generated during the script stage; storyboard turns these into final visual prompts.', examples: ['[{\"scene_number\":1,\"beat_label\":\"classified files\",\"start_time_seconds\":0,\"end_time_seconds\":10,\"duration_seconds\":10,\"narration_text\":\"The experiment began in secret.\",\"visual_beat\":\"sealed files on a desk under a dim bulb\"}]'] },
     brand_tone: { label: 'Brand Tone', description: 'The overall storytelling tone for the visual plan.', examples: ['cinematic, concise, credible', 'somber, historical, restrained'] },
@@ -272,7 +272,7 @@ const PLACEHOLDER_HELP = Object.freeze({
   storyboard_and_shot_plan: {
     title: { label: 'Title', description: 'Story title used to anchor the split storyboard plan.', examples: ['Support Became Roadmap', 'Missed Calls Cost Sales'] },
     category: { label: 'Category', description: 'Category context for scene jobs and risk flags.', examples: ['founder_explainer', 'local_business_promo'] },
-    target_duration_seconds: { label: 'Target Duration', description: 'Desired overall Reel runtime.', examples: ['45', '60'] },
+    target_duration_seconds: { label: 'Target Duration', description: 'Desired overall Reel runtime.', examples: ['80', '120'] },
     narration_script: { label: 'Narration Script', description: 'Clean spoken script that the storyboard split stage must preserve.', examples: ['The roadmap was hiding in the same complaint...'] },
     director_plan_json: { label: 'Director Plan JSON', description: 'Director contract that the shot plan must complement.', examples: ['{"selected_style_pack":"founder_explainer"}'] },
     script_scene_guidance_json: { label: 'Script Scene Guidance JSON', description: 'Current scene guidance from the story package or script stage.', examples: ['[{"scene_number":1,"beat_label":"hook"}]'] },
@@ -316,7 +316,7 @@ const PLACEHOLDER_HELP = Object.freeze({
     title: { label: 'Title', description: 'Story title passed to the TTS instruction prompt.', examples: ['The Mary Celeste Mystery', 'Andhra Capital politics in 1952'] },
     narration_script: { label: 'Narration Script', description: 'The exact text that the narration stage reads aloud.', examples: ['What if the crew vanished without a trace?', 'In 1952, Kurnool became Andhra’s capital...'] },
     content_language: { label: 'Content Language', description: 'Language the spoken narration should use. This pipeline currently resolves to English only.', examples: ['English'] },
-    target_duration_seconds: { label: 'Target Duration', description: 'Desired total narration runtime.', examples: ['45', '160'] },
+    target_duration_seconds: { label: 'Target Duration', description: 'Desired total narration runtime.', examples: ['80', '160'] },
     narration_style: { label: 'Narration Style', description: 'Delivery style for the spoken narration instructions.', examples: ['calm, human, emotionally grounded, clear', 'measured, eerie, intimate, restrained'] },
     narration_timing_guidance: { label: 'Narration Timing Guidance', description: 'Specific pacing instruction for the voice performance.', examples: ['Keep the hook crisp and scene boundaries clear.', 'Finish close to 160 seconds with short pauses between major beats.'] },
     background_music_direction: { label: 'Background Music Direction', description: 'Short direction for the ideal subtle instrumental bed under the narration.', examples: ['subtle low strings and restrained war drums, no vocals', 'soft eerie drone with sparse piano, no vocals'] },
@@ -337,7 +337,7 @@ const PLACEHOLDER_HELP = Object.freeze({
 const DEFAULT_TOPIC_DURATION_CONFIG = Object.freeze({
   min: 15,
   max: 180,
-  defaultValue: 45,
+  defaultValue: 80,
 });
 
 const pool = new Pool({
@@ -479,15 +479,18 @@ const MODEL_SUGGESTIONS = Object.freeze({
     { value: 'gpt-image-1', label: 'GPT Image 1 (higher quality)' },
   ],
   fal_image: [
+    { value: 'fal-ai/nano-banana-pro', label: 'Nano Banana Pro (premium)' },
+    { value: 'fal-ai/flux-2/klein/9b', label: 'FLUX.2 Klein 9B' },
     { value: 'fal-ai/flux/schnell', label: 'Flux Schnell (lower cost)' },
     { value: 'fal-ai/flux/dev', label: 'Flux Dev (higher quality)' },
-    { value: 'fal-ai/imagen4/preview', label: 'Imagen 4 Preview (premium)' },
   ],
   fal_video: [
-    { value: 'fal-ai/wan-t2v', label: 'Wan T2V (default / lower cost)' },
-    { value: 'fal-ai/wan/v2.5/t2v/1.3b', label: 'Wan 2.5 T2V 1.3B (lower cost)' },
-    { value: 'fal-ai/wan/v2.1/t2v/14b', label: 'Wan 2.1 T2V 14B (premium)' },
-    { value: 'fal-ai/wan/v2.7/reference-to-video', label: 'Wan 2.7 Reference-to-Video' },
+    { value: 'fal-ai/veo3.1/fast/image-to-video', label: 'Veo 3.1 Fast Image-to-Video (default)' },
+    { value: 'fal-ai/veo3.1/fast', label: 'Veo 3.1 Fast Text-to-Video' },
+    { value: 'fal-ai/veo3.1/image-to-video', label: 'Veo 3.1 Image-to-Video' },
+    { value: 'fal-ai/veo3.1', label: 'Veo 3.1 Text-to-Video' },
+    { value: 'fal-ai/veo3.1/lite/image-to-video', label: 'Veo 3.1 Lite Image-to-Video' },
+    { value: 'fal-ai/veo3.1/lite', label: 'Veo 3.1 Lite Text-to-Video' },
   ],
   tts_fish_audio: [
     { value: 's2-pro', label: 'Fish Audio S2 Pro' },
@@ -512,28 +515,49 @@ const MODEL_ROUTE_GROUPS = Object.freeze([
   {
     id: 'downstream-text',
     title: 'Downstream Prompt Generation',
-    description: 'One text provider is used for structured text. Prompt-generation stages share one model; QA and captions may override only the model.',
+    description: 'Choose provider and exact model for structured prompt calls. Blank values inherit the env defaults.',
     routes: [
       { label: 'Prompt generation stages', providerKey: 'TEXT_LLM_PROVIDER', openaiModelKey: 'TEXT_MODEL', anthropicModelKey: 'TEXT_ANTHROPIC_MODEL', description: 'Used by idea ingest, story package, director, storyboard, visual prompts, voice performance, avatar selector, hybrid planner, and performance feedback.' },
-      { label: 'Captions and hashtags', providerKey: '', openaiModelKey: 'CAPTION_MODEL', anthropicModelKey: 'CAPTION_ANTHROPIC_MODEL', description: 'Uses the same text provider. Leave blank to inherit the prompt-generation model.' },
-      { label: 'Final QA', providerKey: '', openaiModelKey: 'FINAL_QA_MODEL', anthropicModelKey: 'FINAL_QA_ANTHROPIC_MODEL', description: 'Uses the same text provider. Leave blank to inherit the prompt-generation model.' },
+      { label: 'Captions and hashtags', providerKey: 'CAPTION_LLM_PROVIDER', openaiModelKey: 'CAPTION_MODEL', anthropicModelKey: 'CAPTION_ANTHROPIC_MODEL', description: 'Optional provider/model override for caption and hashtag generation.' },
+      { label: 'Final QA', providerKey: 'FINAL_QA_LLM_PROVIDER', openaiModelKey: 'FINAL_QA_MODEL', anthropicModelKey: 'FINAL_QA_ANTHROPIC_MODEL', description: 'Optional provider/model override for final QA validation.' },
     ],
   },
 ]);
 const NON_TEXT_MODEL_GROUPS = Object.freeze([
   {
-    id: 'media-adapters',
-    title: 'Media, Voice, and Render Adapters',
-    description: 'Provider/model selectors outside structured text.',
+    id: 'image-generation',
+    title: 'Image Generation',
+    description: 'Choose provider and exact model for generated scene, reference, and post images.',
     routes: [
       { label: 'Image fallback', providerKey: 'IMAGE_GENERATION_PROVIDER', modelKey: 'IMAGE_MODEL', providerOptions: ['openai', 'fal_ai'], modelSuggestions: { openai: MODEL_SUGGESTIONS.openai_image, fal_ai: MODEL_SUGGESTIONS.fal_image }, description: 'Global image generation fallback.' },
       { label: 'Scene images', providerKey: 'SCENE_IMAGE_PROVIDER', modelKey: 'SCENE_IMAGE_MODEL', providerOptions: ['openai', 'fal_ai'], modelSuggestions: { openai: MODEL_SUGGESTIONS.openai_image, fal_ai: MODEL_SUGGESTIONS.fal_image }, description: 'Scene image provider and model.' },
       { label: 'Reference images', providerKey: 'SCENE_REFERENCE_IMAGE_PROVIDER', modelKey: 'SCENE_REFERENCE_IMAGE_MODEL', providerOptions: ['openai'], modelSuggestions: { openai: MODEL_SUGGESTIONS.openai_image }, description: 'Reference-image path for character/reference workflows.' },
       { label: 'Post image', providerKey: 'POST_IMAGE_PROVIDER', modelKey: 'POST_IMAGE_MODEL', providerOptions: ['openai', 'fal_ai'], modelSuggestions: { openai: MODEL_SUGGESTIONS.openai_image, fal_ai: MODEL_SUGGESTIONS.fal_image }, description: 'Single post or cover image generation.' },
-      { label: 'Scene video', providerKey: '', modelKey: 'WAN_VIDEO_MODEL', providerOptions: ['fal_ai'], modelSuggestions: { fal_ai: MODEL_SUGGESTIONS.fal_video }, description: 'Fal/Wan text-to-video scene generation.' },
-      { label: 'Reference video', providerKey: '', modelKey: 'WAN_REFERENCE_VIDEO_MODEL', providerOptions: ['fal_ai'], modelSuggestions: { fal_ai: MODEL_SUGGESTIONS.fal_video }, description: 'Fal/Wan reference-to-video model.' },
+    ],
+  },
+  {
+    id: 'video-generation',
+    title: 'Video Generation',
+    description: 'Fal Veo models used for scene clips. The reference model animates generated storyboard keyframes.',
+    routes: [
+      { label: 'Scene video', providerKey: '', modelKey: 'VEO_VIDEO_MODEL', providerOptions: ['fal_ai'], modelSuggestions: { fal_ai: MODEL_SUGGESTIONS.fal_video }, description: 'Fal Veo text-to-video fallback model.' },
+      { label: 'Reference video', providerKey: '', modelKey: 'VEO_REFERENCE_VIDEO_MODEL', providerOptions: ['fal_ai'], modelSuggestions: { fal_ai: MODEL_SUGGESTIONS.fal_video }, description: 'Fal Veo image-to-video model used with storyboard keyframes.' },
+    ],
+  },
+  {
+    id: 'voice-generation',
+    title: 'Voice Generation',
+    description: 'Choose narration provider and exact voice model.',
+    routes: [
       { label: 'Narration TTS', providerKey: 'NARRATION_PROVIDER', modelKey: 'NARRATION_MODEL', providerOptions: ['fish_audio', 'openai', 'smallest_ai'], modelSuggestions: { fish_audio: MODEL_SUGGESTIONS.tts_fish_audio, openai: MODEL_SUGGESTIONS.tts_openai, smallest_ai: MODEL_SUGGESTIONS.tts_smallest_ai }, description: 'Narration provider override.' },
       { label: 'TTS fallback', providerKey: 'TTS_PROVIDER', modelKey: 'TTS_MODEL', providerOptions: ['fish_audio', 'openai', 'smallest_ai'], modelSuggestions: { fish_audio: MODEL_SUGGESTIONS.tts_fish_audio, openai: MODEL_SUGGESTIONS.tts_openai, smallest_ai: MODEL_SUGGESTIONS.tts_smallest_ai }, description: 'Global TTS fallback.' },
+    ],
+  },
+  {
+    id: 'rendering',
+    title: 'Rendering',
+    description: 'Renderer selection for final video assembly.',
+    routes: [
       { label: 'Renderer', providerKey: '', modelKey: 'RENDER_PROVIDER', providerOptions: ['remotion', 'local_ffmpeg'], modelSuggestions: { remotion: MODEL_SUGGESTIONS.render, local_ffmpeg: MODEL_SUGGESTIONS.render }, description: 'Renderer used by code-first runs.' },
     ],
   },
@@ -556,7 +580,7 @@ const CREDENTIAL_GROUPS = Object.freeze([
   {
     id: 'fal',
     title: 'Fal AI',
-    description: 'Fal powers Flux images and Wan video. Use the global key first, then scene-specific keys only when needed.',
+    description: 'Fal powers Flux images and Veo video. Use the global key first, then scene-specific keys only when needed.',
     primary: ['FAL_AI_API_KEY', 'IMAGE_FAL_AI_API_KEY', 'SCENE_VIDEO_FAL_AI_API_KEY'],
     advanced: ['SCENE_IMAGE_FAL_AI_API_KEY', 'POST_IMAGE_FAL_AI_API_KEY', 'WAN_REFERENCE_VIDEO_FAL_AI_API_KEY'],
   },
@@ -590,7 +614,7 @@ const CONFIG_SECTIONS = [
     fields: [
       field('STUDIO_TOPIC_TARGET_DURATION_MIN_SECONDS', 'Topic Duration Min', 'Minimum target duration allowed in the New Idea form.', ['15', '30']),
       field('STUDIO_TOPIC_TARGET_DURATION_MAX_SECONDS', 'Topic Duration Max', 'Maximum target duration allowed in the New Idea form.', ['180', '240']),
-      field('STUDIO_TOPIC_TARGET_DURATION_DEFAULT_SECONDS', 'Topic Duration Default', 'Default target duration shown in the New Idea form.', ['45', '90']),
+      field('STUDIO_TOPIC_TARGET_DURATION_DEFAULT_SECONDS', 'Topic Duration Default', 'Default target duration shown in the New Idea form.', ['80', '90']),
     ],
   },
   {
@@ -684,8 +708,10 @@ const CONFIG_SECTIONS = [
       field('TEXT_LLM_PROVIDER', 'Text LLM Provider', 'Single provider used for every structured text prompt stage. Supports openai and anthropic.', ['openai', 'anthropic']),
       field('TEXT_MODEL', 'OpenAI Prompt Model', 'OpenAI model used by prompt-generation stages when Text LLM Provider is openai. Captions and QA can override separately.', ['gpt-4.1-mini', 'gpt-4.1']),
       field('TEXT_ANTHROPIC_MODEL', 'Anthropic Prompt Model', 'Anthropic model used by prompt-generation stages when Text LLM Provider is anthropic. Captions and QA can override separately.', ['claude-sonnet-4-6']),
+      field('CAPTION_LLM_PROVIDER', 'Caption LLM Provider', 'Optional provider override for captions and hashtags. Blank inherits Text LLM Provider.', ['openai', 'anthropic']),
       field('CAPTION_MODEL', 'Caption OpenAI Model', 'Optional OpenAI model for captions and hashtags. Blank inherits OpenAI Prompt Model.', ['gpt-4.1-mini', 'gpt-4.1']),
       field('CAPTION_ANTHROPIC_MODEL', 'Caption Anthropic Model', 'Optional Anthropic model for captions and hashtags. Blank inherits Anthropic Prompt Model.', ['claude-sonnet-4-6']),
+      field('FINAL_QA_LLM_PROVIDER', 'Final QA LLM Provider', 'Optional provider override for final QA. Blank inherits Text LLM Provider.', ['openai', 'anthropic']),
       field('FINAL_QA_MODEL', 'Final QA OpenAI Model', 'Optional OpenAI model for final QA. Blank inherits OpenAI Prompt Model.', ['gpt-4.1', 'gpt-4.1-mini']),
       field('FINAL_QA_ANTHROPIC_MODEL', 'Final QA Anthropic Model', 'Optional Anthropic model for final QA. Blank inherits Anthropic Prompt Model.', ['claude-sonnet-4-6']),
       field('ANTHROPIC_VERSION', 'Anthropic API Version', 'Anthropic API version header used for Claude structured text requests.', ['2023-06-01']),
@@ -698,8 +724,10 @@ const CONFIG_SECTIONS = [
       field('SCENE_IMAGE_MODEL', 'Scene Image Model', 'Scene-image model override.', ['gpt-image-1-mini', 'gpt-image-1']),
       field('SCENE_REFERENCE_IMAGE_MODEL', 'Reference Image Model', 'Image model used when uploaded references are passed into scene image generation.', ['gpt-image-1', 'gpt-image-1-mini']),
       field('POST_IMAGE_MODEL', 'Post Image Model', 'Single-post image model override.', ['gpt-image-1', 'gpt-image-1-mini']),
-      field('WAN_VIDEO_MODEL', 'Wan Video Model', 'Fal/Wan text-to-video model used by video reels.', ['fal-ai/wan-t2v']),
-      field('WAN_REFERENCE_VIDEO_MODEL', 'Wan Reference Video Model', 'Fal/Wan reference-to-video model used when character reference video generation is needed.', ['fal-ai/wan/v2.7/reference-to-video']),
+      field('VEO_VIDEO_MODEL', 'Fal Veo Text Video Model', 'Fal Veo Fast text-to-video fallback model used when no storyboard reference image is available.', ['fal-ai/veo3.1/fast', 'fal-ai/veo3.1', 'fal-ai/veo3.1/lite']),
+      field('VEO_REFERENCE_VIDEO_MODEL', 'Fal Veo Image Video Model', 'Fal Veo Fast image-to-video model used to animate generated storyboard images into scene clips.', ['fal-ai/veo3.1/fast/image-to-video', 'fal-ai/veo3.1/image-to-video', 'fal-ai/veo3.1/lite/image-to-video']),
+      field('VEO_VIDEO_RESOLUTION', 'Fal Veo Resolution', 'Fal Veo output resolution. Lite supports 720p/1080p; standard and fast also support 4k.', ['720p', '1080p', '4k']),
+      field('VEO_VIDEO_DURATION_SECONDS', 'Fal Veo Clip Duration', 'Fal Veo clip duration. Runtime snaps to the supported 4, 6, or 8 second values.', ['8', '6', '4']),
       field('ALLOW_VIDEO_TO_IMAGE_FALLBACK', 'Allow Video-To-Image Fallback', 'Set true only when provider-video failures may intentionally degrade into still images with Remotion motion. Default false keeps video reels from silently becoming image reels.', ['false', 'true']),
       field('TTS_PROVIDER', 'TTS Provider', 'Global narration/TTS provider fallback.', ['fish_audio', 'openai', 'smallest_ai']),
       field('NARRATION_PROVIDER', 'Narration Provider', 'Narration provider override.', ['fish_audio', 'openai', 'smallest_ai']),
@@ -729,8 +757,8 @@ const CONFIG_SECTIONS = [
       field('IMAGE_FAL_AI_API_KEY', 'Image Fal AI Key', 'Fallback for Fal image generation before FAL_AI_API_KEY.', ['']),
       field('SCENE_IMAGE_FAL_AI_API_KEY', 'Scene Image Fal AI Key', 'Fal key used only for scene image generation.', ['']),
       field('POST_IMAGE_FAL_AI_API_KEY', 'Post Image Fal AI Key', 'Fal key used only for post/cover image generation.', ['']),
-      field('SCENE_VIDEO_FAL_AI_API_KEY', 'Scene Video Fal AI Key', 'Fal key used only for Wan scene-video generation.', ['']),
-      field('WAN_REFERENCE_VIDEO_FAL_AI_API_KEY', 'Wan Reference Video Fal AI Key', 'Fal key used only for reference-to-video generation.', ['']),
+      field('SCENE_VIDEO_FAL_AI_API_KEY', 'Scene Video Fal AI Key', 'Fal key used only for Veo scene-video generation.', ['']),
+      field('WAN_REFERENCE_VIDEO_FAL_AI_API_KEY', 'Legacy Reference Video Fal AI Key', 'Backward-compatible Fal key fallback for older reference-video paths.', ['']),
       field('TTS_OPENAI_API_KEY', 'OpenAI TTS Key', 'OpenAI key used for narration when TTS provider is openai.', ['']),
       field('NARRATION_OPENAI_API_KEY', 'Narration OpenAI Key', 'OpenAI key used only for narration before TTS/global OpenAI fallbacks.', ['']),
       field('FISH_AUDIO_API_KEY', 'Fish Audio API Key', 'Global fallback for Fish Audio narration.', ['']),
@@ -766,6 +794,26 @@ const CONFIG_SECTIONS = [
     ],
   },
   {
+    id: 'music',
+    title: 'Music',
+    description: 'Choose whether the renderer auto-selects licensed background music, uses one selected track, or disables music.',
+    studio_visible: true,
+    fields: [
+      field('BACKGROUND_MUSIC_MODE', 'Background Music Mode', 'Auto lets the pipeline pick a licensed library track; Selected uses the chosen track; Off disables background music.', ['auto', 'selected', 'off'], {
+        input_type: 'select',
+        options: [
+          { value: '', label: 'Use env default' },
+          { value: 'auto', label: 'Auto select from library' },
+          { value: 'selected', label: 'Use selected track' },
+          { value: 'off', label: 'Off' },
+        ],
+      }),
+      field('BACKGROUND_MUSIC_TRACK_ID', 'Selected Music Track', 'Track ID used when Background Music Mode is Selected. Blank lets Auto choose.', ['departure-mixkit']),
+      field('BACKGROUND_MUSIC_ENABLED', 'Background Music Enabled', 'Backward-compatible music enable switch. Mode=Off takes precedence.', ['true', 'false']),
+      field('BACKGROUND_MUSIC_DEFAULT_VOLUME', 'Background Music Volume', 'Default background music level under narration.', ['0.12', '0.1', '0.15']),
+    ],
+  },
+  {
     id: 'render',
     title: 'Render Timing',
     description: 'These settings control how the render manifest aligns storyboard timing to the real narration track.',
@@ -779,9 +827,7 @@ const CONFIG_SECTIONS = [
       field('RENDER_SUBTITLE_STYLE', 'Render Subtitle Style', 'Subtitle style preset for the manifest.', ['cinematic_center_safe', 'clean_bottom_safe']),
       field('RENDER_TIMELINE_MODE', 'Render Timeline Mode', 'How scene durations should align to narration audio.', ['fit_to_narration', 'storyboard_exact']),
       field('RENDER_SCENE_MIN_SECONDS', 'Render Scene Min Seconds', 'Minimum scene duration used when rescaling a storyboard to match narration length.', ['2.5', '3']),
-      field('BACKGROUND_MUSIC_ENABLED', 'Background Music Enabled', 'Enable subtle instrumental music under the narration when a matching track exists in the local library.', ['true', 'false']),
       field('BACKGROUND_MUSIC_LIBRARY_JSON', 'Background Music Library', 'Path to the local music catalog JSON mounted inside the containers.', ['/workflows/assets/music/library.json']),
-      field('BACKGROUND_MUSIC_DEFAULT_VOLUME', 'Background Music Volume', 'Default background music level under narration.', ['0.12', '0.1', '0.15']),
       field('BACKGROUND_MUSIC_FADE_IN_SECONDS', 'Background Music Fade In', 'Seconds for the music bed to ease in.', ['0.8', '1.2']),
       field('BACKGROUND_MUSIC_FADE_OUT_SECONDS', 'Background Music Fade Out', 'Seconds for the music bed to ease out.', ['2.5', '3']),
     ],
@@ -2025,6 +2071,8 @@ function serializeConfigField(item, values = {}, extras = {}) {
     label: item.label,
     description: item.description,
     examples: item.examples,
+    input_type: item.input_type || '',
+    options: Array.isArray(item.options) ? item.options : undefined,
     width: item.width || '',
     sensitive,
     value: configFieldValue(item, values),
@@ -2033,7 +2081,7 @@ function serializeConfigField(item, values = {}, extras = {}) {
 }
 
 function hasConfiguredEnv(values = {}, keys = []) {
-  return keys.some((key) => normalizeHostedString(values[key]));
+  return keys.some((key) => normalizeHostedString(values[key] ?? process.env[key]));
 }
 
 function providerKeyCandidates(provider) {
@@ -2177,7 +2225,13 @@ function buildMediaModelRouting(values = {}) {
           ],
         })
         : null;
-      const suggestions = Object.values(route.modelSuggestions || {}).flat();
+      const suggestions = route.modelSuggestions?.[activeProvider] || Object.values(route.modelSuggestions || {}).flat();
+      const optionsByProvider = Object.fromEntries(
+        Object.entries(route.modelSuggestions || {}).map(([provider, providerSuggestions]) => [
+          provider,
+          modelOptionsFor(values[route.modelKey], providerSuggestions),
+        ]),
+      );
       const modelField = serializeConfigField(configFieldDefinition(route.modelKey), values, {
         options: modelOptionsFor(values[route.modelKey], suggestions),
       });
@@ -2187,6 +2241,7 @@ function buildMediaModelRouting(values = {}) {
         provider_field: providerField,
         provider_options: providerOptions(values, route.providerOptions),
         model_fields: [modelField],
+        model_options_by_provider: optionsByProvider,
         active_provider: activeProvider,
       };
     }),
@@ -2219,13 +2274,62 @@ function buildCredentialGroups(values = {}) {
   }));
 }
 
+function resolveRepoVisiblePath(configuredPath, fallbackRelativePath) {
+  const raw = normalizeHostedString(configuredPath) || fallbackRelativePath;
+  if (raw.startsWith('/workflows/')) {
+    return path.join(REPO_ROOT, raw.replace(/^\/+/, ''));
+  }
+  if (path.isAbsolute(raw)) {
+    return raw;
+  }
+  return path.join(REPO_ROOT, raw);
+}
+
+async function musicTrackOptions(values = {}) {
+  const options = [{ value: '', label: 'Auto select from library' }];
+  const libraryPath = resolveRepoVisiblePath(
+    values.BACKGROUND_MUSIC_LIBRARY_JSON,
+    'workflows/assets/music/library.json',
+  );
+  try {
+    const parsed = JSON.parse(await fs.readFile(libraryPath, 'utf8'));
+    const tracks = Array.isArray(parsed) ? parsed : [];
+    for (const track of tracks) {
+      const id = normalizeHostedString(track?.id);
+      if (!id) continue;
+      const title = normalizeHostedString(track?.title) || id;
+      const provider = normalizeHostedString(track?.source_provider);
+      const license = normalizeHostedString(track?.license_status || track?.license);
+      const suffix = [provider, license].filter(Boolean).join(' · ');
+      options.push({
+        value: id,
+        label: suffix ? `${title} (${suffix})` : title,
+      });
+    }
+  } catch {
+    const current = normalizeHostedString(values.BACKGROUND_MUSIC_TRACK_ID);
+    if (current) {
+      options.push({ value: current, label: `${current} (current)` });
+    }
+  }
+  return options;
+}
+
 async function readEnvConfig() {
   const content = await fs.readFile(ENV_FILE, 'utf8').catch(() => '');
   const parsed = parseEnvFile(content);
+  const values = { ...process.env, ...parsed.values };
+  const trackOptions = await musicTrackOptions(values);
+  const sectionField = (item) => serializeConfigField(
+    item.key === 'BACKGROUND_MUSIC_TRACK_ID'
+      ? { ...item, input_type: 'select', options: trackOptions }
+      : item,
+    values,
+  );
   return {
-    topic_form: normalizeTopicDurationConfig(parsed.values),
-    model_routing: buildModelRouting(parsed.values),
-    credential_groups: buildCredentialGroups(parsed.values),
+    topic_form: normalizeTopicDurationConfig(values),
+    model_routing: buildModelRouting(values),
+    credential_groups: buildCredentialGroups(values),
     sections: CONFIG_SECTIONS.map((section) => ({
       id: section.id,
       title: section.title,
@@ -2233,7 +2337,7 @@ async function readEnvConfig() {
       studio_visible: section.studio_visible === true,
       collapsed: section.collapsed === true,
       variant: section.variant || '',
-      fields: section.fields.map((item) => serializeConfigField(item, parsed.values)),
+      fields: section.fields.map(sectionField),
     })),
   };
 }
@@ -2385,6 +2489,233 @@ async function listTopics(limit = 25) {
     row.total_cost_usd = derived.total_usd;
   }));
   return rows;
+}
+
+function mediaTypeForAsset(asset = {}) {
+  const mimeType = normalizeHostedString(asset.mime_type).toLowerCase();
+  const role = normalizeHostedString(asset.asset_role).toLowerCase();
+  const url = normalizeHostedString(asset.storage_url || asset.source_url).toLowerCase();
+  if (mimeType.startsWith('video/') || role.endsWith('_video') || url.endsWith('.mp4')) return 'video';
+  if (mimeType.startsWith('audio/') || role.includes('narration') || url.endsWith('.mp3') || url.endsWith('.wav')) return 'audio';
+  if (mimeType.startsWith('image/') || url.match(/\.(jpg|jpeg|png|webp)(?:\?|$)/)) return 'image';
+  return 'file';
+}
+
+function serializeReelAsset(row = {}) {
+  const metadata = parseJsonObject(row.metadata_json);
+  const request = parseJsonObject(metadata.request);
+  const prompts = {
+    visual_prompt: firstNonEmptyString(metadata.visual_prompt, metadata.prompt, request.prompt),
+    image_prompt: firstNonEmptyString(metadata.image_prompt, request.prompt, metadata.visual_prompt),
+    video_prompt: firstNonEmptyString(metadata.video_prompt, metadata.provider_prompt),
+    provider_prompt: firstNonEmptyString(metadata.provider_prompt, metadata.actual_prompt),
+    actual_prompt: firstNonEmptyString(metadata.actual_prompt),
+    negative_prompt: firstNonEmptyString(metadata.negative_prompt),
+    fallback_prompt: firstNonEmptyString(metadata.fallback_prompt),
+  };
+  return {
+    asset_id: row.asset_id,
+    content_id: row.content_id,
+    scene_number: row.scene_number,
+    asset_role: row.asset_role,
+    media_type: mediaTypeForAsset(row),
+    provider: row.provider,
+    source_url: row.source_url,
+    storage_url: row.storage_url,
+    mime_type: row.mime_type,
+    duration_seconds: row.duration_seconds,
+    width: row.width,
+    height: row.height,
+    status: row.status,
+    prompts,
+    metadata_json: metadata,
+    created_at: row.created_at,
+  };
+}
+
+async function getTopicDetail(contentId) {
+  const normalizedId = normalizeHostedString(contentId);
+  if (!UUID_PATTERN.test(normalizedId)) {
+    fail(400, 'content_id must be a valid UUID.');
+  }
+  await ensurePublishApprovalSchema();
+  await ensureClientAccountContextSchema();
+  await ensurePipelineSchemaForPool();
+
+  const topicResult = await pool.query(
+    `select
+      ci.content_id,
+      ci.slug,
+      ci.title,
+      ci.reel_type,
+      coalesce(ci.source_payload_json, '{}'::jsonb) as source_payload_json,
+      coalesce(ci.category, '') as category,
+      coalesce(ci.brand_profile, '') as brand_profile,
+      ci.status,
+      coalesce(ci.confidence_label, '') as confidence_label,
+      ci.target_duration_seconds,
+      ci.created_at,
+      ci.updated_at,
+      coalesce(s.selected_hook, '') as selected_hook,
+      coalesce(s.narration_script, '') as narration_script,
+      coalesce(s.raw_response_json, '{}'::jsonb) as script_raw_response_json,
+      coalesce(sb.storyboard_json, '[]'::jsonb) as storyboard_json,
+      coalesce(sb.cover_prompt, '') as cover_prompt,
+      coalesce(sb.subtitle_lines_json, '[]'::jsonb) as subtitle_lines_json,
+      coalesce(sb.render_manifest_seed_json, '{}'::jsonb) as render_manifest_seed_json,
+      r.render_id,
+      coalesce(r.render_manifest_json, '{}'::jsonb) as render_manifest_json,
+      coalesce(r.output_video_url, '') as output_video_url,
+      coalesce(r.cover_image_url, '') as cover_image_url,
+      coalesce(r.resolution, '') as render_resolution,
+      coalesce(r.aspect_ratio, '') as render_aspect_ratio,
+      r.duration_seconds as render_duration_seconds,
+      coalesce(r.render_status, '') as render_status,
+      coalesce(r.render_log, '') as render_log,
+      coalesce(p.publish_status, '') as publish_status,
+      p.published_at,
+      coalesce(p.caption_final, '') as caption_final,
+      coalesce(p.hashtags_final, '') as hashtags_final,
+      pa.approval_id,
+      coalesce(pa.qa_status, '') as approval_qa_status,
+      coalesce(pa.approval_status, '') as approval_status,
+      coalesce(pa.approved_by, '') as approved_by,
+      pa.approved_at,
+      coalesce(pa.platform_account_id, '') as approval_platform_account_id,
+      latest_pipeline.pipeline_run_id as latest_pipeline_run_id
+    from content_items ci
+    left join scripts s on s.content_id = ci.content_id
+    left join storyboards sb on sb.content_id = ci.content_id
+    left join renders r on r.content_id = ci.content_id
+    left join publishes p on p.content_id = ci.content_id
+    left join publish_approvals pa on pa.content_id = ci.content_id
+      and pa.platform = 'instagram'
+      and pa.package_type = 'instagram_reel'
+    left join lateral (
+      select pr.pipeline_run_id
+      from pipeline_runs pr
+      where pr.content_id = ci.content_id
+      order by pr.created_at desc
+      limit 1
+    ) latest_pipeline on true
+    where ci.content_id = $1`,
+    [normalizedId],
+  );
+  const row = topicResult.rows[0];
+  if (!row) {
+    fail(404, `No topic found for content_id '${normalizedId}'.`);
+  }
+
+  const assetResult = await pool.query(
+    `select
+      asset_id,
+      content_id,
+      scene_number,
+      asset_role,
+      provider,
+      coalesce(source_url, '') as source_url,
+      coalesce(storage_url, '') as storage_url,
+      coalesce(mime_type, '') as mime_type,
+      duration_seconds,
+      width,
+      height,
+      coalesce(status, '') as status,
+      coalesce(metadata_json, '{}'::jsonb) as metadata_json,
+      created_at
+    from assets
+    where content_id = $1
+    order by
+      coalesce(scene_number, 9999),
+      case asset_role
+        when 'scene_reference_image' then 10
+        when 'scene_image' then 20
+        when 'scene_video' then 30
+        when 'scene_narration' then 40
+        when 'avatar_video' then 50
+        else 90
+      end,
+      created_at asc`,
+    [normalizedId],
+  );
+
+  const workflowResult = await pool.query(
+    `select
+      workflow_name,
+      run_status,
+      started_at,
+      ended_at,
+      coalesce(error_message, '') as error_message,
+      coalesce(details_json, '{}'::jsonb) as details_json
+    from workflow_runs
+    where content_id = $1
+    order by coalesce(ended_at, started_at) desc
+    limit 40`,
+    [normalizedId],
+  );
+
+  const costs = await getReelCosts(normalizedId);
+  const pipelineRunId = normalizeHostedString(row.latest_pipeline_run_id);
+  const pipelineRun = pipelineRunId
+    ? await getPipelineRunById(pool, pipelineRunId, { includeEvents: true }).catch(() => null)
+    : null;
+
+  return {
+    topic: {
+      content_id: row.content_id,
+      slug: row.slug,
+      title: row.title,
+      reel_type: row.reel_type,
+      creative_workflow: normalizeHostedString(row.source_payload_json?.creative_workflow),
+      category: row.category,
+      brand_profile: row.brand_profile,
+      status: row.status,
+      confidence_label: row.confidence_label,
+      target_duration_seconds: row.target_duration_seconds,
+      source_payload_json: row.source_payload_json,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    },
+    script: {
+      selected_hook: row.selected_hook,
+      narration_script: row.narration_script,
+      raw_response_json: row.script_raw_response_json,
+    },
+    storyboard: {
+      scenes: Array.isArray(row.storyboard_json) ? row.storyboard_json : [],
+      cover_prompt: row.cover_prompt,
+      subtitle_lines: Array.isArray(row.subtitle_lines_json) ? row.subtitle_lines_json : [],
+      render_manifest_seed_json: row.render_manifest_seed_json,
+    },
+    assets: assetResult.rows.map(serializeReelAsset),
+    render: {
+      render_id: row.render_id,
+      render_status: row.render_status,
+      output_video_url: row.output_video_url,
+      cover_image_url: row.cover_image_url,
+      resolution: row.render_resolution,
+      aspect_ratio: row.render_aspect_ratio,
+      duration_seconds: row.render_duration_seconds,
+      render_manifest_json: row.render_manifest_json,
+      render_log: row.render_log,
+    },
+    publish: {
+      publish_status: row.publish_status,
+      published_at: row.published_at,
+      caption_final: row.caption_final,
+      hashtags_final: row.hashtags_final,
+    },
+    approval: {
+      approval_id: row.approval_id,
+      qa_status: row.approval_qa_status,
+      approval_status: row.approval_status,
+      approved_by: row.approved_by,
+      approved_at: row.approved_at,
+      platform_account_id: row.approval_platform_account_id,
+    },
+    costs,
+    workflows: workflowResult.rows,
+    pipeline_run: pipelineRun,
+  };
 }
 
 async function approveTopicForPublish(contentId, body = {}) {
@@ -2650,14 +2981,14 @@ async function getFallbackCostBreakdown(contentId, existingWorkflows = new Set()
          sum(octet_length(coalesce(metadata_json->>'narration_script', '')))::int as total_utf8_bytes
        from assets
        where content_id = $1
-         and asset_role in ('scene_image', 'scene_video', 'scene_narration')
+         and asset_role in ('scene_image', 'scene_reference_image', 'scene_video', 'scene_narration')
        group by asset_role, generation_provider, generation_model`,
       [contentId],
     );
     const assetCostComponents = [];
     let sawSceneVideo = false;
     for (const row of assetResult.rows) {
-      if (row.asset_role === 'scene_image' && !hasAssetWorkflowCost) {
+      if (['scene_image', 'scene_reference_image'].includes(row.asset_role) && !hasAssetWorkflowCost) {
         const assetCost = computeImageCost(row.generation_provider || '', row.generation_model || '', Number(row.asset_count || 0));
         if (assetCost.priced && assetCost.total_usd > 0) {
           assetCostComponents.push(assetCost);
@@ -3327,6 +3658,12 @@ async function handleApi(request, response, url) {
     return;
   }
 
+  if (request.method === 'GET' && url.pathname.startsWith('/api/topics/') && url.pathname.endsWith('/detail')) {
+    const contentId = decodeURIComponent(url.pathname.slice('/api/topics/'.length).replace(/\/detail$/, '').trim());
+    sendJson(response, 200, await getTopicDetail(contentId));
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname.startsWith('/api/topics/') && url.pathname.endsWith('/approval')) {
     const contentId = decodeURIComponent(url.pathname.slice('/api/topics/'.length).replace(/\/approval$/, '').trim());
     const body = await parseJsonBody(request);
@@ -3422,16 +3759,7 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === 'PUT' && url.pathname === '/api/prompt') {
-    const body = await parseJsonBody(request);
-    const promptPath = String(body.path || '').trim();
-    const absolutePath = resolvePromptPath(promptPath);
-    await fs.writeFile(absolutePath, String(body.content || ''), 'utf8');
-    const content = await fs.readFile(absolutePath, 'utf8');
-    sendJson(response, 200, {
-      ...serializePromptFile(promptPath, content),
-      content,
-      saved_at: new Date().toISOString(),
-    });
+    sendJson(response, 410, { error: 'Prompt editing from Studio UI is disabled. Edit prompt files in the repository instead.' });
     return;
   }
 
@@ -3441,19 +3769,17 @@ async function handleApi(request, response, url) {
   }
 
   if (request.method === 'PUT' && url.pathname === '/api/runtime-prompt-builder') {
-    const body = await parseJsonBody(request);
-    sendJson(response, 200, await saveRuntimePromptBuilderConfig(body));
+    sendJson(response, 410, { error: 'Runtime prompt customization from Studio UI is disabled.' });
     return;
   }
 
   if (request.method === 'DELETE' && url.pathname === '/api/runtime-prompt-builder') {
-    sendJson(response, 200, await disableRuntimePromptBuilderConfig());
+    sendJson(response, 410, { error: 'Runtime prompt customization from Studio UI is disabled.' });
     return;
   }
 
   if (request.method === 'POST' && url.pathname === '/api/prompt-builder') {
-    const body = await parseJsonBody(request);
-    sendJson(response, 200, await generatePromptBuilderDraft(body));
+    sendJson(response, 410, { error: 'Prompt builder from Studio UI is disabled.' });
     return;
   }
 
@@ -3464,7 +3790,10 @@ async function handleApi(request, response, url) {
 
   if (request.method === 'PUT' && url.pathname === '/api/config') {
     const body = await parseJsonBody(request);
-    sendJson(response, 200, await updateEnvConfig(body.values || {}));
+    const updates = body && typeof body === 'object' && !Array.isArray(body)
+      ? (body.values || body)
+      : {};
+    sendJson(response, 200, await updateEnvConfig(updates));
     return;
   }
 

@@ -168,7 +168,7 @@ Stores all source media used for the Reel.
 - `asset_id` (uuid)
 - `content_id`
 - `scene_number`
-- `asset_role` — scene_video / scene_image / narration_audio / music / cover_image / subtitles
+- `asset_role` — scene_reference_image / scene_video / scene_image / scene_narration / avatar_video / narration_audio / music / cover_image / subtitles
 - `provider`
 - `source_url`
 - `storage_url`
@@ -178,6 +178,8 @@ Stores all source media used for the Reel.
 - `height`
 - `status`
 - `created_at`
+
+Video reels may store a generated `scene_reference_image` per scene before `scene_video`; render manifest assembly ignores reference-only assets unless a failed video generation explicitly promotes the same URL to `scene_image` fallback. Asset metadata can include `image_prompt`, `video_prompt`, `provider_prompt`, `actual_prompt`, `negative_prompt`, and reference-image URLs for Studio inspection.
 
 ---
 

@@ -405,10 +405,47 @@ function NarrationAudio({ src, scene }) {
   );
 }
 
+function BackgroundMusicAudio({ audio, totalDurationSeconds }) {
+  const { fps } = useVideoConfig();
+  const src = trimString(audio?.music_url || audio?.music_path);
+  if (!src) {
+    return null;
+  }
+  const durationFrames = Math.max(1, Math.round(Number(totalDurationSeconds || 1) * fps));
+  const fadeInFrames = Math.max(1, Math.round(Number(audio?.music_fade_in_seconds ?? 0.8) * fps));
+  const fadeOutFrames = Math.max(1, Math.round(Number(audio?.music_fade_out_seconds ?? 2.5) * fps));
+  const baseVolume = Math.max(0, Math.min(1, Number(audio?.music_volume ?? 0.12)));
+  return (
+    <Audio
+      src={src}
+      volume={(frame) => {
+        const fadeIn = interpolate(frame, [0, fadeInFrames], [0, baseVolume], {
+          extrapolateLeft: 'clamp',
+          extrapolateRight: 'clamp',
+        });
+        const fadeOut = interpolate(
+          frame,
+          [Math.max(0, durationFrames - fadeOutFrames), durationFrames],
+          [baseVolume, 0],
+          {
+            extrapolateLeft: 'clamp',
+            extrapolateRight: 'clamp',
+          },
+        );
+        return Math.max(0, Math.min(baseVolume, fadeIn, fadeOut));
+      }}
+    />
+  );
+}
+
 export function ReelComposition(props) {
   const { fps } = useVideoConfig();
   const timeline = timelineFromProps(props);
   const narration = props?.render_manifest?.audio?.narration || props?.audio?.narration || {};
+  const audio = props?.render_manifest?.audio || props?.audio || {};
+  const totalDurationSeconds = Number(props?.render_manifest?.total_duration_seconds || 0)
+    || timeline.reduce((max, scene) => Math.max(max, Number(scene.end_time_seconds || 0)), 0)
+    || 1;
   const globalEmbeddedAvatarAudio = trimString(narration.mode) === 'embedded_avatar' || trimString(props.render_mode) === 'avatar';
   const narrationByScene = new Map(
     Array.isArray(narration.scenes)
@@ -437,6 +474,7 @@ export function ReelComposition(props) {
           </Sequence>
         );
       })}
+      <BackgroundMusicAudio audio={audio} totalDurationSeconds={totalDurationSeconds} />
       <TitleOverlay overlay={props.title_overlay || props.render_manifest?.title_overlay} />
       <SubtitleLayer subtitles={props.subtitles || props.render_manifest?.subtitles} />
     </AbsoluteFill>

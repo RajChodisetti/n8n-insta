@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,6 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { loadRenderedPromptAsset } from './prompt_utils.mjs';
 import { generateNarrationAudio } from './tts_adapters.mjs';
 import { uploadBinaryAsset } from './asset_host_adapters.mjs';
+import { firstEnv } from './adapter_config.mjs';
 import { buildSceneTimingPlan, resolveStagePromptTemplateData } from './prompt_stage_defaults.mjs';
 import { computeTtsCost } from './cost_calculator.mjs';
 
@@ -16,6 +18,19 @@ function fail(message) {
 }
 
 function decodePayload() {
+  const payloadFileIndex = process.argv.indexOf('--payload-file');
+  if (payloadFileIndex >= 0) {
+    const payloadFile = String(process.argv[payloadFileIndex + 1] || '').trim();
+    if (!payloadFile) {
+      fail('Missing value for --payload-file.');
+    }
+    try {
+      return JSON.parse(readFileSync(payloadFile, 'utf8'));
+    } catch (error) {
+      fail(`Could not read workflow payload file: ${error.message}`);
+    }
+  }
+
   const encoded = String(process.argv[2] || '').trim();
   if (!encoded) {
     fail('Missing base64 payload argument.');
@@ -142,7 +157,11 @@ function parsePositiveNumber(value) {
 }
 
 function parseBooleanEnv(name, fallback = true) {
-  const normalized = String(process.env[name] ?? '').trim().toLowerCase();
+  return parseBooleanValue(firstEnv([name]), fallback);
+}
+
+function parseBooleanValue(value, fallback = true) {
+  const normalized = String(value ?? '').trim().toLowerCase();
   if (!normalized) return fallback;
   if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
   if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
@@ -183,25 +202,21 @@ function sceneNarrationText(scene) {
 }
 
 function narrationTailPaddingSeconds() {
-  const configured = parsePositiveNumber(process.env.NARRATION_SCENE_TAIL_SECONDS ?? process.env.RENDER_NARRATION_TAIL_SECONDS);
-  return Math.min(1.5, Math.max(0, configured ?? 0.35));
+  const configured = parsePositiveNumber(firstEnv(['NARRATION_SCENE_TAIL_SECONDS', 'RENDER_NARRATION_TAIL_SECONDS']));
+  return Math.min(1.5, Math.max(0, configured ?? 0.18));
 }
 
 function reelMaxDurationSeconds() {
   return parsePositiveNumber(
-    process.env.INSTAGRAM_REEL_MAX_SECONDS
-    ?? process.env.RENDER_MAX_DURATION_SECONDS
-    ?? process.env.REEL_MAX_DURATION_SECONDS,
-  ) ?? 60;
+    firstEnv(['INSTAGRAM_REEL_MAX_SECONDS', 'RENDER_MAX_DURATION_SECONDS', 'REEL_MAX_DURATION_SECONDS']),
+  ) ?? 80;
 }
 
 function configuredNarrationSpeed(payload) {
   return clampNumber(
     payload.tts_request?.speed
       ?? payload.openai_tts_request?.speed
-      ?? process.env.NARRATION_SPEED
-      ?? process.env.TTS_SPEED
-      ?? process.env.OPENAI_TTS_SPEED,
+      ?? firstEnv(['NARRATION_SPEED', 'TTS_SPEED', 'OPENAI_TTS_SPEED']),
     1,
     0.5,
     2,
@@ -210,13 +225,14 @@ function configuredNarrationSpeed(payload) {
 
 function resolveEffectiveNarrationSpeed(payload, scenes) {
   const configuredSpeed = configuredNarrationSpeed(payload);
-  if (!parseBooleanEnv('NARRATION_AUTO_SPEED', true)) {
+  if (!parseBooleanValue(firstEnv(['NARRATION_AUTO_SPEED']), true)) {
     return Number(configuredSpeed.toFixed(2));
   }
 
   const narratedScenes = scenes.filter((scene) => sceneNarrationText(scene));
   const targetSeconds = parsePositiveNumber(payload.target_duration_seconds);
-  const durationCapSeconds = Math.min(targetSeconds ?? reelMaxDurationSeconds(), reelMaxDurationSeconds());
+  const maxDurationSeconds = reelMaxDurationSeconds();
+  const durationCapSeconds = Math.min(targetSeconds ?? maxDurationSeconds, maxDurationSeconds);
   const tailBudgetSeconds = narratedScenes.length * narrationTailPaddingSeconds();
   const usableAudioBudgetSeconds = Math.max(1, durationCapSeconds - tailBudgetSeconds - 1);
   const estimatedNeutralSeconds = narratedScenes.reduce(
@@ -226,8 +242,8 @@ function resolveEffectiveNarrationSpeed(payload, scenes) {
   const estimatedNeededSpeed = estimatedNeutralSeconds > usableAudioBudgetSeconds
     ? (estimatedNeutralSeconds / usableAudioBudgetSeconds) * 1.08
     : 1;
-  const cappedReelMinimum = durationCapSeconds >= 55 && durationCapSeconds <= 60 ? 1.08 : 1;
-  const maxAutoSpeed = clampNumber(process.env.NARRATION_AUTO_MAX_SPEED, 1.18, 1, 2);
+  const cappedReelMinimum = maxDurationSeconds <= 60 && durationCapSeconds >= 55 && durationCapSeconds <= 60 ? 1.08 : 1;
+  const maxAutoSpeed = clampNumber(firstEnv(['NARRATION_AUTO_MAX_SPEED']), 1.18, 1, 2);
   const upperBound = Math.max(configuredSpeed, maxAutoSpeed);
   return Number(Math.min(upperBound, Math.max(configuredSpeed, cappedReelMinimum, estimatedNeededSpeed)).toFixed(2));
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { providerNotImplemented, selectNarrationApiKey, selectNarrationProvider } from './adapter_config.mjs';
+import { firstEnv, providerNotImplemented, selectNarrationApiKey, selectNarrationProvider } from './adapter_config.mjs';
 
 function fail(message) {
   throw new Error(message);
@@ -53,24 +53,27 @@ async function generateWithOpenAi(payload, fallbackInstructionsLoader) {
   }
 
   const request = payload.openai_tts_request ?? {};
-  const model = ensureString('openai_tts_request.model', request.model);
+  const model = ensureString(
+    'openai_tts_request.model',
+    request.model || firstEnv(['OPENAI_TTS_MODEL', 'NARRATION_MODEL', 'TTS_MODEL']) || 'gpt-4o-mini-tts',
+  );
   const input = ensureString('narration_script', payload.narration_script);
-  const speed = normalizeSpeechSpeed(request.speed);
+  const speed = normalizeSpeechSpeed(request.speed ?? firstEnv(['OPENAI_TTS_SPEED', 'NARRATION_SPEED', 'TTS_SPEED']));
   const promptInstructions = String(await fallbackInstructionsLoader()).trim();
   const manualInstructions = [
     String(request.instructions || '').trim(),
-    String(process.env.NARRATION_INSTRUCTIONS || '').trim(),
-    String(process.env.TTS_INSTRUCTIONS || '').trim(),
-    String(process.env.OPENAI_TTS_INSTRUCTIONS || '').trim(),
+    firstEnv(['NARRATION_INSTRUCTIONS']),
+    firstEnv(['TTS_INSTRUCTIONS']),
+    firstEnv(['OPENAI_TTS_INSTRUCTIONS']),
   ].filter(Boolean);
   const instructions = [promptInstructions, ...manualInstructions]
     .filter(Boolean)
     .join('\n\n');
   const body = {
     model,
-    voice: ensureString('openai_tts_request.voice', request.voice),
+    voice: ensureString('openai_tts_request.voice', request.voice || firstEnv(['OPENAI_TTS_VOICE', 'NARRATION_VOICE', 'TTS_VOICE']) || 'onyx'),
     input,
-    response_format: ensureString('openai_tts_request.response_format', request.response_format || 'mp3'),
+    response_format: ensureString('openai_tts_request.response_format', request.response_format || firstEnv(['OPENAI_TTS_FORMAT']) || 'mp3'),
     speed,
   };
   if (instructions) {
@@ -114,8 +117,7 @@ async function generateWithFishAudio(payload) {
   const request = payload.tts_request ?? {};
   const model = String(
     request.model
-    || process.env.FISH_AUDIO_TTS_MODEL
-    || process.env.FISH_AUDIO_MODEL
+    || firstEnv(['FISH_AUDIO_TTS_MODEL', 'FISH_AUDIO_MODEL', 'NARRATION_MODEL', 'TTS_MODEL'])
     || 's2-pro',
   ).trim() || 's2-pro';
   const input = ensureString('narration_script', payload.narration_script);
@@ -125,23 +127,22 @@ async function generateWithFishAudio(payload) {
   const referenceId = String(
     payload.voice_reference_id
     || request.voice_reference_id
-    || process.env.FISH_AUDIO_REFERENCE_ID
-    || process.env.FISH_AUDIO_VOICE_ID
+    || firstEnv(['FISH_AUDIO_REFERENCE_ID', 'FISH_AUDIO_VOICE_ID', 'NARRATION_VOICE', 'TTS_VOICE'])
     || '',
   ).trim();
   const speed = clampNumber(
-    request.speed ?? process.env.NARRATION_SPEED ?? process.env.TTS_SPEED,
+    request.speed ?? firstEnv(['NARRATION_SPEED', 'TTS_SPEED']),
     1,
     0.5,
     2,
   );
-  const responseFormat = String(request.response_format || process.env.FISH_AUDIO_FORMAT || 'mp3').trim().toLowerCase() || 'mp3';
-  const mp3Bitrate = Number.parseInt(String(process.env.FISH_AUDIO_MP3_BITRATE || '128').trim(), 10);
-  const volume = clampNumber(process.env.FISH_AUDIO_PROSODY_VOLUME, 0, -20, 20);
-  const temperature = clampNumber(process.env.FISH_AUDIO_TEMPERATURE, 0.7, 0, 1);
-  const topP = clampNumber(process.env.FISH_AUDIO_TOP_P, 0.7, 0, 1);
-  const chunkLength = Number.parseInt(String(process.env.FISH_AUDIO_CHUNK_LENGTH || '300').trim(), 10);
-  const minChunkLength = Number.parseInt(String(process.env.FISH_AUDIO_MIN_CHUNK_LENGTH || '50').trim(), 10);
+  const responseFormat = String(request.response_format || firstEnv(['FISH_AUDIO_FORMAT']) || 'mp3').trim().toLowerCase() || 'mp3';
+  const mp3Bitrate = Number.parseInt(String(firstEnv(['FISH_AUDIO_MP3_BITRATE']) || '128').trim(), 10);
+  const volume = clampNumber(firstEnv(['FISH_AUDIO_PROSODY_VOLUME']), 0, -20, 20);
+  const temperature = clampNumber(firstEnv(['FISH_AUDIO_TEMPERATURE']), 0.7, 0, 1);
+  const topP = clampNumber(firstEnv(['FISH_AUDIO_TOP_P']), 0.7, 0, 1);
+  const chunkLength = Number.parseInt(String(firstEnv(['FISH_AUDIO_CHUNK_LENGTH']) || '300').trim(), 10);
+  const minChunkLength = Number.parseInt(String(firstEnv(['FISH_AUDIO_MIN_CHUNK_LENGTH']) || '50').trim(), 10);
 
   const body = {
     text: input,
@@ -155,7 +156,7 @@ async function generateWithFishAudio(payload) {
     chunk_length: Number.isFinite(chunkLength) ? Math.min(300, Math.max(100, chunkLength)) : 300,
     normalize: true,
     format: responseFormat,
-    latency: String(process.env.FISH_AUDIO_LATENCY || 'normal').trim() || 'normal',
+    latency: String(firstEnv(['FISH_AUDIO_LATENCY']) || 'normal').trim() || 'normal',
     min_chunk_length: Number.isFinite(minChunkLength) ? Math.min(100, Math.max(0, minChunkLength)) : 50,
     condition_on_previous_chunks: true,
   };
@@ -285,39 +286,31 @@ async function generateWithSmallestAi(payload) {
   const request = payload.tts_request ?? {};
   const rawModel = String(
     request.model
-    || process.env.SMALLEST_AI_TTS_MODEL
-    || process.env.SMALLEST_AI_MODEL
-    || process.env.NARRATION_MODEL
-    || process.env.TTS_MODEL
+    || firstEnv(['SMALLEST_AI_TTS_MODEL', 'SMALLEST_AI_MODEL', 'NARRATION_MODEL', 'TTS_MODEL'])
     || 'lightning-v3.1',
   ).trim().toLowerCase() || 'lightning-v3.1';
   const input = ensureString('narration_script', payload.narration_script);
   const voiceId = ensureString(
     'tts_request.voice',
     request.voice
-    || process.env.SMALLEST_AI_TTS_VOICE
-    || process.env.SMALLEST_AI_VOICE_ID
-    || process.env.NARRATION_VOICE
-    || process.env.TTS_VOICE,
+    || firstEnv(['SMALLEST_AI_TTS_VOICE', 'SMALLEST_AI_VOICE_ID', 'NARRATION_VOICE', 'TTS_VOICE']),
   );
   const speed = clampNumber(
-    request.speed ?? process.env.NARRATION_SPEED ?? process.env.TTS_SPEED,
+    request.speed ?? firstEnv(['NARRATION_SPEED', 'TTS_SPEED']),
     1,
     0.5,
     2,
   );
   const sampleRate = Number.parseInt(String(
     request.sample_rate
-    || process.env.SMALLEST_AI_SAMPLE_RATE
-    || process.env.V2_NARRATION_SAMPLE_RATE
+    || firstEnv(['SMALLEST_AI_SAMPLE_RATE', 'V2_NARRATION_SAMPLE_RATE'])
     || '24000',
   ).trim(), 10);
   const normalizedSampleRate = Number.isFinite(sampleRate) ? Math.min(44100, Math.max(8000, sampleRate)) : 24000;
   const outputFormat = String(
     request.output_format
     || request.response_format
-    || process.env.SMALLEST_AI_OUTPUT_FORMAT
-    || process.env.V2_NARRATION_OUTPUT_FORMAT
+    || firstEnv(['SMALLEST_AI_OUTPUT_FORMAT', 'V2_NARRATION_OUTPUT_FORMAT'])
     || 'mp3',
   ).trim().toLowerCase() || 'mp3';
   const normalizeModelEndpoint = (value) => {

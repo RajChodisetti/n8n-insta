@@ -44,7 +44,7 @@ Hard rules:
 - `scene_guidance_json` and `storyboard_json` must each contain 4 to 8 scenes, and they must contain the same number of scenes.
 - Never return `scene_guidance_json: []` or `storyboard_json: []`. If source detail is thin, create 6 concrete scenes from the supplied idea/source notes, with specific subject, action, spoken beat, timing, asset plan, and Remotion motion for each scene.
 - `scene_contract_json.expected_scene_count` must equal the exact number of scenes in both `scene_guidance_json` and `storyboard_json`; `scene_contract_json.expected_total_duration_seconds` must match the target duration.
-- For a 45 to 75 second Reel, prefer 6 to 8 scenes unless the source material is extremely simple; never return fewer than 4 scenes.
+- For a 45 to 80 second Reel, prefer 6 to 8 scenes unless the source material is extremely simple; never return fewer than 4 scenes.
 - Scene timings must be contiguous: scene 1 starts at 0 seconds, every scene starts where the previous scene ends, and the final scene ends close to `target_duration_seconds`.
 - Keep storyboard scenes ordered, duration-positive, and close to the target duration.
 - Keep subtitle_lines_json as renderer metadata, not image-model text.

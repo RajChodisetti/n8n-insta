@@ -9,11 +9,16 @@ import { withTransaction } from './db.mjs';
 import { uploadBinaryAsset } from '../workflows/scripts/asset_host_adapters.mjs';
 import { firstEnv, selectVideoApiKey } from '../workflows/scripts/adapter_config.mjs';
 import { invokeStructuredTextStage } from '../workflows/scripts/invoke_structured_text_adapter.mjs';
+import {
+  detectUnrelatedVisualMetaphorRisk,
+  getSceneVisualContinuityGuard,
+} from '../workflows/scripts/prompt_hard_rules.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const DEFAULT_TARGET_DURATION_SECONDS = 80;
 
 function fail(message) {
   throw new Error(message);
@@ -798,12 +803,93 @@ function fallbackVisualPromptForScene(scene, index, { title = '' } = {}) {
     continuity_requirements: ['Keep character, environment, lighting, and palette consistent with adjacent scenes.'],
     text_policy: 'No readable text, labels, logos, subtitles, captions, signage, UI, or watermarks in generated visuals.',
     visual_prompt: visualPrompt,
+    image_prompt: visualPrompt,
+    video_prompt: [
+      'Use the supplied reference image as the first-frame visual identity.',
+      visualPrompt,
+      'Preserve the same people, setting, palette, props, lighting, era, camera angle, and composition; add only restrained motion needed for the narrated beat.',
+    ].join(' '),
+    visual_evidence: [narrationText || visualPrompt],
+    continuity_anchor: 'Same story world, lighting family, palette, people, objects, and environment as adjacent scenes.',
+    text_risk_strategy: 'Keep all generated surfaces blank or unreadable; renderer-owned overlays handle any text.',
     negative_prompt: trimString(scene?.negative_prompt) || 'readable text, labels, logos, subtitles, captions, signage, watermarks, UI screens',
     fallback_prompt: trimString(scene?.fallback_prompt) || visualPrompt,
     safety_notes: ['Use only the supplied story facts and avoid copyrighted characters, logos, or exact protected designs.'],
     qa_checks: ['Scene matches narration beat.', 'No readable text in generated visual.', 'Style is consistent with the rest of the reel.'],
     fallback_generated: true,
   };
+}
+
+function clipPromptText(value, maxLength = 420) {
+  const normalized = trimString(value).replace(/\s+/g, ' ');
+  if (!normalized) {
+    return '';
+  }
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return `${normalized.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
+function labeledPromptPart(label, value, maxLength = 420) {
+  const text = clipPromptText(value, maxLength);
+  return text ? `${label}: ${text}.` : '';
+}
+
+function literalFallbackVisualPromptForScene(scene, index, { title = '' } = {}) {
+  const sceneNumber = Number(scene?.scene_number ?? index + 1);
+  const narrationText = trimString(scene?.narration_text);
+  const shotIntent = asObject(scene?.storyboard_shot_intent ?? scene?.shot_intent);
+  const literalSource = [
+    trimString(shotIntent.subject),
+    trimString(shotIntent.action),
+    trimString(shotIntent.environment),
+    trimString(shotIntent.visual_evidence),
+    narrationText,
+  ].filter(Boolean).join(' ');
+  const prompt = literalSource || narrationText || `scene ${sceneNumber} story beat`;
+  return sanitizeGeneratedAssetPrompt(
+    [
+      `Cinematic vertical 9:16 scene ${sceneNumber}.`,
+      prompt,
+      'Show literal, story-specific people, objects, setting, and action from the spoken beat.',
+      'Avoid unrelated romance, hand-holding couples, military drills, soldiers, guns, weapons, generic teamwork, random portraits, and symbolic filler unless explicitly named by this scene.',
+      'No readable text, labels, logos, subtitles, captions, signage, UI, or watermarks inside the generated visual.',
+    ].join(' '),
+    { title, narrationText, sceneNumber },
+  );
+}
+
+function buildContinuityGenerationPrompt({ scene, prompt = {}, visualPlan = {}, visualPrompt = '' }) {
+  const globalContinuity = asObject(visualPlan.global_continuity);
+  const continuityRequirements = [
+    ...asArray(globalContinuity.continuity_requirements),
+    ...asArray(prompt.continuity_requirements),
+  ].map((entry) => trimString(entry)).filter(Boolean).slice(0, 6);
+  const continuityText = [
+    trimString(globalContinuity.style_summary),
+    trimString(globalContinuity.character_continuity),
+    trimString(globalContinuity.environment_continuity),
+    ...continuityRequirements,
+  ].filter(Boolean).join(' | ');
+  const generatedTextPolicy = trimString(visualPlan.text_policy?.generated_asset_policy || prompt.text_policy);
+  const sceneWithPrompt = {
+    ...scene,
+    visual_prompt: visualPrompt,
+    image_prompt: visualPrompt,
+  };
+  return [
+    labeledPromptPart('Scene beat', scene?.narration_text, 320),
+    labeledPromptPart('Subject', prompt.subject, 220),
+    labeledPromptPart('Environment', prompt.environment, 220),
+    labeledPromptPart('Action/composition', prompt.composition, 260),
+    labeledPromptPart('Camera and motion', [prompt.camera, prompt.motion].filter(Boolean).join(' '), 260),
+    labeledPromptPart('Lighting and style', [prompt.lighting, prompt.style].filter(Boolean).join(' '), 260),
+    labeledPromptPart('Continuity', continuityText, 520),
+    clipPromptText(visualPrompt, 900),
+    getSceneVisualContinuityGuard(sceneWithPrompt),
+    generatedTextPolicy ? `Generated-asset text policy: ${clipPromptText(generatedTextPolicy, 360)}.` : '',
+  ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 }
 
 async function runDirectorContract({ pool, step }) {
@@ -846,12 +932,12 @@ async function runDirectorContract({ pool, step }) {
   const directorResult = await invokeStructuredTextStage('director_contract', {
     content_id: contentId,
     title: trimString(row.title),
-    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    target_duration_seconds: Number(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
     status_after_success: trimString(row.status) || 'validation_complete',
     prompt_template_data: {
       title: trimString(row.title),
       category: trimString(row.category || 'general') || 'general',
-      target_duration_seconds: String(row.target_duration_seconds || 45),
+      target_duration_seconds: String(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
       narration_script: trimString(row.narration_script),
       scene_guidance_json: sceneGuidanceJson,
       script_scene_guidance_json: stringifyPromptJson(sceneGuidanceJson, []),
@@ -1023,7 +1109,7 @@ function buildFallbackShotIntent(scene = {}, guidanceScene = {}, { title = '', s
 function repairEmptyStoryboardShotPlan({
   title = '',
   reelType = 'video',
-  targetDurationSeconds = 45,
+  targetDurationSeconds = DEFAULT_TARGET_DURATION_SECONDS,
   selectedStylePack = '',
   storyboardJson = [],
   sceneGuidanceJson = [],
@@ -1148,7 +1234,7 @@ function repairEmptyStoryboardShotPlan({
 function mergeStoryboardAndShotPlan({
   title = '',
   reelType = 'video',
-  targetDurationSeconds = 45,
+  targetDurationSeconds = DEFAULT_TARGET_DURATION_SECONDS,
   selectedStylePack = '',
   rawResponseJson = {},
   storyboardJson = [],
@@ -1379,12 +1465,12 @@ async function runStoryboardAndShotPlan({ pool, step }) {
   const storyboardResult = await invokeStructuredTextStage('storyboard_and_shot_plan', {
     content_id: contentId,
     title: trimString(row.title),
-    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    target_duration_seconds: Number(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
     status_after_success: trimString(row.status) || 'validation_complete',
     prompt_template_data: {
       title: trimString(row.title),
       category: trimString(row.category || 'general') || 'general',
-      target_duration_seconds: String(row.target_duration_seconds || 45),
+      target_duration_seconds: String(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
       scene_count: String(storyboardJson.length),
       selected_style_pack: selectedStylePack,
       narration_script: trimString(row.narration_script),
@@ -1400,7 +1486,7 @@ async function runStoryboardAndShotPlan({ pool, step }) {
   const merged = mergeStoryboardAndShotPlan({
     title: trimString(row.title),
     reelType: trimString(row.reel_type || 'video') || 'video',
-    targetDurationSeconds: Number(row.target_duration_seconds || 45),
+    targetDurationSeconds: Number(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
     selectedStylePack,
     rawResponseJson: {
       ...rawResponseJson,
@@ -1482,31 +1568,86 @@ function mergeVisualPromptPlan(storyboardJson, visualPlan, { title = '' } = {}) 
   const mergedScenes = scenes.map((scene, index) => {
     const sceneNumber = Number(scene?.scene_number ?? index + 1);
     const prompt = promptsByScene.get(sceneNumber) || fallbackVisualPromptForScene(scene, index, { title });
-    const rawVisualPrompt = trimString(
-      prompt.visual_prompt
+    const rawImagePrompt = trimString(
+      prompt.image_prompt
+      || prompt.visual_prompt
       || scene.visual_prompt
       || scene.image_prompt
       || fallbackVisualPromptForScene(scene, index, { title }).visual_prompt,
     );
-    const visualPrompt = sanitizeGeneratedAssetPrompt(rawVisualPrompt, {
+    const imagePrompt = sanitizeGeneratedAssetPrompt(rawImagePrompt, {
+      title,
+      narrationText: trimString(scene.narration_text),
+      sceneNumber,
+    });
+    const rawVideoPrompt = trimString(
+      prompt.video_prompt
+      || prompt.visual_prompt
+      || scene.video_prompt
+      || rawImagePrompt,
+    );
+    const videoPrompt = sanitizeGeneratedAssetPrompt(rawVideoPrompt, {
       title,
       narrationText: trimString(scene.narration_text),
       sceneNumber,
     });
     const fallbackPrompt = sanitizeGeneratedAssetPrompt(
-      trimString(prompt.fallback_prompt || scene.fallback_prompt || visualPrompt),
+      trimString(prompt.fallback_prompt || scene.fallback_prompt || imagePrompt),
       { title, narrationText: trimString(scene.narration_text), sceneNumber },
     );
+    const metaphorRisk = detectUnrelatedVisualMetaphorRisk(imagePrompt, [
+      title,
+      scene.narration_text,
+      scene.mood,
+      JSON.stringify(asObject(scene.storyboard_shot_intent)),
+    ]);
+    const relevantImagePrompt = metaphorRisk
+      ? literalFallbackVisualPromptForScene(scene, index, { title })
+      : imagePrompt;
+    const relevantVideoPrompt = metaphorRisk ? relevantImagePrompt : videoPrompt;
+    const shotIntent = asObject(scene.storyboard_shot_intent ?? scene.shot_intent);
+    const continuityPromptFields = metaphorRisk
+      ? {
+        ...prompt,
+        subject: trimString(shotIntent.subject) || trimString(scene.narration_text),
+        environment: trimString(shotIntent.environment) || prompt.environment,
+        composition: [
+          trimString(shotIntent.action),
+          trimString(shotIntent.visual_evidence),
+        ].filter(Boolean).join(' ') || prompt.composition,
+      }
+      : prompt;
+    const finalImagePrompt = buildContinuityGenerationPrompt({
+      scene,
+      prompt: continuityPromptFields,
+      visualPlan,
+      visualPrompt: relevantImagePrompt,
+    }) || relevantImagePrompt;
+    const finalVideoPromptBase = buildContinuityGenerationPrompt({
+      scene,
+      prompt: continuityPromptFields,
+      visualPlan,
+      visualPrompt: relevantVideoPrompt,
+    }) || relevantVideoPrompt;
+    const finalVideoPrompt = [
+      'Use the supplied reference image as the first frame and preserve its exact visual identity.',
+      finalVideoPromptBase,
+      'Keep the same people, setting, palette, props, lighting, era, lens feel, and composition from the reference image; add only the motion required by the narrated beat. Do not introduce new unrelated locations, title cards, documents, screens, logos, signs, readable text, subtitles, captions, UI, or watermarks.',
+    ].join(' ').replace(/\s+/g, ' ').trim();
     return {
       ...scene,
-      visual_prompt: visualPrompt,
-      image_prompt: visualPrompt,
+      visual_prompt: finalImagePrompt,
+      image_prompt: finalImagePrompt,
+      video_prompt: finalVideoPrompt,
       negative_prompt: trimString(prompt.negative_prompt || scene.negative_prompt),
       fallback_prompt: fallbackPrompt,
       visual_prompt_builder: {
         ...prompt,
-        visual_prompt: visualPrompt,
+        visual_prompt: finalImagePrompt,
+        image_prompt: finalImagePrompt,
+        video_prompt: finalVideoPrompt,
         fallback_prompt: fallbackPrompt,
+        repaired_unrelated_visual_metaphor: metaphorRisk || undefined,
       },
     };
   });
@@ -1556,12 +1697,12 @@ async function runVisualPromptBuilder({ pool, step }) {
   const visualResult = await invokeStructuredTextStage('visual_prompt_builder', {
     content_id: contentId,
     title: trimString(row.title),
-    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    target_duration_seconds: Number(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
     status_after_success: trimString(row.status) || 'validation_complete',
     prompt_template_data: {
       title: trimString(row.title),
       category: trimString(row.category || 'general') || 'general',
-      target_duration_seconds: String(row.target_duration_seconds || 45),
+      target_duration_seconds: String(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
       selected_style_pack: selectedStylePackFrom(row, directorJson),
       creative_workflow: trimString(sourcePayload.creative_workflow),
       director_plan: directorJson,
@@ -1772,12 +1913,12 @@ async function runVoicePerformanceScript({ pool, step }) {
   const voiceResult = await invokeStructuredTextStage('voice_performance_script', {
     content_id: contentId,
     title: trimString(row.title),
-    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    target_duration_seconds: Number(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
     status_after_success: 'assets_ready',
     prompt_template_data: {
       title: trimString(row.title),
       category: trimString(row.category || 'general') || 'general',
-      target_duration_seconds: String(row.target_duration_seconds || 45),
+      target_duration_seconds: String(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
       selected_style_pack: selectedStylePackFrom(row, directorJson),
       creative_workflow: trimString(sourcePayload.creative_workflow),
       narration_style: trimString(directorJson.tts_delivery || directorJson.voice_contract?.delivery_summary)
@@ -2010,11 +2151,17 @@ async function runImageAssetGeneration({ pool, step }) {
   const contentId = ensureUuid(step.content_id);
   const candidate = await fetchAndClaimAssetCandidate(pool, contentId);
   const payload = buildAssetGenerationPayload(candidate, 'wf_image_asset_generation');
-  const result = runNodeScript(
-    'workflows/scripts/generate_and_rehost_scene_assets.mjs',
-    [encodePayload(payload)],
-    { label: 'image_asset_generation' },
-  );
+  const payloadInvocation = buildPayloadInvocationArgs(payload, 'image-asset-generation');
+  let result;
+  try {
+    result = runNodeScript(
+      'workflows/scripts/generate_and_rehost_scene_assets.mjs',
+      payloadInvocation.args,
+      { label: 'image_asset_generation' },
+    );
+  } finally {
+    payloadInvocation.cleanup();
+  }
 
   const sceneAssets = asArray(result.scene_assets);
   if (sceneAssets.length === 0) {
@@ -2144,16 +2291,22 @@ async function runNarrationGeneration({ pool, step }) {
     ...candidate,
     workflow_name: 'wf_narration_generation',
     run_started_at: new Date().toISOString(),
-      director_scenes: asArray(directorJson.scenes),
-      director_tts_delivery: trimString(directorJson.tts_delivery),
-      voice_performance_json: asObject(candidate.voice_performance_json),
-      prompt_profile: asObject(candidate.source_payload_json?.prompt_profile),
+    director_scenes: asArray(directorJson.scenes),
+    director_tts_delivery: trimString(directorJson.tts_delivery),
+    voice_performance_json: asObject(candidate.voice_performance_json),
+    prompt_profile: asObject(candidate.source_payload_json?.prompt_profile),
   };
-  const result = runNodeScript(
-    'workflows/scripts/generate_and_rehost_narration_audio.mjs',
-    [encodePayload(payload)],
-    { label: 'narration_generation' },
-  );
+  const payloadInvocation = buildPayloadInvocationArgs(payload, 'narration-generation');
+  let result;
+  try {
+    result = runNodeScript(
+      'workflows/scripts/generate_and_rehost_narration_audio.mjs',
+      payloadInvocation.args,
+      { label: 'narration_generation' },
+    );
+  } finally {
+    payloadInvocation.cleanup();
+  }
 
   const scenes = asArray(result.scenes);
   if (scenes.length === 0) {
@@ -2286,7 +2439,7 @@ function storyPackageContextFrom(row) {
   return {
     selected_hook: trimString(row.selected_hook),
     narration_script_excerpt: trimString(row.narration_script).slice(0, 2500),
-    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    target_duration_seconds: Number(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
     story_package: asObject(
       raw.story_package_json
       ?? raw.story_package_v2_json
@@ -2598,7 +2751,7 @@ async function runAvatarPresenterSelector({ pool, step }) {
   const selectorResult = await invokeStructuredTextStage('avatar_presenter_selector', {
     content_id: contentId,
     title: trimString(row.title),
-    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    target_duration_seconds: Number(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
     package_type: 'instagram_reel',
     status_after_success: 'avatar_route_ready',
     prompt_template_data: {
@@ -3187,7 +3340,7 @@ function sceneSpokenText(scene = {}) {
 function normalizeHybridMediaType(value, scene = {}, index = 0) {
   const normalized = trimString(value).toLowerCase().replace(/[\s-]+/g, '_');
   if (['avatar', 'avatar_video', 'heygen', 'heygen_avatar'].includes(normalized)) return 'avatar_video';
-  if (['video', 'scene_video', 'provider_video', 'wan', 'wan_video', 'fal_ai_wan'].includes(normalized)) return 'scene_video';
+  if (['video', 'scene_video', 'provider_video', 'veo', 'veo_video', 'fal_ai_veo', 'wan', 'wan_video', 'fal_ai_wan'].includes(normalized)) return 'scene_video';
   if (['image', 'image_motion', 'scene_image', 'scene_image_motion', 'image_with_motion', 'remotion_motion'].includes(normalized)) return 'scene_image_motion';
   const mode = trimString(scene?.asset_plan?.mode || scene?.asset_type).toLowerCase();
   if (mode === 'video') return 'scene_video';
@@ -3196,7 +3349,7 @@ function normalizeHybridMediaType(value, scene = {}, index = 0) {
 
 function providerForHybridMediaType(mediaType) {
   if (mediaType === 'avatar_video') return 'heygen';
-  if (mediaType === 'scene_video') return 'fal_ai_wan';
+  if (mediaType === 'scene_video') return 'fal_ai_veo';
   return 'scene_image';
 }
 
@@ -3231,6 +3384,33 @@ function fallbackMediaTypeForSegment(mediaType, fallbackPolicy = {}, allowVideoT
     return 'fail';
   }
   return 'fail';
+}
+
+function normalizeFalVeoInventoryModel(value, { reference = false } = {}) {
+  const normalized = trimString(value).toLowerCase();
+  if (
+    !normalized
+    || normalized === 'fal-ai/veo3.1'
+    || normalized === 'fal-ai/veo3.1/image-to-video'
+    || normalized === 'fal-ai/veo3.1/reference-to-video'
+    || normalized === 'fal-ai/wan-t2v'
+    || normalized === 'wan-t2v'
+    || normalized === 'fal-ai/wan/v2.7/reference-to-video'
+    || normalized === 'fal-ai/wan/reference-to-video'
+    || normalized === 'wan-reference-to-video'
+    || normalized === 'reference-to-video'
+    || normalized === 'seedance'
+    || normalized.startsWith('bytedance/seedance')
+  ) {
+    return reference ? 'fal-ai/veo3.1/fast/image-to-video' : 'fal-ai/veo3.1/fast';
+  }
+  if (reference && normalized === 'fal-ai/veo3.1/fast') {
+    return 'fal-ai/veo3.1/fast/image-to-video';
+  }
+  if (!reference && normalized === 'fal-ai/veo3.1/fast/image-to-video') {
+    return 'fal-ai/veo3.1/fast';
+  }
+  return normalized;
 }
 
 function normalizeHybridMediaPlan(plan, storyboardJson, { allowVideoToImageFallback = false } = {}) {
@@ -3368,17 +3548,17 @@ function mediaProviderInventoryFrom() {
   const falAiKey = trimString(selectVideoApiKey('scene_video', 'fal_ai'));
   return {
     scene_video: {
-      provider_name: 'fal_ai_wan',
+      provider_name: 'fal_ai_veo',
       configured: Boolean(falAiKey),
       missing_env: falAiKey ? [] : ['SCENE_VIDEO_FAL_AI_API_KEY or FAL_AI_API_KEY'],
-      model: trimString(process.env.WAN_VIDEO_MODEL || 'fal-ai/wan-t2v'),
-      reference_model: trimString(process.env.WAN_REFERENCE_VIDEO_MODEL || 'fal-ai/wan/v2.7/reference-to-video'),
-      fallback_to_image_allowed: parseBooleanLike(process.env.ALLOW_VIDEO_TO_IMAGE_FALLBACK, false),
+      model: normalizeFalVeoInventoryModel(firstEnv(['VEO_VIDEO_MODEL', 'WAN_VIDEO_MODEL'])),
+      reference_model: normalizeFalVeoInventoryModel(firstEnv(['VEO_REFERENCE_VIDEO_MODEL', 'WAN_REFERENCE_VIDEO_MODEL']), { reference: true }),
+      fallback_to_image_allowed: parseBooleanLike(firstEnv(['ALLOW_VIDEO_TO_IMAGE_FALLBACK']), false),
     },
     scene_image_motion: {
       provider_name: 'scene_image',
       configured: true,
-      image_provider: trimString(process.env.SCENE_IMAGE_PROVIDER || process.env.IMAGE_GENERATION_PROVIDER || 'openai'),
+      image_provider: trimString(firstEnv(['SCENE_IMAGE_PROVIDER', 'IMAGE_GENERATION_PROVIDER']) || 'openai'),
       renderer: 'remotion',
     },
   };
@@ -3387,10 +3567,10 @@ function mediaProviderInventoryFrom() {
 function hybridRulesSummary({ avatarConfigured = false, videoConfigured = false } = {}) {
   return [
     'Pick exactly one media type per storyboard scene: avatar_video, scene_video, or scene_image_motion.',
-    'Use HeyGen only for avatar_video segments and Fal/Wan only for scene_video segments.',
+    'Use HeyGen only for avatar_video segments and Fal Veo only for scene_video segments.',
     'Use scene_image_motion when a concrete still plus Remotion motion is sufficient.',
     'Do not silently downgrade avatar scenes; avatar segments must pass consent, disclosure, and provider checks before media generation.',
-    `Runtime provider status: HeyGen configured=${avatarConfigured}; Fal/Wan video configured=${videoConfigured}.`,
+    `Runtime provider status: HeyGen configured=${avatarConfigured}; Fal Veo video configured=${videoConfigured}.`,
   ].join(' ');
 }
 
@@ -3500,7 +3680,7 @@ async function runHybridMediaPlanner({ pool, step }) {
   const plannerResult = await invokeStructuredTextStage('hybrid_media_planner', {
     content_id: contentId,
     title: trimString(row.title),
-    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    target_duration_seconds: Number(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
     package_type: 'instagram_reel',
     status_after_success: 'hybrid_media_plan_ready',
     prompt_template_data: {
@@ -3764,11 +3944,16 @@ async function runHybridMediaGeneration({ pool, step }) {
       voice_performance_json: asObject(rawResponseJson.voice_performance_json),
       prompt_profile: asObject(sourcePayload.prompt_profile),
     };
-    narrationResult = runNodeScript(
-      'workflows/scripts/generate_and_rehost_narration_audio.mjs',
-      [encodePayload(narrationPayload)],
-      { label: 'hybrid_narration_generation' },
-    );
+    const payloadInvocation = buildPayloadInvocationArgs(narrationPayload, 'hybrid-narration-generation');
+    try {
+      narrationResult = runNodeScript(
+        'workflows/scripts/generate_and_rehost_narration_audio.mjs',
+        payloadInvocation.args,
+        { label: 'hybrid_narration_generation' },
+      );
+    } finally {
+      payloadInvocation.cleanup();
+    }
     const narrationScenes = asArray(narrationResult.scenes);
     if (narrationScenes.length !== nonAvatarScenes.length) {
       fail(`hybrid_narration_generation returned ${narrationScenes.length} narration scenes for ${nonAvatarScenes.length} non-avatar scenes.`);
@@ -4252,6 +4437,20 @@ function inferAssetType(asset) {
   return 'image';
 }
 
+function renderAssetPriority(asset) {
+  const assetRole = trimString(asset?.asset_role).toLowerCase();
+  if (assetRole === 'scene_reference_image') {
+    return -1;
+  }
+  if (inferAssetType(asset) === 'video') {
+    return 30;
+  }
+  if (assetRole === 'scene_image') {
+    return 20;
+  }
+  return 10;
+}
+
 function normalizeAssetPlanForRender(scene, assetType, asset = {}) {
   const metadata = asObject(asset?.metadata_json);
   const rawPlan = asObject(scene?.asset_plan);
@@ -4355,9 +4554,9 @@ function titleOverlay(text) {
 }
 
 function narrationTailPaddingSeconds() {
-  const configured = Number.parseFloat(trimString(process.env.NARRATION_SCENE_TAIL_SECONDS || process.env.RENDER_NARRATION_TAIL_SECONDS || '0.35'));
+  const configured = Number.parseFloat(trimString(process.env.NARRATION_SCENE_TAIL_SECONDS || process.env.RENDER_NARRATION_TAIL_SECONDS || '0.18'));
   if (!Number.isFinite(configured)) {
-    return 0.35;
+    return 0.18;
   }
   return Math.min(1.5, Math.max(0, Number(configured.toFixed(2))));
 }
@@ -4367,9 +4566,9 @@ function reelMaxDurationSeconds() {
     'INSTAGRAM_REEL_MAX_SECONDS',
     'RENDER_MAX_DURATION_SECONDS',
     'REEL_MAX_DURATION_SECONDS',
-  ]) || '60'));
+  ]) || '80'));
   if (!Number.isFinite(configured) || configured <= 0) {
-    return 60;
+    return 80;
   }
   return Number(configured.toFixed(2));
 }
@@ -4505,7 +4704,11 @@ function assetMapByScene(assets = []) {
   const map = new Map();
   for (const asset of asArray(assets)) {
     const sceneNumber = Number(asset?.scene_number ?? 0);
-    if (Number.isInteger(sceneNumber) && sceneNumber > 0 && trimString(asset?.storage_url)) {
+    if (Number.isInteger(sceneNumber) && sceneNumber > 0 && trimString(asset?.storage_url) && renderAssetPriority(asset) >= 0) {
+      const current = map.get(sceneNumber);
+      if (current && renderAssetPriority(current) >= renderAssetPriority(asset)) {
+        continue;
+      }
       map.set(sceneNumber, asset);
     }
   }
@@ -4613,12 +4816,12 @@ function buildHybridRenderManifest(row, {
     const assetType = inferAssetType(matchingAsset);
     const narrationDurationSeconds = roundToHundredths(Math.max(Number(narrationAsset.duration_seconds ?? 0), 0.5));
     const assetDurationSeconds = assetType === 'video' ? Number(matchingAsset.duration_seconds ?? 0) || 0 : 0;
-    const durationSeconds = roundToHundredths(Math.max(
-      plannedDurationSeconds,
-      narrationDurationSeconds + narrationTailPadding,
+    const durationSeconds = fitSceneDurationToNarration({
+      narrationDurationSeconds,
+      narrationTailPadding,
+      assetType,
       assetDurationSeconds,
-      0.5,
-    ));
+    });
     const endTime = roundToHundredths(currentTime + durationSeconds);
     currentTime = endTime;
     const assetPlan = normalizeAssetPlanForRender(scene, assetType, matchingAsset);
@@ -4641,6 +4844,7 @@ function buildHybridRenderManifest(row, {
       narration_duration_seconds: narrationDurationSeconds,
       planned_duration_seconds: plannedDurationSeconds || null,
       narration_tail_padding_seconds: narrationTailPadding,
+      duration_source: 'narration_fit',
       asset: {
         asset_role: trimString(matchingAsset.asset_role),
         asset_type: assetType,
@@ -4720,6 +4924,7 @@ function buildHybridRenderManifest(row, {
       narration_duration_seconds: scene.narration_duration_seconds,
       planned_duration_seconds: scene.planned_duration_seconds,
       narration_tail_padding_seconds: scene.narration_tail_padding_seconds,
+      duration_source: scene.duration_source,
       transition: scene.transition,
       asset_plan: scene.asset_plan,
       remotion: scene.remotion,
@@ -4777,6 +4982,22 @@ function plannedSceneDurationSeconds(scene, seed, index) {
   return 0;
 }
 
+function fitSceneDurationToNarration({
+  narrationDurationSeconds,
+  narrationTailPadding,
+  assetType = '',
+  assetDurationSeconds = 0,
+}) {
+  const narrationSeconds = Math.max(Number(narrationDurationSeconds || 0), 0.5);
+  const rawTailSeconds = Math.max(Number(narrationTailPadding || 0), 0);
+  const assetSeconds = Math.max(Number(assetDurationSeconds || 0), 0);
+  let tailSeconds = rawTailSeconds;
+  if (trimString(assetType).toLowerCase() === 'video' && assetSeconds > 0 && narrationSeconds + tailSeconds > assetSeconds) {
+    tailSeconds = Math.min(tailSeconds, Math.max(0, assetSeconds - narrationSeconds));
+  }
+  return roundToHundredths(Math.max(narrationSeconds + tailSeconds, 0.5));
+}
+
 function buildRenderManifest(row) {
   const contentId = ensureUuid(row.content_id);
   const title = trimString(row.title);
@@ -4825,23 +5046,30 @@ function buildRenderManifest(row) {
     : 1;
   const narrationTailPadding = effectiveNarrationTailPaddingSeconds(sceneNarrationAssets);
   const narrationByScene = Object.fromEntries(sceneNarrationAssets.map((asset) => [Number(asset.scene_number), asset]));
+  const sceneAssetsByScene = assetMapByScene(sceneAssets);
 
   let currentTime = 0;
   const manifestScenes = storyboard.map((scene, index) => {
     const sceneNumber = Number(scene?.scene_number ?? index + 1);
     const narrationAsset = narrationByScene[sceneNumber] ?? null;
     if (!narrationAsset) fail(`Missing scene_narration asset for scene ${sceneNumber}.`);
-    const narrationDurationSeconds = roundToHundredths(Math.max(Number(narrationAsset.duration_seconds ?? 0), 0.5));
-    const plannedDurationSeconds = plannedSceneDurationSeconds(scene, seed, index);
-    const durationSeconds = roundToHundredths(Math.max(plannedDurationSeconds, narrationDurationSeconds + narrationTailPadding, 0.5));
-    const matchingAsset = sceneAssets.find((asset) => Number(asset?.scene_number ?? 0) === sceneNumber);
+    const matchingAsset = sceneAssetsByScene.get(sceneNumber);
     if (!matchingAsset) fail(`Missing scene asset for scene ${sceneNumber}.`);
     if (!trimString(matchingAsset.storage_url)) fail(`Scene ${sceneNumber} asset is missing storage_url.`);
+    const assetType = inferAssetType(matchingAsset);
+    const narrationDurationSeconds = roundToHundredths(Math.max(Number(narrationAsset.duration_seconds ?? 0), 0.5));
+    const plannedDurationSeconds = plannedSceneDurationSeconds(scene, seed, index);
+    const assetDurationSeconds = assetType === 'video' ? Number(matchingAsset.duration_seconds ?? 0) || 0 : 0;
+    const durationSeconds = fitSceneDurationToNarration({
+      narrationDurationSeconds,
+      narrationTailPadding,
+      assetType,
+      assetDurationSeconds,
+    });
     const startTime = roundToHundredths(currentTime);
     const endTime = roundToHundredths(currentTime + durationSeconds);
     currentTime = endTime;
     const subtitle = subtitleLines.find((line) => Number(line?.scene_number ?? 0) === sceneNumber);
-    const assetType = inferAssetType(matchingAsset);
     const assetPlan = normalizeAssetPlanForRender(scene, assetType, matchingAsset);
     const remotion = normalizeRemotionForRender(scene, assetPlan, index, matchingAsset);
     return {
@@ -4860,6 +5088,7 @@ function buildRenderManifest(row) {
       narration_duration_seconds: narrationDurationSeconds,
       planned_duration_seconds: plannedDurationSeconds || null,
       narration_tail_padding_seconds: narrationTailPadding,
+      duration_source: 'narration_fit',
       asset: {
         asset_role: trimString(matchingAsset.asset_role),
         asset_type: assetType,
@@ -4925,6 +5154,7 @@ function buildRenderManifest(row) {
       narration_duration_seconds: scene.narration_duration_seconds,
       planned_duration_seconds: scene.planned_duration_seconds,
       narration_tail_padding_seconds: scene.narration_tail_padding_seconds,
+      duration_source: scene.duration_source,
       transition: scene.transition,
       asset_plan: scene.asset_plan,
       remotion: scene.remotion,
@@ -5165,6 +5395,99 @@ function postJsonWithTimeout(urlString, body, { timeoutMs } = {}) {
   });
 }
 
+function backgroundMusicMode() {
+  const configuredMode = trimString(firstEnv(['BACKGROUND_MUSIC_MODE', 'BACKGROUND_MUSIC_SELECTION_MODE'])).toLowerCase();
+  if (['off', 'none', 'false', 'disabled', 'disable'].includes(configuredMode)) return 'off';
+  if (['selected', 'manual', 'track'].includes(configuredMode)) return 'selected';
+  if (parseBooleanLike(firstEnv(['BACKGROUND_MUSIC_ENABLED']), true) === false) return 'off';
+  return 'auto';
+}
+
+function resolveRuntimeRepoPath(configuredPath, fallbackRelativePath) {
+  const raw = trimString(configuredPath) || fallbackRelativePath;
+  if (raw.startsWith('/workflows/')) {
+    return path.join(REPO_ROOT, raw.replace(/^\/+/, ''));
+  }
+  if (path.isAbsolute(raw)) return raw;
+  return path.join(REPO_ROOT, raw);
+}
+
+function loadBackgroundMusicLibrary() {
+  const libraryPath = resolveRuntimeRepoPath(
+    firstEnv(['BACKGROUND_MUSIC_LIBRARY_JSON']),
+    'workflows/assets/music/library.json',
+  );
+  try {
+    const parsed = JSON.parse(fs.readFileSync(libraryPath, 'utf8'));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function scoreBackgroundMusicTrack(track, { row = {}, sceneMoods = [], backgroundMusicDirection = '' } = {}) {
+  const haystack = [
+    trimString(row.category),
+    trimString(row.topic),
+    trimString(row.title),
+    backgroundMusicDirection,
+    ...sceneMoods,
+  ].join(' ').toLowerCase();
+  let score = track.default === true ? 2 : 0;
+  for (const category of asArray(track.categories)) {
+    if (category && haystack.includes(trimString(category).toLowerCase())) score += 4;
+  }
+  for (const mood of asArray(track.moods)) {
+    if (mood && haystack.includes(trimString(mood).toLowerCase())) score += 3;
+  }
+  for (const tag of asArray(track.tags)) {
+    if (tag && haystack.includes(trimString(tag).toLowerCase())) score += 1;
+  }
+  return score;
+}
+
+function normalizeMusicTrack(track, selectionMode, {
+  fallbackVolume = 0.12,
+  fallbackFadeInSeconds = 0.8,
+  fallbackFadeOutSeconds = 2.5,
+} = {}) {
+  if (!track || typeof track !== 'object') return null;
+  return {
+    id: trimString(track.id),
+    title: trimString(track.title),
+    url: trimString(track.url || track.storage_url || track.source_url),
+    path: trimString(track.path || track.file_path || track.local_path),
+    volume: Math.min(1, Math.max(0, parseNumber(track.volume, fallbackVolume))),
+    fade_in_seconds: Math.max(0, parseNumber(track.fade_in_seconds, fallbackFadeInSeconds)),
+    fade_out_seconds: Math.max(0, parseNumber(track.fade_out_seconds, fallbackFadeOutSeconds)),
+    source_provider: trimString(track.source_provider),
+    license_status: trimString(track.license_status),
+    publish_allowed: track.publish_allowed !== false,
+    selection_mode: selectionMode,
+  };
+}
+
+function selectBackgroundMusicAsset(context = {}) {
+  const mode = backgroundMusicMode();
+  if (mode === 'off') return null;
+  const tracks = loadBackgroundMusicLibrary()
+    .filter((track) => track && typeof track === 'object')
+    .filter((track) => track.publish_allowed !== false)
+    .filter((track) => trimString(track.url || track.storage_url || track.source_url || track.path || track.file_path || track.local_path));
+  if (tracks.length === 0) return null;
+
+  const selectedTrackId = trimString(firstEnv(['BACKGROUND_MUSIC_TRACK_ID', 'BACKGROUND_MUSIC_SELECTED_TRACK_ID']));
+  if (mode === 'selected') {
+    const selected = tracks.find((track) => trimString(track.id) === selectedTrackId);
+    return normalizeMusicTrack(selected, 'selected', context);
+  }
+
+  const ranked = tracks
+    .map((track) => ({ track, score: scoreBackgroundMusicTrack(track, context) }))
+    .sort((a, b) => b.score - a.score);
+  return normalizeMusicTrack(ranked[0]?.track, 'auto', context);
+}
+
 function buildRenderRequest(row) {
   const contentId = ensureUuid(row.content_id);
   const manifest = asObject(row.render_manifest_json);
@@ -5191,15 +5514,15 @@ function buildRenderRequest(row) {
     fail('render_manifest_json is missing narration audio.');
   }
 
-  const configuredSyncUrl = trimString(process.env.RENDER_WORKER_SYNC_URL);
-  const configuredWorkerUrl = trimString(process.env.RENDER_WORKER_URL);
+  const configuredSyncUrl = trimString(firstEnv(['RENDER_WORKER_SYNC_URL']));
+  const configuredWorkerUrl = trimString(firstEnv(['RENDER_WORKER_URL']));
   const workerUrl = configuredSyncUrl || (configuredWorkerUrl ? configuredWorkerUrl.replace(/\/render\/?$/, '/render-sync') : 'http://remotion-renderer:8081/render-sync');
-  const outputPrefix = trimString(process.env.RENDER_OUTPUT_PATH_PREFIX || 'reels').replace(/^\/+|\/+$/g, '') || 'reels';
-  const renderProvider = trimString(process.env.RENDER_PROVIDER || 'remotion').toLowerCase() || 'remotion';
+  const outputPrefix = trimString(firstEnv(['RENDER_OUTPUT_PATH_PREFIX']) || 'reels').replace(/^\/+|\/+$/g, '') || 'reels';
+  const renderProvider = trimString(firstEnv(['RENDER_PROVIDER']) || 'remotion').toLowerCase() || 'remotion';
   const requestId = `render-${contentId}-${Date.now()}`;
-  const backgroundMusicVolume = Math.min(1, Math.max(0, parseNumber(process.env.BACKGROUND_MUSIC_DEFAULT_VOLUME, 0.12)));
-  const backgroundMusicFadeInSeconds = Math.max(0, parseNumber(process.env.BACKGROUND_MUSIC_FADE_IN_SECONDS, 0.8));
-  const backgroundMusicFadeOutSeconds = Math.max(0, parseNumber(process.env.BACKGROUND_MUSIC_FADE_OUT_SECONDS, 2.5));
+  const backgroundMusicVolume = Math.min(1, Math.max(0, parseNumber(firstEnv(['BACKGROUND_MUSIC_DEFAULT_VOLUME']), 0.12)));
+  const backgroundMusicFadeInSeconds = Math.max(0, parseNumber(firstEnv(['BACKGROUND_MUSIC_FADE_IN_SECONDS']), 0.8));
+  const backgroundMusicFadeOutSeconds = Math.max(0, parseNumber(firstEnv(['BACKGROUND_MUSIC_FADE_OUT_SECONDS']), 2.5));
   const sceneMoods = manifest.scenes.flatMap((scene) => [trimString(scene?.mood), trimString(scene?.music_cue)]).filter(Boolean);
   const scenePromptSummary = manifest.scenes.map((scene) => trimString(scene?.visual_prompt)).filter(Boolean).slice(0, 6).join(' | ');
   const scriptMusicDirection = trimString(row.script_music_direction);
@@ -5223,6 +5546,29 @@ function buildRenderRequest(row) {
     trimString(promptProfile?.scene_asset_generation?.style_notes),
     trimString(promptProfile?.post_image_generation?.style_notes),
   ].filter(Boolean).join(' | ');
+  const backgroundMusic = selectBackgroundMusicAsset({
+    row,
+    sceneMoods,
+    backgroundMusicDirection,
+    fallbackVolume: backgroundMusicVolume,
+    fallbackFadeInSeconds: backgroundMusicFadeInSeconds,
+    fallbackFadeOutSeconds: backgroundMusicFadeOutSeconds,
+  });
+  const runtimeAudio = {
+    ...asObject(manifest.audio),
+    music_url: trimString(backgroundMusic?.url) || null,
+    music_path: trimString(backgroundMusic?.path) || null,
+    music_volume: Number.isFinite(Number(backgroundMusic?.volume)) ? Number(backgroundMusic.volume) : backgroundMusicVolume,
+    music_fade_in_seconds: Number.isFinite(Number(backgroundMusic?.fade_in_seconds)) ? Number(backgroundMusic.fade_in_seconds) : backgroundMusicFadeInSeconds,
+    music_fade_out_seconds: Number.isFinite(Number(backgroundMusic?.fade_out_seconds)) ? Number(backgroundMusic.fade_out_seconds) : backgroundMusicFadeOutSeconds,
+    music_track_id: trimString(backgroundMusic?.id),
+    music_track_title: trimString(backgroundMusic?.title),
+    music_selection_mode: trimString(backgroundMusic?.selection_mode || backgroundMusicMode()),
+  };
+  const runtimeManifest = {
+    ...manifest,
+    audio: runtimeAudio,
+  };
 
   return {
     worker_url: workerUrl,
@@ -5238,7 +5584,7 @@ function buildRenderRequest(row) {
         ? { ...manifest.title_overlay }
         : { enabled: false },
       render_provider: renderProvider,
-      render_manifest: manifest,
+      render_manifest: runtimeManifest,
       output: manifest.output,
       timeline: manifest.timeline.map((scene) => ({
         scene_number: scene.scene_number,
@@ -5262,11 +5608,14 @@ function buildRenderRequest(row) {
           mode: narrationMode || (isEmbeddedAvatar ? 'embedded_avatar' : 'single'),
           storage_url: isPerScene || isEmbeddedAvatar || isMixed ? null : (trimString(manifest.audio?.narration?.storage_url) || null),
         },
-        music_url: null,
-        music_path: null,
-        music_volume: backgroundMusicVolume,
-        music_fade_in_seconds: backgroundMusicFadeInSeconds,
-        music_fade_out_seconds: backgroundMusicFadeOutSeconds,
+        music_url: runtimeAudio.music_url,
+        music_path: runtimeAudio.music_path,
+        music_volume: runtimeAudio.music_volume,
+        music_fade_in_seconds: runtimeAudio.music_fade_in_seconds,
+        music_fade_out_seconds: runtimeAudio.music_fade_out_seconds,
+        music_track_id: runtimeAudio.music_track_id,
+        music_track_title: runtimeAudio.music_track_title,
+        music_selection_mode: runtimeAudio.music_selection_mode,
       },
       music_context: {
         category: trimString(row.category || 'general') || 'general',
@@ -5279,6 +5628,7 @@ function buildRenderRequest(row) {
         style_notes: styleNotes,
         scene_moods: sceneMoods,
         script_music_direction: scriptMusicDirection,
+        selected_music_track: backgroundMusic || null,
       },
       subtitles: {
         enabled: false,
@@ -5749,7 +6099,7 @@ async function runFinalQaApprovalGate({ pool, step }) {
   const qaInvocation = await invokeStructuredTextStage('final_qa_validator', {
     content_id: contentId,
     title: trimString(row.title),
-    target_duration_seconds: Number(row.target_duration_seconds || 45),
+    target_duration_seconds: Number(row.target_duration_seconds || DEFAULT_TARGET_DURATION_SECONDS),
     package_type: 'instagram_reel',
     status_after_success: 'awaiting_approval',
     prompt_template_data: {
@@ -6549,6 +6899,7 @@ export const __avatarRuntimeTestHooks = Object.freeze({
 
 export const __storyboardSplitTestHooks = Object.freeze({
   mergeStoryboardAndShotPlan,
+  mergeVisualPromptPlan,
 });
 
 export async function executePipelineStage(stageKey, context) {

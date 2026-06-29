@@ -81,12 +81,47 @@ const NO_VISIBLE_TEXT_NEGATIVE_PROMPT = [
   'comic text',
 ].join(', ');
 
+const UNRELATED_VISUAL_METAPHOR_RULES = Object.freeze([
+  {
+    label: 'romance or hand-holding couple imagery',
+    promptPattern: /\b(couple|lovers?|romantic|romance|wedding|holding hands|hand in hand)\b/i,
+    contextPattern: /\b(couple|lovers?|romantic|romance|marriage|married|wedding|spouse|partners?|holding hands|hand in hand|family)\b/i,
+  },
+  {
+    label: 'military, cadet, soldier, gun, or weapon imagery',
+    promptPattern: /\b(military|soldiers?|cadets?|army|combat|guns?|rifles?|weapons?|armed)\b/i,
+    contextPattern: /\b(military|soldiers?|cadets?|army|war|combat|guns?|rifles?|weapons?|armed|evacuation order|self[- ]defense force)\b/i,
+  },
+  {
+    label: 'generic stock teamwork or drill imagery',
+    promptPattern: /\b(teamwork|team building|coordinated drill|formation drill|training drill|corporate stock|generic crowd)\b/i,
+    contextPattern: /\b(teamwork|team building|training drill|formation drill|crowd management|emergency drill|coordinated team)\b/i,
+  },
+]);
+
 export function getNoVisibleTextGenerationDirective() {
   return NO_VISIBLE_TEXT_GENERATION_DIRECTIVE;
 }
 
 export function getNoVisibleTextNegativePrompt() {
   return NO_VISIBLE_TEXT_NEGATIVE_PROMPT;
+}
+
+export function detectUnrelatedVisualMetaphorRisk(prompt, contextValues = []) {
+  const promptText = String(prompt || '').trim();
+  if (!promptText) {
+    return '';
+  }
+  const contextText = (Array.isArray(contextValues) ? contextValues : [contextValues])
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(' ');
+  for (const rule of UNRELATED_VISUAL_METAPHOR_RULES) {
+    if (rule.promptPattern.test(promptText) && !rule.contextPattern.test(contextText)) {
+      return rule.label;
+    }
+  }
+  return '';
 }
 
 export function getPromptSpecificHardRules(promptPath) {
@@ -113,6 +148,7 @@ export function getPromptSpecificHardRules(promptPath) {
       'Do not replace the narrated beat with generic symbolic imagery, anonymous silhouettes, or background-only atmosphere shots.',
       'Render the concrete subject, action, and setting named in the scene direction as the focal point of the frame.',
       'Keep the image matched to this exact scene narration and preserve the storyboard subject, action, setting, and story-specific visual evidence.',
+      'Do not substitute unrelated stock metaphors such as romance, hand-holding couples, military cadets, soldiers, guns, weapons, formation drills, generic teamwork, random portraits, or crowd filler unless those details are explicitly named in the storyboard or narration.',
       'For sexual violence, domestic abuse, marital rape, coercion, or victim testimony, keep visuals respectful and non-graphic; never depict assault or sexualized imagery.',
     ];
   }
@@ -194,6 +230,13 @@ export function getSceneImageRelevanceGuard(scene = {}) {
   const narrationText = compactSentence(scene.narration_text, 'Match the narrated beat exactly.');
   const mood = compactSentence(scene.mood);
   const transition = compactSentence(scene.transition);
+  const metaphorRisk = detectUnrelatedVisualMetaphorRisk(visualPrompt, [
+    scene.narration_text,
+    scene.mood,
+    scene.transition,
+    scene.image_prompt,
+    scene.fallback_prompt,
+  ]);
 
   const parts = [
     'Hard relevance rule:',
@@ -202,8 +245,12 @@ export function getSceneImageRelevanceGuard(scene = {}) {
     `Narration beat to match: ${narrationText}`,
     'Keep one dominant focal subject or action that a viewer can understand instantly.',
     'Preserve the scene direction subject, action or emotional situation, setting, and story-specific visual evidence.',
-    'Avoid vague atmosphere-only imagery, symbolic substitutes, generic crowd scenes, random portraits, or filler backgrounds.',
+    'Avoid vague atmosphere-only imagery, symbolic substitutes, generic crowd scenes, random portraits, romance or couple imagery, military drills, soldiers, guns, weapons, or filler backgrounds unless explicitly named by this scene.',
   ];
+
+  if (metaphorRisk) {
+    parts.push(`Detected drift risk: replace ${metaphorRisk} with literal visual evidence from the narration beat.`);
+  }
 
   if (mood) {
     parts.push(`Mood is secondary to relevance: ${mood}.`);
@@ -212,6 +259,30 @@ export function getSceneImageRelevanceGuard(scene = {}) {
     parts.push(`Let the framing support this transition: ${transition}.`);
   }
 
+  return parts.join(' ');
+}
+
+export function getSceneVisualContinuityGuard(scene = {}) {
+  const visualPrompt = compactSentence(scene.visual_prompt, 'Use the scene direction literally.');
+  const narrationText = compactSentence(scene.narration_text, 'Match the narrated beat exactly.');
+  const metaphorRisk = detectUnrelatedVisualMetaphorRisk(visualPrompt, [
+    scene.narration_text,
+    scene.mood,
+    scene.transition,
+    scene.image_prompt,
+    scene.fallback_prompt,
+  ]);
+  const parts = [
+    'Continuity and relevance rule:',
+    'keep this scene in the same story world, visual style, palette, lighting family, and factual event context as adjacent scenes.',
+    `Storyboard visual direction: ${visualPrompt}`,
+    `Spoken beat: ${narrationText}`,
+    'Use literal, story-specific visual evidence from the narration instead of unrelated stock metaphors.',
+    'Do not introduce romance, hand-holding couples, military cadets, soldiers, guns, weapons, formation drills, generic teamwork scenes, random portraits, or crowd filler unless the storyboard or narration explicitly names those details.',
+  ];
+  if (metaphorRisk) {
+    parts.push(`The prompt is drifting toward ${metaphorRisk}; replace that with concrete people, objects, setting, and action from the spoken beat.`);
+  }
   return parts.join(' ');
 }
 

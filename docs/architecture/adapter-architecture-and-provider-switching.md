@@ -35,7 +35,7 @@ Implemented today:
 
 - text generation: `openai`, `anthropic`
 - image generation: `openai`, `fal_ai`
-- scene video generation: `fal_ai` / Wan helpers
+- scene video generation: `fal_ai` / Veo 3.1 Fast helpers
 - narration / TTS: `openai`, `fish_audio`, `smallest_ai`
 - render provider: `remotion` by default, `local_ffmpeg` fallback
 - asset host: `google_cloud_storage`
@@ -46,7 +46,7 @@ Pluggable but not implemented yet:
 - text generation: any non-OpenAI/Anthropic provider you add later
 - image generation: any new provider you add later
 - narration / TTS: any new provider you add later
-- render provider: providers such as `seedance`
+- render provider: hosted render engines other than Remotion/local FFmpeg
 - asset host: any CDN or storage adapter you add later
 
 If you select a provider that is not implemented, the workflow should fail with a message like:
@@ -62,6 +62,8 @@ These are the main knobs you change in `.env`.
 ### Text
 
 - `TEXT_LLM_PROVIDER`
+- `CAPTION_LLM_PROVIDER`
+- `FINAL_QA_LLM_PROVIDER`
 - `TEXT_MODEL`
 - `TEXT_ANTHROPIC_MODEL`
 - `CAPTION_MODEL`
@@ -75,7 +77,8 @@ Fallback compatibility:
 - `ANTHROPIC_TEXT_MODEL`
 - `ANTHROPIC_MODEL`
 
-The structured text stages intentionally share one provider. Prompt-generation stages share one model choice. Captions/hashtags and final QA are the only text stages with separate model overrides; leave those blank to inherit the shared prompt model.
+By default, structured text stages share one provider. Prompt-generation stages share one model choice. Captions/hashtags and final QA are the only text stages expected to use separate provider/model overrides; leave their model overrides blank to inherit the model for their selected provider.
+`CAPTION_LLM_PROVIDER` and `FINAL_QA_LLM_PROVIDER` can override only those two stages when they must remain on a different text provider than the shared prompt-generation provider.
 
 ### Image Generation
 
@@ -96,6 +99,9 @@ The structured text stages intentionally share one provider. Prompt-generation s
 - `POST_IMAGE_COMPRESSION`
 - `IMAGE_STYLE`
 - `POST_IMAGE_STYLE`
+- `SCENE_IMAGE_RESOLUTION`
+- `POST_IMAGE_RESOLUTION`
+- `IMAGE_RESOLUTION`
 
 Fallback compatibility:
 
@@ -108,6 +114,18 @@ Fallback compatibility:
 - `OPENAI_IMAGE_COMPRESSION`
 - `OPENAI_SCENE_IMAGE_COMPRESSION`
 - `OPENAI_IMAGE_STYLE`
+
+### Video Generation
+
+- `VEO_VIDEO_MODEL`
+- `VEO_REFERENCE_VIDEO_MODEL`
+- `VEO_VIDEO_RESOLUTION`
+- `VEO_VIDEO_DURATION_SECONDS`
+- `VEO_GENERATE_AUDIO`
+- `VEO_AUTO_FIX`
+- `VEO_SAFETY_TOLERANCE`
+- legacy `WAN_*` and `SEEDDANCE_*` names remain backward-compatible fallbacks
+- `ALLOW_VIDEO_TO_IMAGE_FALLBACK`
 
 ### Narration / TTS
 
@@ -220,13 +238,17 @@ Runtime flow:
 
 ### Change only the model, keep the same provider
 
-Example: change the shared structured-text model.
+Example: change the shared structured-text provider/model while keeping captions and final QA on OpenAI.
 
 Edit `.env`:
 
 ```env
-TEXT_LLM_PROVIDER=openai
-TEXT_MODEL=gpt-4.1-mini
+TEXT_LLM_PROVIDER=anthropic
+TEXT_ANTHROPIC_MODEL=claude-sonnet-4-6
+CAPTION_LLM_PROVIDER=openai
+CAPTION_MODEL=gpt-4.1-mini
+FINAL_QA_LLM_PROVIDER=openai
+FINAL_QA_MODEL=gpt-4.1
 ```
 
 Then recreate `n8n` and rerun the relevant smoke test.

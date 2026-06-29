@@ -5,11 +5,13 @@ const state = {
   approvingReviewIds: new Set(),
   approvingTopicIds: new Set(),
   deletingTopicIds: new Set(),
+  selectedTopicDetail: null,
+  activeDetailTab: 'overview',
+  loadingDetailId: '',
   configValues: {},
   configSections: [],
   modelRouting: null,
   credentialGroups: [],
-  savingSettings: false,
 };
 
 const DEFAULT_WORKFLOW_KEY = 'wf_end_to_end_reel_generate_and_publish';
@@ -171,7 +173,7 @@ function renderConfigSection(section) {
   const fields = Array.isArray(section.fields) ? section.fields : [];
   const variant = String(section.variant || '').trim();
   return `
-    <details class="settings-section ${variant ? `settings-section-${escapeHtml(variant)}` : ''}" ${section.collapsed ? '' : 'open'}>
+    <details class="settings-section ${variant ? `settings-section-${escapeHtml(variant)}` : ''}">
       <summary>
         <span>
           <strong>${escapeHtml(section.title || section.id)}</strong>
@@ -235,8 +237,14 @@ function renderModelRoute(route) {
   const providerField = route.provider_field;
   const modelFields = Array.isArray(route.model_fields) ? route.model_fields : [];
   const activeProvider = String(route.active_provider || '').trim();
+  const modelOptionsByProvider = JSON.stringify(route.model_options_by_provider || {});
   return `
-    <div class="model-route-row" data-model-route data-active-provider="${escapeHtml(activeProvider)}">
+    <div
+      class="model-route-row"
+      data-model-route
+      data-active-provider="${escapeHtml(activeProvider)}"
+      data-model-options-by-provider="${escapeHtml(modelOptionsByProvider)}"
+    >
       <div class="model-route-copy">
         <strong>${escapeHtml(route.label || 'Task')}</strong>
         <small>${escapeHtml(route.description || '')}</small>
@@ -247,7 +255,7 @@ function renderModelRoute(route) {
           ${modelFields.map((field) => `
             <div class="provider-model-field" data-model-provider="${escapeHtml(field.provider || '')}">
               ${field.provider ? `<span class="model-provider-label">${escapeHtml(field.provider === 'anthropic' ? 'Claude model' : `${field.provider} model`)}</span>` : ''}
-              ${renderConfigField(field)}
+              ${renderConfigField(field, 'data-route-model="true"')}
             </div>
           `).join('')}
         </div>
@@ -259,25 +267,26 @@ function renderModelRoute(route) {
 function renderModelRouting(routing) {
   if (!routing || !Array.isArray(routing.groups)) return '';
   return `
-    <details class="settings-section settings-section-model-routing" open>
+    <details class="settings-section settings-section-model-routing">
       <summary>
         <span>
-          <strong>${escapeHtml(routing.title || 'Task Model Routing')}</strong>
+          <strong>${escapeHtml(routing.title || 'Model Selection')}</strong>
           <small>${escapeHtml(routing.description || '')}</small>
         </span>
       </summary>
       <div class="settings-panel-body">
-        ${renderAdapterInventory(routing.adapter_inventory || [])}
         ${routing.groups.map((group) => `
-          <section class="model-route-group">
-            <div class="model-route-group-head">
-              <strong>${escapeHtml(group.title || group.id)}</strong>
-              <small>${escapeHtml(group.description || '')}</small>
-            </div>
+          <details class="model-route-group">
+            <summary class="model-route-group-head">
+              <span>
+                <strong>${escapeHtml(group.title || group.id)}</strong>
+                <small>${escapeHtml(group.description || '')}</small>
+              </span>
+            </summary>
             <div class="model-route-table">
               ${(group.routes || []).map(renderModelRoute).join('')}
             </div>
-          </section>
+          </details>
         `).join('')}
       </div>
     </details>
@@ -287,11 +296,11 @@ function renderModelRouting(routing) {
 function renderCredentialGroups(groups = []) {
   if (!Array.isArray(groups) || groups.length === 0) return '';
   return `
-    <details class="settings-section settings-section-secrets" open>
+    <details class="settings-section settings-section-secrets">
       <summary>
         <span>
           <strong>Provider Credentials</strong>
-          <small>Set provider-level keys here. Model choices are configured separately above.</small>
+          <small>Set provider keys here when the selected provider is not already configured in env.</small>
         </span>
       </summary>
       <div class="settings-panel-body credential-groups">
@@ -322,6 +331,19 @@ function renderCredentialGroups(groups = []) {
   `;
 }
 
+function updateSelectOptions(select, options = []) {
+  if (!select || select.tagName !== 'SELECT' || !Array.isArray(options) || options.length === 0) {
+    return;
+  }
+  const previousValue = select.value;
+  select.innerHTML = options.map((option) => {
+    const optionValue = String(option.value ?? '');
+    return `<option value="${escapeHtml(optionValue)}">${escapeHtml(option.label || optionValue || 'Use fallback')}</option>`;
+  }).join('');
+  const values = new Set(options.map((option) => String(option.value ?? '')));
+  select.value = values.has(previousValue) ? previousValue : '';
+}
+
 function updateModelRouteVisibility(root = document) {
   const sharedTextProviderInput = root.querySelector('[data-config-key="TEXT_LLM_PROVIDER"]');
   root.querySelectorAll('[data-model-route]').forEach((route) => {
@@ -331,6 +353,15 @@ function updateModelRouteVisibility(root = document) {
       const provider = String(field.dataset.modelProvider || '').trim();
       field.hidden = Boolean(activeProvider && provider && provider !== activeProvider);
     });
+    let optionsByProvider = {};
+    try {
+      optionsByProvider = JSON.parse(route.dataset.modelOptionsByProvider || '{}');
+    } catch {
+      optionsByProvider = {};
+    }
+    if (activeProvider && Array.isArray(optionsByProvider[activeProvider])) {
+      route.querySelectorAll('[data-route-model]').forEach((select) => updateSelectOptions(select, optionsByProvider[activeProvider]));
+    }
   });
 }
 
@@ -338,22 +369,50 @@ function bindSettingsInteractions(root) {
   root.querySelectorAll('[data-route-provider]').forEach((input) => {
     input.addEventListener('change', () => updateModelRouteVisibility(root));
   });
+  root.querySelectorAll('[data-config-key="TEXT_LLM_PROVIDER"]').forEach((input) => {
+    input.addEventListener('change', () => updateModelRouteVisibility(root));
+  });
+  const form = root.querySelector('#settings-form');
+  if (form) {
+    form.addEventListener('submit', (event) => {
+      saveSettings(event).catch((error) => setText('settings-status', error.message));
+    });
+  }
   updateModelRouteVisibility(root);
 }
 
 function renderSettings() {
-  const root = document.getElementById('settings-form');
+  const root = document.getElementById('provider-status');
   if (!root) return;
-  const renderedSections = [
-    renderModelRouting(state.modelRouting),
-    renderCredentialGroups(state.credentialGroups),
-    ...state.configSections.map(renderConfigSection),
-  ].filter(Boolean);
-  if (!renderedSections.length) {
-    root.innerHTML = '<div class="empty-state">Runtime settings are unavailable.</div>';
+  const routing = state.modelRouting || {};
+  const groups = Array.isArray(routing.groups) ? routing.groups : [];
+  const credentialGroups = Array.isArray(state.credentialGroups) ? state.credentialGroups : [];
+  if (!groups.length && !credentialGroups.length && !Array.isArray(routing.adapter_inventory)) {
+    root.innerHTML = '<div class="empty-state">Provider configuration is unavailable.</div>';
     return;
   }
-  root.innerHTML = renderedSections.join('');
+  root.innerHTML = `
+    <form id="settings-form" class="settings-form">
+      <details class="settings-section">
+        <summary>
+          <span>
+            <strong>Adapter Readiness</strong>
+            <small>Configured providers are based on saved settings and process env fallbacks.</small>
+          </span>
+        </summary>
+        <div class="settings-panel-body">
+          ${renderAdapterInventory(routing.adapter_inventory || [])}
+        </div>
+      </details>
+      ${renderModelRouting(routing)}
+      ${state.configSections.map(renderConfigSection).join('')}
+      ${renderCredentialGroups(credentialGroups)}
+      <div class="settings-actions">
+        <button id="save-settings" class="primary" type="submit">Save Runtime Settings</button>
+        <span class="inline-status" id="settings-status" aria-live="polite"></span>
+      </div>
+    </form>
+  `;
   bindSettingsInteractions(root);
 }
 
@@ -430,6 +489,279 @@ function renderFailure(topic) {
     .join('');
 }
 
+function formatUsd(value) {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount) || amount <= 0) return '$0.000000';
+  return `$${amount.toFixed(6)}`;
+}
+
+function formatSeconds(value) {
+  const seconds = Number(value || 0);
+  return Number.isFinite(seconds) && seconds > 0 ? `${seconds.toFixed(2)}s` : 'n/a';
+}
+
+function mediaUrl(asset) {
+  return String(asset?.storage_url || asset?.source_url || '').trim();
+}
+
+function renderAssetMedia(asset) {
+  const url = mediaUrl(asset);
+  if (!url) return '<div class="empty-state compact">No media URL</div>';
+  const escapedUrl = escapeHtml(url);
+  const mediaType = String(asset.media_type || '').toLowerCase();
+  if (mediaType === 'video') {
+    return `<video controls preload="metadata" src="${escapedUrl}"></video>`;
+  }
+  if (mediaType === 'audio') {
+    return `<audio controls preload="metadata" src="${escapedUrl}"></audio>`;
+  }
+  if (mediaType === 'image') {
+    return `<a href="${escapedUrl}" target="_blank" rel="noopener noreferrer"><img src="${escapedUrl}" alt="${escapeHtml(asset.asset_role || 'asset')}"></a>`;
+  }
+  return `<a class="secondary" href="${escapedUrl}" target="_blank" rel="noopener noreferrer">Open Asset</a>`;
+}
+
+function renderAssetCard(asset) {
+  return `
+    <article class="asset-card asset-card-${escapeHtml(asset.media_type || 'file')}">
+      <div class="asset-card-head">
+        <span>
+          <strong>${escapeHtml(asset.asset_role || 'asset')}</strong>
+          <small>${escapeHtml(asset.provider || 'unknown provider')}</small>
+        </span>
+        ${renderStatus(asset.status || asset.media_type)}
+      </div>
+      ${renderAssetMedia(asset)}
+      <div class="asset-meta">
+        ${asset.duration_seconds ? `<span>${escapeHtml(formatSeconds(asset.duration_seconds))}</span>` : ''}
+        ${asset.width || asset.height ? `<span>${escapeHtml(`${asset.width || 0}x${asset.height || 0}`)}</span>` : ''}
+        ${mediaUrl(asset) ? `<a href="${escapeHtml(mediaUrl(asset))}" target="_blank" rel="noopener noreferrer">Open</a>` : ''}
+      </div>
+    </article>
+  `;
+}
+
+function renderPromptBlock(label, value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return `
+    <section class="prompt-block">
+      <strong>${escapeHtml(label)}</strong>
+      <pre>${escapeHtml(text)}</pre>
+    </section>
+  `;
+}
+
+function detailScenes(detail) {
+  return Array.isArray(detail?.storyboard?.scenes) ? detail.storyboard.scenes : [];
+}
+
+function detailAssets(detail) {
+  return Array.isArray(detail?.assets) ? detail.assets : [];
+}
+
+function assetsForScene(detail, sceneNumber) {
+  return detailAssets(detail).filter((asset) => Number(asset.scene_number || 0) === Number(sceneNumber));
+}
+
+function renderOverviewTab(detail) {
+  const topic = detail.topic || {};
+  const render = detail.render || {};
+  return `
+    <div class="detail-overview-grid">
+      <section class="detail-summary">
+        <h3>${escapeHtml(topic.title || 'Untitled reel')}</h3>
+        <div class="topic-meta">
+          <span>Type: ${escapeHtml(topic.reel_type || 'unknown')}</span>
+          <span>Status: ${escapeHtml(topic.status || 'unknown')}</span>
+          <span>Render: ${escapeHtml(render.render_status || 'none')}</span>
+          <span>Duration: ${escapeHtml(formatSeconds(render.duration_seconds))}</span>
+          <span>Cost: ${escapeHtml(formatUsd(detail.costs?.total_usd))}</span>
+        </div>
+        ${detail.script?.selected_hook ? `<p>${escapeHtml(detail.script.selected_hook)}</p>` : ''}
+      </section>
+      <section class="final-media">
+        <h3>Final Video</h3>
+        ${render.output_video_url ? `<video controls preload="metadata" src="${escapeHtml(render.output_video_url)}"></video>` : '<div class="empty-state compact">No final video yet.</div>'}
+        ${render.cover_image_url ? `<a href="${escapeHtml(render.cover_image_url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(render.cover_image_url)}" alt="Cover image"></a>` : ''}
+      </section>
+    </div>
+  `;
+}
+
+function renderScenesTab(detail) {
+  const scenes = detailScenes(detail);
+  if (!scenes.length) return '<div class="empty-state">No storyboard scenes yet.</div>';
+  return scenes.map((scene, index) => {
+    const sceneNumber = Number(scene.scene_number || index + 1);
+    const assets = assetsForScene(detail, sceneNumber);
+    return `
+      <article class="scene-detail-card">
+        <div class="scene-detail-head">
+          <span>
+            <strong>Scene ${escapeHtml(sceneNumber)}</strong>
+            <small>${escapeHtml(formatSeconds(scene.duration_seconds))}</small>
+          </span>
+          ${renderStatus(scene.asset_plan?.mode || scene.asset_type || 'scene')}
+        </div>
+        <p>${escapeHtml(scene.narration_text || '')}</p>
+        <div class="asset-grid">
+          ${assets.length ? assets.map(renderAssetCard).join('') : '<div class="empty-state compact">No assets for this scene.</div>'}
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function renderPromptsTab(detail) {
+  const assets = detailAssets(detail).filter((asset) => asset.prompts && Object.values(asset.prompts).some((value) => String(value || '').trim()));
+  if (!assets.length) return '<div class="empty-state">No asset prompt metadata has been recorded yet.</div>';
+  return assets.map((asset) => `
+    <article class="prompt-asset-card">
+      <div class="asset-card-head">
+        <span>
+          <strong>Scene ${escapeHtml(asset.scene_number || 'n/a')} / ${escapeHtml(asset.asset_role || 'asset')}</strong>
+          <small>${escapeHtml(asset.provider || '')}</small>
+        </span>
+        ${renderStatus(asset.media_type)}
+      </div>
+      ${renderPromptBlock('Image Prompt', asset.prompts.image_prompt)}
+      ${renderPromptBlock('Video Prompt', asset.prompts.video_prompt)}
+      ${renderPromptBlock('Provider Prompt Sent', asset.prompts.provider_prompt)}
+      ${renderPromptBlock('Provider Actual Prompt', asset.prompts.actual_prompt)}
+      ${renderPromptBlock('Fallback Prompt', asset.prompts.fallback_prompt)}
+      ${renderPromptBlock('Negative Prompt', asset.prompts.negative_prompt)}
+    </article>
+  `).join('');
+}
+
+function renderCostsTab(detail) {
+  const costs = detail.costs || {};
+  const breakdown = Array.isArray(costs.breakdown) ? costs.breakdown : [];
+  return `
+    <div class="cost-summary">
+      <strong>Total</strong>
+      <span>${escapeHtml(formatUsd(costs.total_usd))}</span>
+    </div>
+    <div class="cost-breakdown">
+      ${breakdown.length ? breakdown.map((entry) => `
+        <article class="cost-row">
+          <span>
+            <strong>${escapeHtml(entry.workflow || 'workflow')}</strong>
+            <small>${escapeHtml(entry.ended_at ? new Date(entry.ended_at).toLocaleString() : 'estimated from stored assets')}</small>
+          </span>
+          <span>${escapeHtml(formatUsd(entry.cost?.total_usd))}</span>
+          ${Array.isArray(entry.cost?.components) && entry.cost.components.length ? `
+            <pre>${escapeHtml(JSON.stringify(entry.cost.components, null, 2))}</pre>
+          ` : ''}
+        </article>
+      `).join('') : '<div class="empty-state compact">No cost data available.</div>'}
+    </div>
+  `;
+}
+
+function renderPipelineTab(detail) {
+  const run = detail.pipeline_run || {};
+  const steps = Array.isArray(run.steps) ? run.steps : [];
+  const workflows = Array.isArray(detail.workflows) ? detail.workflows : [];
+  return `
+    <section class="detail-summary">
+      <h3>Pipeline Run</h3>
+      <div class="topic-meta">
+        <span>Status: ${escapeHtml(run.status || 'none')}</span>
+        <span>Current: ${escapeHtml(stageLabel(String(run.current_stage || '').replace(/^review:/, '')) || 'n/a')}</span>
+        ${run.last_error ? `<span>Error: ${escapeHtml(run.last_error)}</span>` : ''}
+      </div>
+      ${steps.length ? `
+        <div class="pipeline-steps detail-step-list">
+          ${steps.map((step) => `
+            <div class="pipeline-step pipeline-step-${statusTone(step.step_status)}" title="${escapeHtml(step.error_message || step.step_status || '')}">
+              <span class="step-dot"></span>
+              <span class="step-label">${escapeHtml(stageLabel(step.stage_key))}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<div class="empty-state compact">No pipeline steps found.</div>'}
+    </section>
+    <section class="workflow-log-list">
+      <h3>Workflow Costs / Events</h3>
+      ${workflows.length ? workflows.map((workflow) => `
+        <article class="workflow-log-row">
+          <span>
+            <strong>${escapeHtml(workflow.workflow_name)}</strong>
+            <small>${escapeHtml(workflow.ended_at ? new Date(workflow.ended_at).toLocaleString() : workflow.started_at || '')}</small>
+          </span>
+          ${renderStatus(workflow.run_status)}
+          ${workflow.error_message ? `<p>${escapeHtml(workflow.error_message)}</p>` : ''}
+        </article>
+      `).join('') : '<div class="empty-state compact">No workflow rows found.</div>'}
+    </section>
+  `;
+}
+
+function renderDetailTabs() {
+  const root = document.getElementById('detail-tabs');
+  if (!root) return;
+  const tabs = [
+    ['overview', 'Overview'],
+    ['scenes', 'Scenes'],
+    ['prompts', 'Prompts'],
+    ['costs', 'Costs'],
+    ['pipeline', 'Pipeline'],
+  ];
+  root.innerHTML = tabs.map(([key, label]) => `
+    <button type="button" class="${state.activeDetailTab === key ? 'active' : ''}" data-detail-tab="${escapeHtml(key)}">${escapeHtml(label)}</button>
+  `).join('');
+  root.querySelectorAll('[data-detail-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.activeDetailTab = button.dataset.detailTab || 'overview';
+      renderReelDetail();
+    });
+  });
+}
+
+function renderReelDetail() {
+  const panel = document.getElementById('reel-detail');
+  const body = document.getElementById('reel-detail-body');
+  const title = document.getElementById('reel-detail-title');
+  const detail = state.selectedTopicDetail;
+  if (!panel || !body) return;
+  if (!detail) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  if (title) title.textContent = detail.topic?.title || 'Selected reel';
+  renderDetailTabs();
+  const tab = state.activeDetailTab;
+  body.innerHTML = {
+    overview: renderOverviewTab,
+    scenes: renderScenesTab,
+    prompts: renderPromptsTab,
+    costs: renderCostsTab,
+    pipeline: renderPipelineTab,
+  }[tab]?.(detail) || renderOverviewTab(detail);
+}
+
+async function loadTopicDetail(contentId) {
+  const normalizedContentId = String(contentId || '').trim();
+  if (!normalizedContentId) return;
+  state.loadingDetailId = normalizedContentId;
+  setText('detail-status', 'Loading detail...');
+  const panel = document.getElementById('reel-detail');
+  if (panel) panel.hidden = false;
+  try {
+    const detail = await api(`/api/topics/${encodeURIComponent(normalizedContentId)}/detail`);
+    state.selectedTopicDetail = detail;
+    state.activeDetailTab = 'overview';
+    renderReelDetail();
+    setText('detail-status', 'Loaded.');
+    document.getElementById('reel-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } finally {
+    state.loadingDetailId = '';
+  }
+}
+
 function renderTopicActions(topic) {
   const contentId = String(topic.content_id || '');
   const canReview = Boolean(topic.pending_review_id);
@@ -442,6 +774,7 @@ function renderTopicActions(topic) {
   const isDeleting = state.deletingTopicIds.has(contentId);
   return `
     <div class="topic-actions">
+      <button type="button" class="primary" data-open-detail="${escapeHtml(contentId)}">Details</button>
       ${topic.output_video_url && topic.render_status === 'success' ? `
         <a class="primary" href="${escapeHtml(topic.output_video_url)}" target="_blank" rel="noopener noreferrer">Open Video</a>
       ` : ''}
@@ -491,6 +824,7 @@ function renderTopics() {
           ${topic.output_video_url && topic.render_status === 'success' ? `<span>Video: <a href="${escapeHtml(topic.output_video_url)}" target="_blank" rel="noopener noreferrer">ready</a></span>` : ''}
           ${topic.render_duration_seconds ? `<span>Duration: ${escapeHtml(Number(topic.render_duration_seconds).toFixed(2))}s</span>` : ''}
           ${topic.render_resolution ? `<span>${escapeHtml(topic.render_resolution)}</span>` : ''}
+          <span>Cost: ${escapeHtml(formatUsd(topic.total_cost_usd))}</span>
           <span>Publish: ${escapeHtml(topic.publish_status || 'draft')}</span>
           <span>Updated: ${escapeHtml(new Date(topic.updated_at).toLocaleString())}</span>
         </div>
@@ -499,6 +833,12 @@ function renderTopics() {
     `;
   }).join('');
 
+  root.querySelectorAll('[data-open-detail]').forEach((button) => {
+    button.addEventListener('click', () => {
+      loadTopicDetail(button.dataset.openDetail || '')
+        .catch((error) => setText('topics-status', error.message));
+    });
+  });
   root.querySelectorAll('[data-approve-topic]').forEach((button) => {
     button.addEventListener('click', () => {
       approveTopic(button.dataset.approveTopic || '', button.dataset.title || '')
@@ -787,8 +1127,9 @@ document.getElementById('refresh-reviews').addEventListener('click', () => {
   loadReviews().catch((error) => setText('topics-status', error.message));
 });
 
-document.getElementById('settings-form').addEventListener('submit', (event) => {
-  saveSettings(event).catch((error) => setText('settings-status', error.message));
+document.getElementById('close-detail').addEventListener('click', () => {
+  state.selectedTopicDetail = null;
+  renderReelDetail();
 });
 
 Promise.all([

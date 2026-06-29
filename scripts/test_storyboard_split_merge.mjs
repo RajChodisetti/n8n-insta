@@ -175,4 +175,67 @@ assert.throws(() => hooks.mergeStoryboardAndShotPlan({
   shotPlan: { ...shotPlan, scenes: shotPlan.scenes.slice(0, 3) },
 }), /preserve scene count/);
 
+const crisisStoryboard = storyboardJson.map((scene, index) => ({
+  ...scene,
+  narration_text: index === 0
+    ? 'Officials tell residents near the plant to leave quickly as the emergency zone expands.'
+    : (index === 1
+      ? 'The next step is coordinated action between responders, buses, checkpoints, and shelter staff.'
+      : scene.narration_text),
+  dialogue_lines: [index === 0
+    ? 'Officials tell residents near the plant to leave quickly as the emergency zone expands.'
+    : (index === 1
+      ? 'The next step is coordinated action between responders, buses, checkpoints, and shelter staff.'
+      : scene.narration_text)],
+  storyboard_shot_intent: {
+    subject: index === 0 ? 'Residents moving away from a controlled emergency perimeter.' : 'Responders coordinating evacuation logistics.',
+    action: index === 0 ? 'People leave with small bags while responders direct the route.' : 'Buses, responders, and shelter volunteers coordinate movement.',
+    environment: 'A realistic disaster-response setting with blank unmarked barriers and no readable signs.',
+    visual_evidence: 'Protective equipment, controlled streets, vehicles, and orderly evacuation movement.',
+  },
+}));
+
+const visualPlan = {
+  global_continuity: {
+    style_summary: 'Restrained documentary crisis coverage.',
+    continuity_requirements: ['Keep emergency infrastructure and responder context consistent.'],
+    character_continuity: 'No romantic couple or unrelated recurring character.',
+    environment_continuity: 'Controlled evacuation areas, vehicles, shelters, and infrastructure.',
+  },
+  text_policy: {
+    generated_asset_policy: 'No readable text, labels, logos, captions, signage, or UI in generated assets.',
+  },
+  prompts: crisisStoryboard.map((scene, index) => ({
+    scene_number: scene.scene_number,
+    subject: index === 0 ? 'A couple holding hands during a crisis.' : (index === 1 ? 'Military cadets in formation.' : `Scene ${scene.scene_number} grounded subject.`),
+    environment: 'Realistic emergency environment.',
+    composition: 'Vertical 9:16 documentary frame with concrete foreground action.',
+    camera: 'Handheld documentary camera feel.',
+    motion: 'Slow controlled movement.',
+    lighting: 'Natural overcast daylight.',
+    style: 'Restrained factual documentary style.',
+    continuity_requirements: ['Keep evacuation context consistent.'],
+    text_policy: 'No readable text.',
+    visual_prompt: index === 0
+      ? 'A romantic couple holding hands in a cinematic evacuation scene.'
+      : (index === 1
+        ? 'Military cadets holding guns while coordinating action in formation.'
+        : `Cinematic vertical 9:16 factual emergency scene ${scene.scene_number} with concrete responders, vehicles, and controlled spaces.`),
+    negative_prompt: 'readable text, labels, logos, captions, signage, UI, watermarks',
+    fallback_prompt: `Cinematic vertical 9:16 factual emergency scene ${scene.scene_number} with concrete evacuation evidence and no readable text.`,
+  })),
+};
+
+const visualMerged = hooks.mergeVisualPromptPlan(crisisStoryboard, visualPlan, {
+  title: 'Fukushima Evacuation Timing',
+});
+
+assert.match(visualMerged[0].visual_prompt, /Residents moving away|leave quickly|emergency zone/i);
+assert.doesNotMatch(visualMerged[0].visual_prompt, /holding hands/i);
+assert.match(visualMerged[0].visual_prompt_builder.repaired_unrelated_visual_metaphor, /romance/i);
+assert.match(visualMerged[1].visual_prompt, /Responders coordinating|buses|shelter staff/i);
+assert.doesNotMatch(visualMerged[1].visual_prompt, /holding guns/i);
+assert.match(visualMerged[1].visual_prompt_builder.repaired_unrelated_visual_metaphor, /military/i);
+assert.match(visualMerged[1].visual_prompt, /Continuity/i);
+
 process.stdout.write('PASS storyboard split merge\n');
