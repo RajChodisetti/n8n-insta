@@ -4,6 +4,10 @@ Instagram-focused AI storytelling and Reel generation pipeline. The current repo
 
 The normal local entrypoint is the Studio UI at `http://localhost:7780`.
 
+## Architecture
+
+The Studio enqueues typed runs in PostgreSQL. A Node.js worker executes model and media stages, stores artifacts, dispatches rendering, and stops at QA/approval before a separate publish action. See the [pipeline architecture diagram and source guide](pipeline/README.md).
+
 ## What This Runs
 
 | Component | Purpose | Local URL |
