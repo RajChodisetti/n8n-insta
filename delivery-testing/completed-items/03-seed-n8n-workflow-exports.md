@@ -10,9 +10,9 @@ What was completed:
 
 Changed files:
 
-- [workflows/README.md](/Users/rajchodisetti/n8n-insta/workflows/README.md)
-- [workflows/n8n/wf_manual_topic_ingest.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_manual_topic_ingest.json)
-- [workflows/n8n/wf_research_and_script.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_research_and_script.json)
+- [workflows/README.md](../../workflows/README.md)
+- [workflows/n8n/wf_manual_topic_ingest.json](../../workflows/n8n/wf_manual_topic_ingest.json)
+- [workflows/n8n/wf_research_and_script.json](../../workflows/n8n/wf_research_and_script.json)
 
 Note:
 

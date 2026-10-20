@@ -14,12 +14,12 @@ Status: `complete` ✅
 
 ## Changed Files
 
-- [workflows/n8n/wf_instagram_simple_post_publish.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_instagram_simple_post_publish.json)
-- [workflows/n8n/wf_simple_post_image_asset.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_simple_post_image_asset.json)
-- [09-instagram-publishing.md](/Users/rajchodisetti/n8n-insta/09-instagram-publishing.md)
-- [04-workflows.md](/Users/rajchodisetti/n8n-insta/04-workflows.md)
-- [15-delivery-and-testing-workflow.md](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
-- [16-engineering-backlog.md](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
+- [workflows/n8n/wf_instagram_simple_post_publish.json](../../workflows/n8n/wf_instagram_simple_post_publish.json)
+- [workflows/n8n/wf_simple_post_image_asset.json](../../workflows/n8n/wf_simple_post_image_asset.json)
+- [09-instagram-publishing.md](../../09-instagram-publishing.md)
+- [04-workflows.md](../../04-workflows.md)
+- [15-delivery-and-testing-workflow.md](../../15-delivery-and-testing-workflow.md)
+- [16-engineering-backlog.md](../../16-engineering-backlog.md)
 
 ## How It Was Tested
 

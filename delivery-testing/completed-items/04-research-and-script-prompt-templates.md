@@ -10,10 +10,10 @@ What was completed:
 
 Changed files:
 
-- [prompts/research_and_script/system.md](/Users/rajchodisetti/n8n-insta/prompts/research_and_script/system.md)
-- [prompts/research_and_script/user.md](/Users/rajchodisetti/n8n-insta/prompts/research_and_script/user.md)
-- [prompts/research_and_script/response-schema.json](/Users/rajchodisetti/n8n-insta/prompts/research_and_script/response-schema.json)
-- [prompts/README.md](/Users/rajchodisetti/n8n-insta/prompts/README.md)
+- [prompts/research_and_script/system.md](../../prompts/research_and_script/system.md)
+- [prompts/research_and_script/user.md](../../prompts/research_and_script/user.md)
+- [prompts/research_and_script/response-schema.json](../../prompts/research_and_script/response-schema.json)
+- [prompts/README.md](../../prompts/README.md)
 
 Test result:
 

@@ -10,7 +10,7 @@ Use this before wiring API publishing in n8n.
 
 Related readiness workflow:
 
-- [workflows/n8n/wf_instagram_publish_readiness.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_instagram_publish_readiness.json)
+- [workflows/n8n/wf_instagram_publish_readiness.json](workflows/n8n/wf_instagram_publish_readiness.json)
 
 ## Outcome
 

@@ -4,10 +4,10 @@ Status: `complete`
 
 What was completed:
 
-- replaced the old deterministic caption mock inside [wf_caption_and_hashtags.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_caption_and_hashtags.json) with a two-pass OpenAI workflow
+- replaced the old deterministic caption mock inside [wf_caption_and_hashtags.json](../../workflows/n8n/wf_caption_and_hashtags.json) with a two-pass OpenAI workflow
 - the first pass generates 3 caption directions plus a rationale, and the second pass refines the strongest direction into the final caption package
 - the workflow logs iteration metadata, selected model, and revision summary into `workflow_runs.details_json`
-- added the repeatable smoke test helper [test_phase2_caption_iteration_smoke.sh](/Users/rajchodisetti/n8n-insta/scripts/test_phase2_caption_iteration_smoke.sh)
+- added the repeatable smoke test helper [test_phase2_caption_iteration_smoke.sh](../../scripts/test_phase2_caption_iteration_smoke.sh)
 
 Why it was tested:
 

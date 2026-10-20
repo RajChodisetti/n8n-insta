@@ -9,7 +9,7 @@ What was completed:
 
 Changed files:
 
-- [infra/postgres/init/001_init.sql](/Users/rajchodisetti/n8n-insta/infra/postgres/init/001_init.sql)
+- [infra/postgres/init/001_init.sql](../../infra/postgres/init/001_init.sql)
 
 Test result:
 

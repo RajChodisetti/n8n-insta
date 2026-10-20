@@ -4,10 +4,10 @@ Status: `complete`
 
 What was completed:
 
-- extended [wf_caption_and_hashtags.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_caption_and_hashtags.json) so the caption pass is followed by a dedicated OpenAI hashtag-ranking pass
+- extended [wf_caption_and_hashtags.json](../../workflows/n8n/wf_caption_and_hashtags.json) so the caption pass is followed by a dedicated OpenAI hashtag-ranking pass
 - the workflow now generates 3 hashtag-set candidates, records the ranking rationale, and persists the selected final set into `publishes.hashtags_final`
 - the workflow now logs hashtag ranking metadata into `workflow_runs.details_json.hashtag_ranking` alongside the existing caption iteration details
-- added the repeatable smoke test helper [test_phase2_hashtag_ranking_smoke.sh](/Users/rajchodisetti/n8n-insta/scripts/test_phase2_hashtag_ranking_smoke.sh)
+- added the repeatable smoke test helper [test_phase2_hashtag_ranking_smoke.sh](../../scripts/test_phase2_hashtag_ranking_smoke.sh)
 
 Why it was tested:
 

@@ -12,7 +12,7 @@ Use these statuses for every implementation item:
 
 Rule:
 
-1. when I finish an item, I will add a full entry in [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md) with what was delivered, why you are testing it, prerequisites, exact test steps, DB checks or observable outputs, pass conditions, and cleanup if needed
+1. when I finish an item, I will add a full entry in [15 — Delivery and Testing Workflow](15-delivery-and-testing-workflow.md) with what was delivered, why you are testing it, prerequisites, exact test steps, DB checks or observable outputs, pass conditions, and cleanup if needed
 2. you run the test steps locally
 3. after you confirm the result, I move the item to `complete`
 4. once it is `complete`, I ask you to raise a PR into `release/2.0`
@@ -35,9 +35,9 @@ Current implemented items waiting for your test:
 
 Tracking links:
 
-- Active tracker: [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
-- Engineering backlog: [16 — Engineering Backlog](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
-- Completed items archive: [delivery-testing/completed-items/README.md](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/README.md)
+- Active tracker: [15 — Delivery and Testing Workflow](15-delivery-and-testing-workflow.md)
+- Engineering backlog: [16 — Engineering Backlog](16-engineering-backlog.md)
+- Completed items archive: [delivery-testing/completed-items/README.md](delivery-testing/completed-items/README.md)
 
 ## Product decisions
 
@@ -90,7 +90,7 @@ Tracking links:
 - [x] Select image/video providers for scene generation
   - Selected: **DALL-E 3** (via OpenAI API, consistent provider stack)
 - [x] Finalize brand tone, voice, visual style, and content guidelines
-  - Document: [17-brand-identity.md](/Users/rajchodisetti/n8n-insta/17-brand-identity.md)
+  - Document: [17-brand-identity.md](17-brand-identity.md)
 
 ## Rendering
 
@@ -102,12 +102,12 @@ Tracking links:
 ## Content design
 
 - [x] Finalize brand tone
-  - Document: [17-brand-identity.md](/Users/rajchodisetti/n8n-insta/17-brand-identity.md)
+  - Document: [17-brand-identity.md](17-brand-identity.md)
 - [x] Finalize narrator style
-  - Document: [17-brand-identity.md](/Users/rajchodisetti/n8n-insta/17-brand-identity.md)
+  - Document: [17-brand-identity.md](17-brand-identity.md)
 - [ ] Finalize subtitle design rules
 - [x] Finalize cover image style
-  - Document: [17-brand-identity.md](/Users/rajchodisetti/n8n-insta/17-brand-identity.md)
+  - Document: [17-brand-identity.md](17-brand-identity.md)
 - [ ] Finalize ending signature line family
 
 ## Workflow implementation

@@ -59,4 +59,4 @@ Verify:
 Status:
 
 - This infra backlog item is already `complete`.
-- Completion record: [01 — Local Infra Scaffold](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/01-local-infra-scaffold.md)
+- Completion record: [01 — Local Infra Scaffold](../delivery-testing/completed-items/01-local-infra-scaffold.md)

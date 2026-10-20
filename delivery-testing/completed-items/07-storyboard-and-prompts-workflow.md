@@ -13,8 +13,8 @@ What was completed:
 
 Changed files:
 
-- [workflows/n8n/wf_storyboard_and_prompts.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_storyboard_and_prompts.json)
-- [workflows/README.md](/Users/rajchodisetti/n8n-insta/workflows/README.md)
+- [workflows/n8n/wf_storyboard_and_prompts.json](../../workflows/n8n/wf_storyboard_and_prompts.json)
+- [workflows/README.md](../../workflows/README.md)
 
 Test result:
 

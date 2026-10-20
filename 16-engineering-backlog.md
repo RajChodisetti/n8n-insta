@@ -6,9 +6,9 @@ This is the source of truth for engineering scope and sequencing.
 
 Use these documents together:
 
-- Backlog and sequencing: [16 — Engineering Backlog](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
-- Active testing tracker: [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
-- Completed archive: [delivery-testing/completed-items/README.md](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/README.md)
+- Backlog and sequencing: [16 — Engineering Backlog](16-engineering-backlog.md)
+- Active testing tracker: [15 — Delivery and Testing Workflow](15-delivery-and-testing-workflow.md)
+- Completed archive: [delivery-testing/completed-items/README.md](delivery-testing/completed-items/README.md)
 
 ## Product Scope
 
@@ -92,10 +92,10 @@ Deliverables:
 
 Implemented artifacts:
 
-- [prompts/caption_and_hashtags/system.md](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/system.md)
-- [prompts/caption_and_hashtags/user.md](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/user.md)
-- [prompts/caption_and_hashtags/response-schema.json](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/response-schema.json)
-- [workflows/n8n/wf_caption_and_hashtags.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_caption_and_hashtags.json)
+- [prompts/caption_and_hashtags/system.md](prompts/caption_and_hashtags/system.md)
+- [prompts/caption_and_hashtags/user.md](prompts/caption_and_hashtags/user.md)
+- [prompts/caption_and_hashtags/response-schema.json](prompts/caption_and_hashtags/response-schema.json)
+- [workflows/n8n/wf_caption_and_hashtags.json](workflows/n8n/wf_caption_and_hashtags.json)
 
 ### MVP-05 Simple image post asset path
 
@@ -118,8 +118,8 @@ Deliverables:
 
 Implemented artifacts:
 
-- [workflows/assets/mvp_simple_post.svg](/Users/rajchodisetti/n8n-insta/workflows/assets/mvp_simple_post.svg)
-- [workflows/n8n/wf_simple_post_image_asset.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_simple_post_image_asset.json)
+- [workflows/assets/mvp_simple_post.svg](workflows/assets/mvp_simple_post.svg)
+- [workflows/n8n/wf_simple_post_image_asset.json](workflows/n8n/wf_simple_post_image_asset.json)
 
 ### MVP-06 Instagram publishing credentials and account validation
 
@@ -137,8 +137,8 @@ Deliverables:
 
 Implemented artifacts:
 
-- [workflows/n8n/wf_instagram_publish_readiness.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_instagram_publish_readiness.json)
-- [14-instagram-professional-account-runbook.md](/Users/rajchodisetti/n8n-insta/14-instagram-professional-account-runbook.md)
+- [workflows/n8n/wf_instagram_publish_readiness.json](workflows/n8n/wf_instagram_publish_readiness.json)
+- [14-instagram-professional-account-runbook.md](14-instagram-professional-account-runbook.md)
 
 ### MVP-07 Simple Instagram publish workflow
 
@@ -199,10 +199,10 @@ Goal:
 
 Deliverables:
 
-- [workflows/n8n/wf_research_and_script.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_research_and_script.json)
-- [workflows/n8n/wf_storyboard_and_prompts.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_storyboard_and_prompts.json)
+- [workflows/n8n/wf_research_and_script.json](workflows/n8n/wf_research_and_script.json)
+- [workflows/n8n/wf_storyboard_and_prompts.json](workflows/n8n/wf_storyboard_and_prompts.json)
 - atomic queue-claim behavior for `idea_approved -> scripting -> script_complete -> storyboarding -> storyboard_complete`
-- [scripts/test_phase2_topic_to_storyboard_smoke.sh](/Users/rajchodisetti/n8n-insta/scripts/test_phase2_topic_to_storyboard_smoke.sh)
+- [scripts/test_phase2_topic_to_storyboard_smoke.sh](scripts/test_phase2_topic_to_storyboard_smoke.sh)
 
 ### P2-02 Stronger caption iteration
 
@@ -215,11 +215,11 @@ Goal:
 
 Deliverables:
 
-- [prompts/caption_and_hashtags/system.md](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/system.md)
-- [prompts/caption_and_hashtags/user.md](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/user.md)
-- [prompts/caption_and_hashtags/response-schema.json](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/response-schema.json)
-- [workflows/n8n/wf_caption_and_hashtags.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_caption_and_hashtags.json)
-- [scripts/test_phase2_caption_iteration_smoke.sh](/Users/rajchodisetti/n8n-insta/scripts/test_phase2_caption_iteration_smoke.sh)
+- [prompts/caption_and_hashtags/system.md](prompts/caption_and_hashtags/system.md)
+- [prompts/caption_and_hashtags/user.md](prompts/caption_and_hashtags/user.md)
+- [prompts/caption_and_hashtags/response-schema.json](prompts/caption_and_hashtags/response-schema.json)
+- [workflows/n8n/wf_caption_and_hashtags.json](workflows/n8n/wf_caption_and_hashtags.json)
+- [scripts/test_phase2_caption_iteration_smoke.sh](scripts/test_phase2_caption_iteration_smoke.sh)
 - workflow-run logging for caption iteration details in `workflow_runs.details_json`
 
 ### P2-03 Better hashtag ranking
@@ -233,11 +233,11 @@ Goal:
 
 Deliverables:
 
-- [prompts/caption_and_hashtags/system.md](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/system.md)
-- [prompts/caption_and_hashtags/user.md](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/user.md)
-- [prompts/caption_and_hashtags/response-schema.json](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/response-schema.json)
-- [workflows/n8n/wf_caption_and_hashtags.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_caption_and_hashtags.json)
-- [scripts/test_phase2_hashtag_ranking_smoke.sh](/Users/rajchodisetti/n8n-insta/scripts/test_phase2_hashtag_ranking_smoke.sh)
+- [prompts/caption_and_hashtags/system.md](prompts/caption_and_hashtags/system.md)
+- [prompts/caption_and_hashtags/user.md](prompts/caption_and_hashtags/user.md)
+- [prompts/caption_and_hashtags/response-schema.json](prompts/caption_and_hashtags/response-schema.json)
+- [workflows/n8n/wf_caption_and_hashtags.json](workflows/n8n/wf_caption_and_hashtags.json)
+- [scripts/test_phase2_hashtag_ranking_smoke.sh](scripts/test_phase2_hashtag_ranking_smoke.sh)
 - workflow-run logging for hashtag ranking details in `workflow_runs.details_json`
 
 ### P2-04 Smarter image generation
@@ -251,9 +251,9 @@ Goal:
 
 Deliverables:
 
-- [workflows/n8n/wf_simple_post_image_asset.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_simple_post_image_asset.json)
-- [workflows/scripts/generate_and_rehost_post_image.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/generate_and_rehost_post_image.mjs)
-- [scripts/prepare_phase2_live_post_candidate.sh](/Users/rajchodisetti/n8n-insta/scripts/prepare_phase2_live_post_candidate.sh)
+- [workflows/n8n/wf_simple_post_image_asset.json](workflows/n8n/wf_simple_post_image_asset.json)
+- [workflows/scripts/generate_and_rehost_post_image.mjs](workflows/scripts/generate_and_rehost_post_image.mjs)
+- [scripts/prepare_phase2_live_post_candidate.sh](scripts/prepare_phase2_live_post_candidate.sh)
 - OpenAI image-generation metadata plus rehost details persisted in `assets.metadata_json`
 - `storyboard_complete -> generating_assets -> approval_pending` queue behavior
 - workflow-run logging for generated image details in `workflow_runs.details_json`
@@ -269,8 +269,8 @@ Goal:
 
 Deliverables:
 
-- [workflows/n8n/wf_content_approval.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_content_approval.json)
-- combined manual live-test preparation helper [scripts/prepare_phase2_live_post_candidate.sh](/Users/rajchodisetti/n8n-insta/scripts/prepare_phase2_live_post_candidate.sh)
+- [workflows/n8n/wf_content_approval.json](workflows/n8n/wf_content_approval.json)
+- combined manual live-test preparation helper [scripts/prepare_phase2_live_post_candidate.sh](scripts/prepare_phase2_live_post_candidate.sh)
 - `approval_pending -> qa_approved` and `approval_pending -> approval_rejected` state transitions
 - review decisions logged in `workflow_runs.details_json`
 

@@ -12,9 +12,9 @@ Status: `complete` ✅
 
 ## Changed Files
 
-- [workflows/assets/mvp_simple_post.svg](/Users/rajchodisetti/n8n-insta/workflows/assets/mvp_simple_post.svg)
-- [workflows/n8n/wf_simple_post_image_asset.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_simple_post_image_asset.json)
-- [workflows/README.md](/Users/rajchodisetti/n8n-insta/workflows/README.md)
+- [workflows/assets/mvp_simple_post.svg](../../workflows/assets/mvp_simple_post.svg)
+- [workflows/n8n/wf_simple_post_image_asset.json](../../workflows/n8n/wf_simple_post_image_asset.json)
+- [workflows/README.md](../../workflows/README.md)
 
 ## How It Was Tested
 

@@ -51,7 +51,7 @@ This document tracks your AI and media provider selections for v1 and future upg
 
 **Implementation note:**
 - narration is still deferred until the Reel/video pipeline
-- the voice/style source of truth is [17-brand-identity.md](/Users/rajchodisetti/n8n-insta/17-brand-identity.md)
+- the voice/style source of truth is [17-brand-identity.md](17-brand-identity.md)
 
 ---
 

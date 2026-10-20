@@ -13,10 +13,10 @@ What was completed:
 
 Changed files:
 
-- [prompts/caption_and_hashtags/system.md](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/system.md)
-- [prompts/caption_and_hashtags/user.md](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/user.md)
-- [prompts/caption_and_hashtags/response-schema.json](/Users/rajchodisetti/n8n-insta/prompts/caption_and_hashtags/response-schema.json)
-- [workflows/n8n/wf_caption_and_hashtags.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_caption_and_hashtags.json)
+- [prompts/caption_and_hashtags/system.md](../../prompts/caption_and_hashtags/system.md)
+- [prompts/caption_and_hashtags/user.md](../../prompts/caption_and_hashtags/user.md)
+- [prompts/caption_and_hashtags/response-schema.json](../../prompts/caption_and_hashtags/response-schema.json)
+- [workflows/n8n/wf_caption_and_hashtags.json](../../workflows/n8n/wf_caption_and_hashtags.json)
 
 Test result:
 

@@ -1,139 +1,58 @@
-# Instagram AI Storytelling Workflow — Documentation Pack
+# Content Workflow Orchestration
 
-This repository contains the starter documentation for building an Instagram-only, n8n-orchestrated AI storytelling workflow.
+Versioned n8n workflows for taking a topic through research, script, storyboard, caption, image generation, human approval, and a persisted Instagram image-post result.
 
-## Objective
+The engineering focus is **workflow state, duplicate protection, retry behavior, review gates, and observable failures**. PostgreSQL holds content and publishing state; exported workflow JSON keeps orchestration logic reviewable in Git.
 
-Long-term, build a system that can:
+## Implemented pipeline
 
-1. Discover or accept story ideas
-2. Research and structure them into short-form scripts
-3. Convert scripts into scene-by-scene storyboards
-4. Generate or source visuals and narration
-5. Render final 9:16 Reels
-6. Publish to Instagram
-7. Pull insights and improve future content
+```text
+topic → research/script → storyboard → caption/hashtags → image asset
+                                                         ↓
+                                              manual content approval
+                                                         ↓
+                                        readiness → publish → persist result
+```
 
-## Current MVP target
+Eight [workflow exports](workflows/n8n) cover ingestion, research, storyboard, caption/hashtags, image assets, approval, readiness, and publishing. The image helper supports generated JPEG assets and rehosting through ImageKit. The current delivery path is a single image post; full Reel rendering, narration, and an automated insights feedback loop remain roadmap items.
 
-Before the full Reel pipeline, the immediate target is a simpler working loop:
+## Engineering decisions
 
-1. accept one topic
-2. generate one caption draft
-3. generate one hashtag set
-4. attach one simple image asset
-5. publish one Instagram post
-6. persist publish metadata
+- **Durable state in PostgreSQL.** Content, generated assets, publishing identifiers, and workflow runs remain inspectable after an execution finishes.
+- **Atomic publish claim.** Eligible work is claimed before publishing. Existing media IDs block duplicate claims; retry failures preserve previously recorded container IDs.
+- **Failures are persisted.** Validation errors are written to publishing state and workflow-run details instead of disappearing into a workflow execution log.
+- **Approval before delivery.** A dedicated approval workflow separates generated content from the publish-ready state.
+- **Workflow logic in version control.** Exported JSON and helper scripts can be reviewed independently of n8n's editor and credential store.
+- **Delivery assets are validated.** The publish path requires a public HTTP(S) JPEG asset; a local SVG is rejected before delivery.
 
-## Guiding principle
+## Evidence and tests
 
-The target is **high automation with controlled quality**, not blind full automation.
+| Check | Evidence and scope |
+| --- | --- |
+| Duplicate protection and retry-safe failure | [Recorded test](delivery-testing/completed-items/12-publish-metadata-persistence-and-duplicate-protection.md): existing media IDs prevent a claim; failure preserves container ID and records validation errors |
+| Generated image → approval → publish | [Recorded integration result](delivery-testing/completed-items/17-phase2-image-generation-and-approval-flow.md): image rehosting, approval, persisted media/container IDs, and successful workflow-run records |
+| Topic, caption, and hashtag iterations | [Completed work index](delivery-testing/completed-items/README.md) links the individual checks and results |
 
-Recommended operating model:
-- 85–90% automated
-- 10–15% human approval
+These are historical repository records, not newly executed live tests. The duplicate/retry test exercised the exact workflow SQL and code-node logic because the recorded local n8n manual execution path was unreliable; it was not a full n8n execution test.
 
-## What has been decided
+The reproducible duplicate/retry smoke script is [`scripts/test_mvp08_smoke.sh`](scripts/test_mvp08_smoke.sh). It requires the local PostgreSQL stack, creates synthetic database fixtures, blocks network access for its validation step, and cleans up its fixture rows. Run it only against an isolated development database:
 
-- Platform focus: **Instagram only**
-- Long-term primary format: **Reels**
-- Current MVP publish target: **simple Instagram post**
-- Content style: **English, faceless, AI-narrated, visually cinematic interesting stories**
-- Brand identity: **consistent voice, pacing, subtitle style, and ending signature**
-- Orchestrator: **n8n**
-- Video rendering: **external render worker / FFmpeg service triggered by n8n**
-- Storage: **cloud drive or object storage**
-- Data tracking: **content database + metrics history**
-- Improvement loop: **Instagram insights are analyzed and fed back into the topic/script generator**
+```sh
+bash scripts/test_mvp08_smoke.sh
+```
 
-## Suggested folder usage
+Other smoke scripts cover topic-to-storyboard generation, caption iteration, and hashtag ranking. Review their prerequisites before running them; provider-backed flows can incur costs. Preparing content is distinct from publishing it.
 
-Read in this order:
+## Explore and run
 
-1. `01-product-overview.md`
-2. `02-architecture.md`
-3. `03-content-strategy.md`
-4. `04-workflows.md`
-5. `05-data-model.md`
-6. `06-n8n-build-plan.md`
-7. `07-prompt-library.md`
-8. `08-rendering-contract.md`
-9. `09-instagram-publishing.md`
-10. `10-insights-and-feedback-loop.md`
-11. `11-setup-checklist.md`
-12. `12-roadmap.md`
-13. `13-provider-strategy.md`
-14. `14-instagram-professional-account-runbook.md`
-15. `15-delivery-and-testing-workflow.md`
-16. `16-engineering-backlog.md`
-17. `17-brand-identity.md`
-18. `18-mvp-smoke-test-and-publish-runbook.md`
-19. `19-phase2-manual-review-and-live-publish-runbook.md`
+- [Architecture](02-architecture.md) and [data model](05-data-model.md).
+- [Local infrastructure](infra/README.md): n8n, PostgreSQL, Redis, and MinIO.
+- [Setup checklist](11-setup-checklist.md) and [smoke-test runbook](18-mvp-smoke-test-and-publish-runbook.md).
+- [Manual review and publishing runbook](19-phase2-manual-review-and-live-publish-runbook.md).
+- [Workflow exports](workflows/n8n) and [image delivery helper](workflows/scripts/generate_and_rehost_post_image.mjs).
 
-## Delivery Tracking
+Copy the example environment files, configure your own development services, and follow the setup checklist. Keep credentials out of exported workflows and Git. Starting the local infrastructure does not establish that account permissions, provider calls, or publishing are working.
 
-- Active tracker: [15-delivery-and-testing-workflow.md](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
-- Engineering backlog: [16-engineering-backlog.md](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
-- Completed items archive: [delivery-testing/completed-items/README.md](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/README.md)
+## Development flow
 
-## Git Branching Strategy
-
-Current integration branch:
-
-- `release/2.0`
-
-Branch flow:
-
-1. cut every feature branch from `release/2.0`
-2. implement the feature on that feature branch
-3. test the feature and document the result in [15-delivery-and-testing-workflow.md](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
-4. merge tested feature branches into `release/2.0`
-5. merge `release/2.0` into `main` only when the release branch contains a meaningful, validated upgrade
-
-Rule:
-
-- do not start new feature work directly from `main`
-- do not raise routine feature PRs against `main`
-- use `main` as the long-lived stable line for completed releases
-
-## Recommended build approach
-
-Do not implement everything at once.
-
-### Phase 1
-- simple-post MVP
-- caption + hashtags
-- one image asset
-- Instagram publish validation
-- publish metadata persistence
-
-### Phase 2
-- topic to script to storyboard flow
-  Current active items: `P2-04` smarter image generation and `P2-05` basic content approval flow
-- better content planning
-- approval hardening
-
-### Phase 3
-- AI narration generation
-- generated assets
-- render worker integration
-
-### Phase 4
-- Reel publishing automation
-- insights collection
-- performance analysis
-- recommendation engine
-
-## Core success metric
-
-Long-term success flow:
-
-`story -> script -> storyboard -> assets -> reel -> publish -> analyze -> improve`
-
-Current MVP success flow:
-
-`topic -> caption/hashtags -> simple image -> publish -> persist`
-
-Current local milestone:
-
-`working MVP complete`
+Feature branches target `release/2.0`; validated releases are promoted to `main`. [Engineering backlog](16-engineering-backlog.md), [active testing tracker](15-delivery-and-testing-workflow.md), and [completed evidence](delivery-testing/completed-items/README.md) distinguish planned work from implemented and verified behavior.

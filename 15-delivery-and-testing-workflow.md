@@ -4,21 +4,21 @@ This is the active delivery/testing tracker.
 
 ## Updated Links
 
-- Active tracker: [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
-- Engineering backlog: [16 — Engineering Backlog](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
-- Completed items archive: [delivery-testing/completed-items/README.md](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/README.md)
-- Setup checklist: [11-setup-checklist.md](/Users/rajchodisetti/n8n-insta/11-setup-checklist.md)
-- MVP smoke test runbook: [18-mvp-smoke-test-and-publish-runbook.md](/Users/rajchodisetti/n8n-insta/18-mvp-smoke-test-and-publish-runbook.md)
+- Active tracker: [15 — Delivery and Testing Workflow](15-delivery-and-testing-workflow.md)
+- Engineering backlog: [16 — Engineering Backlog](16-engineering-backlog.md)
+- Completed items archive: [delivery-testing/completed-items/README.md](delivery-testing/completed-items/README.md)
+- Setup checklist: [11-setup-checklist.md](11-setup-checklist.md)
+- MVP smoke test runbook: [18-mvp-smoke-test-and-publish-runbook.md](18-mvp-smoke-test-and-publish-runbook.md)
 
 ## How Tracking Works
 
 Use these three documents together:
 
-- [16 — Engineering Backlog](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
+- [16 — Engineering Backlog](16-engineering-backlog.md)
   Source of truth for what still needs to be built and what is in scope for the MVP.
-- [15 — Delivery and Testing Workflow](/Users/rajchodisetti/n8n-insta/15-delivery-and-testing-workflow.md)
+- [15 — Delivery and Testing Workflow](15-delivery-and-testing-workflow.md)
   Active tracker for items that have been implemented and are waiting for testing.
-- [delivery-testing/completed-items/README.md](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/README.md)
+- [delivery-testing/completed-items/README.md](delivery-testing/completed-items/README.md)
   Archive of items that already passed testing.
 
 Rule:
@@ -100,25 +100,25 @@ Notes:
 
 Archive entry:
 
-- [17 — Phase 2 Smarter Image Generation and Approval Flow](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/17-phase2-image-generation-and-approval-flow.md)
+- [17 — Phase 2 Smarter Image Generation and Approval Flow](delivery-testing/completed-items/17-phase2-image-generation-and-approval-flow.md)
 
 ### 16. `P2-03` better hashtag ranking
 
 Archive entry:
 
-- [16 — Phase 2 Better Hashtag Ranking](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/16-phase2-better-hashtag-ranking.md)
+- [16 — Phase 2 Better Hashtag Ranking](delivery-testing/completed-items/16-phase2-better-hashtag-ranking.md)
 
 ### 15. `P2-02` stronger caption iteration
 
 Archive entry:
 
-- [15 — Phase 2 Stronger Caption Iteration](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/15-phase2-stronger-caption-iteration.md)
+- [15 — Phase 2 Stronger Caption Iteration](delivery-testing/completed-items/15-phase2-stronger-caption-iteration.md)
 
 ### 14. `P2-01` topic to script to storyboard draft generation
 
 Archive entry:
 
-- [14 — Phase 2 Topic to Script to Storyboard Draft Generation](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/14-phase2-topic-to-script-to-storyboard-draft-generation.md)
+- [14 — Phase 2 Topic to Script to Storyboard Draft Generation](delivery-testing/completed-items/14-phase2-topic-to-script-to-storyboard-draft-generation.md)
 
 ### 10. `MVP-06` Instagram publishing credentials and account validation
 
@@ -126,28 +126,28 @@ Status: `complete` ✅
 
 Archive entry:
 
-- [10 — Instagram Publishing Credentials and Account Validation](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/10-instagram-publishing-credentials-and-account-validation.md)
+- [10 — Instagram Publishing Credentials and Account Validation](delivery-testing/completed-items/10-instagram-publishing-credentials-and-account-validation.md)
 - Exact test steps and DB validation commands now live only in the archive record above.
 
 ### 11. `MVP-07` simple Instagram publish workflow
 
 Archive entry:
 
-- [11 — Simple Instagram Publish Workflow](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/11-simple-instagram-publish-workflow.md)
+- [11 — Simple Instagram Publish Workflow](delivery-testing/completed-items/11-simple-instagram-publish-workflow.md)
 
 ### 12. `MVP-08` publish metadata persistence and duplicate protection
 
 Archive entry:
 
-- [12 — Publish Metadata Persistence and Duplicate Protection](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/12-publish-metadata-persistence-and-duplicate-protection.md)
+- [12 — Publish Metadata Persistence and Duplicate Protection](delivery-testing/completed-items/12-publish-metadata-persistence-and-duplicate-protection.md)
 
 ### 13. `MVP-09` smoke test and publish runbook
 
 Archive entry:
 
-- [13 — Smoke Test and Publish Runbook](/Users/rajchodisetti/n8n-insta/delivery-testing/completed-items/13-smoke-test-and-publish-runbook.md)
-- Primary runbook: [18 — MVP Smoke Test and Publish Runbook](/Users/rajchodisetti/n8n-insta/18-mvp-smoke-test-and-publish-runbook.md)
+- [13 — Smoke Test and Publish Runbook](delivery-testing/completed-items/13-smoke-test-and-publish-runbook.md)
+- Primary runbook: [18 — MVP Smoke Test and Publish Runbook](18-mvp-smoke-test-and-publish-runbook.md)
 
 ## Next Item After MVP Completion
 
-- next major backlog area is `Phase 3 — Reel/video pipeline` in [16 — Engineering Backlog](/Users/rajchodisetti/n8n-insta/16-engineering-backlog.md)
+- next major backlog area is `Phase 3 — Reel/video pipeline` in [16 — Engineering Backlog](16-engineering-backlog.md)

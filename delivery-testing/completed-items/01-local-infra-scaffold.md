@@ -11,9 +11,9 @@ What was completed:
 
 Changed files:
 
-- [infra/docker-compose.yml](/Users/rajchodisetti/n8n-insta/infra/docker-compose.yml)
-- [infra/.env.example](/Users/rajchodisetti/n8n-insta/infra/.env.example)
-- [infra/README.md](/Users/rajchodisetti/n8n-insta/infra/README.md)
+- [infra/docker-compose.yml](../../infra/docker-compose.yml)
+- [infra/.env.example](../../infra/.env.example)
+- [infra/README.md](../../infra/README.md)
 
 Test result:
 

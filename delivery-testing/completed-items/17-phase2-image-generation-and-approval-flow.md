@@ -4,12 +4,12 @@ Status: `complete`
 
 What was completed:
 
-- replaced the simple image placeholder path in [wf_simple_post_image_asset.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_simple_post_image_asset.json) with an OpenAI-backed generated-image workflow that uses the title, hook, caption, and storyboard context
-- added [workflows/scripts/generate_and_rehost_post_image.mjs](/Users/rajchodisetti/n8n-insta/workflows/scripts/generate_and_rehost_post_image.mjs) so generated JPEG assets can be rehosted and persisted as the live Instagram delivery asset
+- replaced the simple image placeholder path in [wf_simple_post_image_asset.json](../../workflows/n8n/wf_simple_post_image_asset.json) with an OpenAI-backed generated-image workflow that uses the title, hook, caption, and storyboard context
+- added [workflows/scripts/generate_and_rehost_post_image.mjs](../../workflows/scripts/generate_and_rehost_post_image.mjs) so generated JPEG assets can be rehosted and persisted as the live Instagram delivery asset
 - added ImageKit support for generated-image delivery when `IMAGE_HOST_PROVIDER=imagekit`, including persisted ImageKit metadata in `assets.metadata_json`
-- added the manual approval workflow [wf_content_approval.json](/Users/rajchodisetti/n8n-insta/workflows/n8n/wf_content_approval.json)
-- added the combined helper [prepare_phase2_live_post_candidate.sh](/Users/rajchodisetti/n8n-insta/scripts/prepare_phase2_live_post_candidate.sh) to prepare one real candidate through research, storyboard, caption, hashtag, and image generation before manual review and live publish
-- updated the live-post runbook in [19-phase2-manual-review-and-live-publish-runbook.md](/Users/rajchodisetti/n8n-insta/19-phase2-manual-review-and-live-publish-runbook.md)
+- added the manual approval workflow [wf_content_approval.json](../../workflows/n8n/wf_content_approval.json)
+- added the combined helper [prepare_phase2_live_post_candidate.sh](../../scripts/prepare_phase2_live_post_candidate.sh) to prepare one real candidate through research, storyboard, caption, hashtag, and image generation before manual review and live publish
+- updated the live-post runbook in [19-phase2-manual-review-and-live-publish-runbook.md](../../19-phase2-manual-review-and-live-publish-runbook.md)
 
 Why it was tested:
 
